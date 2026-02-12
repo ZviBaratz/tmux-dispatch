@@ -125,6 +125,43 @@ setup() {
     [ "$output" = "nvim" ]
 }
 
+# ─── format_relative_time ──────────────────────────────────────────────────
+
+@test "format_relative_time: seconds (< 60)" {
+    run format_relative_time 45
+    [ "$output" = "45s" ]
+}
+
+@test "format_relative_time: zero seconds" {
+    run format_relative_time 0
+    [ "$output" = "0s" ]
+}
+
+@test "format_relative_time: minutes (60-3599)" {
+    run format_relative_time 300
+    [ "$output" = "5m" ]
+}
+
+@test "format_relative_time: exact minute boundary" {
+    run format_relative_time 60
+    [ "$output" = "1m" ]
+}
+
+@test "format_relative_time: hours (3600-86399)" {
+    run format_relative_time 10800
+    [ "$output" = "3h" ]
+}
+
+@test "format_relative_time: days (86400-604799)" {
+    run format_relative_time 86400
+    [ "$output" = "1d" ]
+}
+
+@test "format_relative_time: weeks (604800+)" {
+    run format_relative_time 1209600
+    [ "$output" = "2w" ]
+}
+
 # ─── detect_fd ──────────────────────────────────────────────────────────────
 
 @test "detect_fd: finds fd" {

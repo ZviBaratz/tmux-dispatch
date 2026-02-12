@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ferret.sh — Unified file finder and content search for tmux popups
+# ferret.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Two modes, switchable mid-session via fzf's become action:
+# Four modes, switchable mid-session via fzf's become action:
 #
-#   --mode=files  fd/find → fzf (normal filtering, bat preview)
-#   --mode=grep   fzf --disabled + change:reload:rg (live search)
+#   --mode=files       fd/find → fzf (normal filtering, bat preview)
+#   --mode=grep        fzf --disabled + change:reload:rg (live search)
+#   --mode=sessions    tmux session picker/creator
+#   --mode=session-new directory-based session creation
 #
-# Actions (both modes):
-#   Enter   — Edit in popup (vim/nvim)
-#   Ctrl+O  — Send "$EDITOR [+line] file" to originating pane
-#   Ctrl+Y  — Copy file path to system clipboard via tmux
-#   Ctrl+G/F — Switch between modes (query preserved)
+# Mode switching:
+#   Ctrl+G/F   — Switch between files ↔ grep (query preserved)
+#   Ctrl+W     — Switch to sessions (one-way, from files or grep)
+#   > prefix   — Files → grep (remainder becomes query)
+#   @ prefix   — Files/grep → sessions (query discarded)
 #
-# Usage: finder.sh --mode=files|grep [--pane=ID] [--query=TEXT]
+# Usage: ferret.sh --mode=files|grep|sessions|session-new [--pane=ID] [--query=TEXT]
 # =============================================================================
 
 set -euo pipefail
@@ -70,8 +72,13 @@ run_files_mode() {
         preview_cmd="head -500 {}"
     fi
 
-    # Mode switch binding: Ctrl+G → grep mode
-    local become_grep="become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query={q})"
+    # Mode switch bindings
+    local become_grep="become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\"{q}\")"
+    local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
+
+    # Prefix switching: > → grep, @ → sessions
+    local prefix_transform
+    prefix_transform="[[ {q} == '>'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query={q})\" || [[ {q} == '@'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\""
 
     local result
     result=$(eval "$file_cmd" | fzf \
@@ -80,10 +87,12 @@ run_files_mode() {
         --query "$QUERY" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%' \
-        --header 'Find files │ Enter=edit │ ^O=pane │ ^Y=copy │ Tab=select │ ^G=grep' \
+        --header 'Find files │ Enter=edit │ ^O=pane │ ^Y=copy │ Tab=select │ ^G=grep │ ^W=sessions' \
         --border \
         --cycle \
         --bind "ctrl-g:$become_grep" \
+        --bind "ctrl-w:$become_sessions" \
+        --bind "change:transform:$prefix_transform" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
@@ -103,11 +112,17 @@ run_grep_mode() {
     # Preview command: preview.sh handles bat-or-head fallback internally
     local preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
 
-    # Mode switch binding: Ctrl+F → files mode
-    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID' --query={q})"
+    # Strip leading > from prefix-based switch
+    QUERY="${QUERY#>}"
 
-    # Build rg reload command
-    local rg_reload="reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
+    # Mode switch bindings
+    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID' --query=\"{q}\")"
+    local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
+
+    # Prefix switching merged with reload: @ → sessions, otherwise rg reload
+    local rg_reload="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
+    local change_transform
+    change_transform="[[ {q} == '@'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\" || echo \"reload($rg_reload)\""
 
     # Seed results if we have an initial query from mode switch
     local initial_cmd=":"
@@ -122,13 +137,14 @@ run_grep_mode() {
         --query "$QUERY" \
         --ansi \
         --delimiter ':' \
-        --bind "change:$rg_reload" \
+        --bind "change:transform:$change_transform" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:+{2}/2' \
-        --header 'Live grep │ Enter=edit │ ^O=pane │ ^Y=copy │ ^F=file mode' \
+        --header 'Live grep │ Enter=edit │ ^O=pane │ ^Y=copy │ ^F=file mode │ ^W=sessions' \
         --border \
         --cycle \
         --bind "ctrl-f:$become_files" \
+        --bind "ctrl-w:$become_sessions" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
@@ -205,13 +221,183 @@ handle_grep_result() {
     esac
 }
 
+# ─── Mode: sessions ─────────────────────────────────────────────────────────
+
+run_session_mode() {
+    # Strip leading @ from prefix-based switch
+    QUERY="${QUERY#@}"
+    # Discard remainder — session names are unrelated to file/grep queries
+    QUERY=""
+
+    # Build session list: name<TAB>  name · Nw · age [· attached]
+    local now session_list
+    now=$(date +%s)
+    session_list=$(
+        tmux list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}' 2>/dev/null |
+        while IFS='|' read -r name wins attached activity; do
+            local age
+            age=$(format_relative_time $((now - activity)))
+            # Display: name in default color, metadata in grey
+            local meta
+            meta="\033[90m· ${wins}w · ${age}"
+            [ "${attached:-0}" -gt 0 ] && meta="${meta} · attached"
+            meta="${meta}\033[0m"
+            printf '%s\t  %s %b\n' "$name" "$name" "$meta"
+        done
+    )
+
+    [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
+
+    local become_new="become('$SCRIPT_DIR/ferret.sh' --mode=session-new --pane='$PANE_ID')"
+
+    local result
+    result=$(
+        echo "$session_list" |
+        fzf --print-query \
+            --expect=ctrl-k,ctrl-y \
+            --delimiter=$'\t' \
+            --with-nth=2.. \
+            --nth=1 \
+            --accept-nth=1 \
+            --ansi \
+            --no-sort \
+            --height=100% \
+            --layout=reverse \
+            --highlight-line \
+            --pointer='▸' \
+            --border=rounded \
+            --border-label=' Sessions ' \
+            --header 'Sessions │ Enter=switch/create │ ^K=kill │ ^N=new from dir │ ^Y=copy' \
+            --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
+            --preview-window 'down:75%:border-top' \
+            --preview-label=' Preview ' \
+            --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
+            --bind "ctrl-n:$become_new" \
+            --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+    ) || exit 0
+
+    handle_session_result "$result"
+}
+
+handle_session_result() {
+    local result="$1"
+    local query key selected
+
+    query=$(head -1 <<< "$result")
+    key=$(sed -n '2p' <<< "$result")
+    selected=$(tail -1 <<< "$result" | cut -f1)
+
+    # If nothing selected by cursor, use the typed query as session name
+    if [[ -z "$selected" || "$selected" == "$key" ]]; then
+        selected="$query"
+    fi
+    [[ -z "$selected" ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            # Copy session name to clipboard via tmux
+            echo -n "$selected" | tmux load-buffer -w -
+            tmux display-message "Copied: $selected"
+            ;;
+        ctrl-k)
+            # Kill session (refuse to kill current)
+            local current
+            current=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+            if [[ "$selected" == "$current" ]]; then
+                tmux display-message "Cannot kill current session"
+            elif tmux has-session -t "$selected" 2>/dev/null; then
+                tmux kill-session -t "$selected"
+                tmux display-message "Killed session: $selected"
+            else
+                tmux display-message "Session not found: $selected"
+            fi
+            ;;
+        *)
+            # Switch to session, or create if it doesn't exist
+            tmux switch-client -t "$selected" 2>/dev/null ||
+                { tmux new-session -d -s "$selected" && tmux switch-client -t "$selected"; }
+            ;;
+    esac
+}
+
+# ─── Mode: session-new ──────────────────────────────────────────────────────
+
+run_session_new_mode() {
+    local session_dirs
+    session_dirs=$(get_tmux_option "@ferret-session-dirs" "$HOME/Projects")
+
+    # Build directory listing from all configured dirs (colon-separated)
+    local dir_cmd=""
+    local IFS=':'
+    for dir in $session_dirs; do
+        [[ -d "$dir" ]] || continue
+        if [[ -n "$FD_CMD" ]]; then
+            local part="$FD_CMD --type d --max-depth 1 --min-depth 1 . '$dir'"
+        else
+            local part="find '$dir' -mindepth 1 -maxdepth 1 -type d"
+        fi
+        if [[ -n "$dir_cmd" ]]; then
+            dir_cmd="$dir_cmd; $part"
+        else
+            dir_cmd="$part"
+        fi
+    done
+    unset IFS
+
+    if [[ -z "$dir_cmd" ]]; then
+        echo "No valid session directories found."
+        echo "Configure with: set -g @ferret-session-dirs '/path/one:/path/two'"
+        read -r -p "Press Enter to close..."
+        exit 1
+    fi
+
+    # Preview with ls or tree
+    local preview_cmd
+    if command -v tree &>/dev/null; then
+        preview_cmd="tree -C -L 2 {}"
+    else
+        preview_cmd="ls -la --color=always {}"
+    fi
+
+    local selected
+    selected=$(eval "$dir_cmd" | sort | fzf \
+        --height=100% \
+        --layout=reverse \
+        --border=rounded \
+        --border-label=' New session from directory ' \
+        --header 'Select project directory │ Enter=create session' \
+        --preview "$preview_cmd" \
+        --preview-window 'right:50%' \
+        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
+        --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+    ) || exit 0
+
+    [[ -z "$selected" ]] && exit 0
+
+    local session_name
+    session_name=$(basename "$selected")
+
+    # Sanitize session name (tmux doesn't allow dots or colons)
+    session_name="${session_name//./-}"
+    session_name="${session_name//:/-}"
+
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        tmux switch-client -t "$session_name"
+    else
+        tmux new-session -d -s "$session_name" -c "$selected" && \
+            tmux switch-client -t "$session_name"
+    fi
+}
+
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files) run_files_mode ;;
-    grep)  run_grep_mode ;;
+    files)       run_files_mode ;;
+    grep)        run_grep_mode ;;
+    sessions)    run_session_mode ;;
+    session-new) run_session_new_mode ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep)"
+        echo "Unknown mode: $MODE (expected: files, grep, sessions, session-new)"
         exit 1
         ;;
 esac

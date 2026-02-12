@@ -17,9 +17,11 @@ FERRET="$CURRENT_DIR/scripts/ferret.sh"
 
 # ─── Read user configuration ─────────────────────────────────────────────────
 
-find_key=$(get_tmux_option "@ferret-find-key" "M-f")
+find_key=$(get_tmux_option "@ferret-find-key" "M-o")
 grep_key=$(get_tmux_option "@ferret-grep-key" "M-s")
+session_key=$(get_tmux_option "@ferret-session-key" "M-w")
 prefix_key=$(get_tmux_option "@ferret-prefix-key" "e")
+session_prefix_key=$(get_tmux_option "@ferret-session-prefix-key" "none")
 popup_size=$(get_tmux_option "@ferret-popup-size" "85%")
 
 # ─── Bind a key to launch finder in a popup or split ─────────────────────────
@@ -47,6 +49,10 @@ bind_finder() {
 # Prefix-free keybindings (skip if set to "none")
 [[ "$find_key" != "none" ]] && bind_finder "-n" "$find_key" "files"
 [[ "$grep_key" != "none" ]] && bind_finder "-n" "$grep_key" "grep"
+[[ "$session_key" != "none" ]] && bind_finder "-n" "$session_key" "sessions"
 
-# Prefix keybinding for discoverability
+# Prefix keybindings for discoverability
 [[ "$prefix_key" != "none" ]] && bind_finder "" "$prefix_key" "files"
+[[ "$session_prefix_key" != "none" ]] && bind_finder "" "$session_prefix_key" "sessions"
+
+true  # ensure TPM sees exit 0

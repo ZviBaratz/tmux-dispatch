@@ -1,4 +1,4 @@
-# VHS recording script for tmux-fzf-finder demo
+# VHS recording script for tmux-ferret demo
 # Run with: vhs demo.tape
 # Produces: demo.gif
 # Requires: vhs (https://github.com/charmbracelet/vhs), tmux, fzf, fd, bat, rg
@@ -22,15 +22,15 @@ Sleep 500ms
 Type "cd /tmp/demo-project && tmux new-session -d -s demo"
 Enter
 Sleep 500ms
-Type "tmux run-shell $PWD/fzf-finder.tmux && tmux attach -t demo"
+Type "tmux run-shell $PWD/ferret.tmux && tmux attach -t demo"
 Enter
 Sleep 1.5s
 Type "clear"
 Enter
 Sleep 1s
 
-# Open file finder with Alt+F
-Alt+f
+# Open file finder with Alt+O
+Alt+o
 Sleep 2s
 
 # Type a partial filename to filter

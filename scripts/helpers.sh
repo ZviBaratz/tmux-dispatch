@@ -48,6 +48,22 @@ detect_popup_editor() {
     fi
 }
 
+# Format epoch diff as relative time (e.g., "2s", "5m", "3h", "1d", "2w")
+format_relative_time() {
+    local diff="$1"
+    if [ "$diff" -lt 60 ]; then
+        echo "${diff}s"
+    elif [ "$diff" -lt 3600 ]; then
+        echo "$((diff / 60))m"
+    elif [ "$diff" -lt 86400 ]; then
+        echo "$((diff / 3600))h"
+    elif [ "$diff" -lt 604800 ]; then
+        echo "$((diff / 86400))d"
+    else
+        echo "$((diff / 604800))w"
+    fi
+}
+
 # Version comparison — check if running tmux >= target version
 tmux_version_at_least() {
     local target="$1"
