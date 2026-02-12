@@ -77,8 +77,10 @@ run_files_mode() {
     local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
 
     # Prefix switching: > → grep, @ → sessions
+    # Must use if/elif (not A && B || C && D) to avoid bash precedence bug
+    # where both branches execute when the first matches.
     local prefix_transform
-    prefix_transform="[[ {q} == '>'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query={q})\" || [[ {q} == '@'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\""
+    prefix_transform="if [[ {q} == '>'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; elif [[ {q} == '@'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\"; fi"
 
     local result
     result=$(eval "$file_cmd" | fzf \
@@ -86,9 +88,16 @@ run_files_mode() {
         --multi \
         --query "$QUERY" \
         --preview "$preview_cmd" \
-        --preview-window 'right:60%' \
-        --header 'Find files │ Enter=edit │ ^O=pane │ ^Y=copy │ Tab=select │ ^G=grep │ ^W=sessions' \
-        --border \
+        --preview-window 'right:60%:border-left' \
+        --preview-label=' Preview ' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ ^G grep │ ^W sess' \
+        --height=100% \
+        --layout=reverse \
+        --highlight-line \
+        --pointer='▸' \
+        --border=rounded \
+        --border-label=' Files ' \
+        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
         --cycle \
         --bind "ctrl-g:$become_grep" \
         --bind "ctrl-w:$become_sessions" \
@@ -139,9 +148,16 @@ run_grep_mode() {
         --delimiter ':' \
         --bind "change:transform:$change_transform" \
         --preview "$preview_cmd" \
-        --preview-window 'right:60%:+{2}/2' \
-        --header 'Live grep │ Enter=edit │ ^O=pane │ ^Y=copy │ ^F=file mode │ ^W=sessions' \
-        --border \
+        --preview-window 'right:60%:border-left:+{2}/2' \
+        --preview-label=' Preview ' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ ^F files │ ^W sess' \
+        --height=100% \
+        --layout=reverse \
+        --highlight-line \
+        --pointer='▸' \
+        --border=rounded \
+        --border-label=' Grep ' \
+        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
         --cycle \
         --bind "ctrl-f:$become_files" \
         --bind "ctrl-w:$become_sessions" \
@@ -267,7 +283,7 @@ run_session_mode() {
             --pointer='▸' \
             --border=rounded \
             --border-label=' Sessions ' \
-            --header 'Sessions │ Enter=switch/create │ ^K=kill │ ^N=new from dir │ ^Y=copy' \
+            --header 'Enter switch │ ^K kill │ ^N new dir │ ^Y copy' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --preview-window 'down:75%:border-top' \
             --preview-label=' Preview ' \
