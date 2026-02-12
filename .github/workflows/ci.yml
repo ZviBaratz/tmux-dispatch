@@ -28,3 +28,14 @@ jobs:
           test -x scripts/helpers.sh
           test -x scripts/finder.sh
           test -x scripts/preview.sh
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats
+        run: npm install -g bats
+
+      - name: Run tests
+        run: bats tests/

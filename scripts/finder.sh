@@ -10,7 +10,7 @@
 # Actions (both modes):
 #   Enter   — Edit in popup (vim/nvim)
 #   Ctrl+O  — Send "$EDITOR [+line] file" to originating pane
-#   Ctrl+Y  — Copy file path to clipboard (OSC 52)
+#   Ctrl+Y  — Copy file path to system clipboard via tmux
 #   Ctrl+G/F — Switch between modes (query preserved)
 #
 # Usage: finder.sh --mode=files|grep [--pane=ID] [--query=TEXT]
@@ -55,7 +55,9 @@ run_files_mode() {
     # File listing command
     local file_cmd
     if [[ -n "$FD_CMD" ]]; then
-        file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $FD_EXTRA_ARGS"
+        local strip_prefix=""
+        $FD_CMD --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
+        file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $strip_prefix $FD_EXTRA_ARGS"
     else
         file_cmd="find . -type f -not -path '*/.git/*'"
     fi
@@ -69,16 +71,18 @@ run_files_mode() {
     fi
 
     # Mode switch binding: Ctrl+G → grep mode
-    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query={q})"
+    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query=\"{q}\")"
 
     local result
     result=$(eval "$file_cmd" | fzf \
         --expect=ctrl-o,ctrl-y \
+        --multi \
         --query "$QUERY" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%' \
-        --header 'Find files │ Enter=edit │ ^O=pane │ ^Y=copy │ ^G=grep mode' \
+        --header 'Find files │ Enter=edit │ ^O=pane │ ^Y=copy │ Tab=select │ ^G=grep' \
         --border \
+        --cycle \
         --bind "ctrl-g:$become_grep" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
@@ -96,16 +100,11 @@ run_grep_mode() {
         exit 1
     fi
 
-    # Preview command: bat with line highlighting
-    local preview_cmd
-    if [[ -n "$BAT_CMD" ]]; then
-        preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
-    else
-        preview_cmd="head -500 {1}"
-    fi
+    # Preview command: preview.sh handles bat-or-head fallback internally
+    local preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
 
     # Mode switch binding: Ctrl+F → files mode
-    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query={q})"
+    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query=\"{q}\")"
 
     # Build rg reload command
     local rg_reload="reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
@@ -128,6 +127,7 @@ run_grep_mode() {
         --preview-window 'right:60%:+{2}/2' \
         --header 'Live grep │ Enter=edit │ ^O=pane │ ^Y=copy │ ^F=file mode' \
         --border \
+        --cycle \
         --bind "ctrl-f:$become_files" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
@@ -139,29 +139,34 @@ run_grep_mode() {
 
 handle_file_result() {
     local result="$1"
-    local key file
+    local key
+    local -a files
 
     key=$(head -1 <<< "$result")
-    file=$(tail -1 <<< "$result")
-    [[ -z "$file" ]] && exit 0
+    mapfile -t files < <(tail -n +2 <<< "$result")
+    [[ ${#files[@]} -eq 0 ]] && exit 0
 
     case "$key" in
         ctrl-y)
-            # Copy path to clipboard via OSC 52
-            echo -n "$file" | tmux load-buffer -w -
-            tmux display-message "Copied: $file"
+            # Copy paths to system clipboard via tmux (newline-separated)
+            printf '%s\n' "${files[@]}" | tmux load-buffer -w -
+            tmux display-message "Copied ${#files[@]} path(s)"
             ;;
         ctrl-o)
             # Send open command to the originating pane
             if [[ -n "$PANE_ID" ]]; then
-                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $(printf '%q' "$file")" Enter
+                local quoted_files=""
+                for f in "${files[@]}"; do
+                    quoted_files+=" $(printf '%q' "$f")"
+                done
+                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR$quoted_files" Enter
             else
                 tmux display-message "No target pane available"
             fi
             ;;
         *)
             # Open in popup editor
-            exec "$POPUP_EDITOR" "$file"
+            exec "$POPUP_EDITOR" "${files[@]}"
             ;;
     esac
 }
@@ -181,7 +186,7 @@ handle_grep_result() {
 
     case "$key" in
         ctrl-y)
-            # Copy path to clipboard via OSC 52
+            # Copy path to system clipboard via tmux
             echo -n "$file" | tmux load-buffer -w -
             tmux display-message "Copied: $file"
             ;;

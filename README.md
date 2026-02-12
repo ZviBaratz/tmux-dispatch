@@ -5,7 +5,8 @@
 
 Fuzzy file finder and live content search as tmux popups. Switch between modes mid-session, edit files in the popup or send commands to your working pane.
 
-<!-- TODO: demo GIF -->
+<!-- Demo GIF: record with `vhs demo.tape` (requires https://github.com/charmbracelet/vhs) -->
+<!-- TODO: embed demo.gif once recorded -->
 
 ## Features
 
@@ -13,7 +14,8 @@ Fuzzy file finder and live content search as tmux popups. Switch between modes m
 - **Live grep** — Ripgrep reloads on every keystroke with line-highlighted preview
 - **Mode switching** — `Ctrl+G`/`Ctrl+F` toggles between file and grep mode (query preserved)
 - **Dual-action editing** — `Enter` edits in the popup, `Ctrl+O` sends `$EDITOR file` to your pane
-- **Clipboard** — `Ctrl+Y` copies the file path via OSC 52 (works over SSH)
+- **Multi-select** — `Tab`/`Shift+Tab` to select multiple files, open or copy them all at once
+- **Clipboard** — `Ctrl+Y` copies file path(s) to system clipboard via tmux
 - **Editor-agnostic** — Popup uses vim/nvim, send-to-pane uses `$EDITOR` (VS Code, Cursor, etc.)
 - **Graceful fallbacks** — Works without `fd` (uses `find`), without `bat` (uses `head`)
 - **tmux < 3.2 support** — Falls back to `split-window` when `display-popup` isn't available
@@ -62,7 +64,8 @@ run-shell ~/.tmux/plugins/tmux-fzf-finder/fzf-finder.tmux
 |-----|--------|
 | `Enter` | Edit file in popup (vim/nvim) |
 | `Ctrl+O` | Send `$EDITOR [+line] file` to originating pane |
-| `Ctrl+Y` | Copy file path to clipboard (OSC 52) |
+| `Ctrl+Y` | Copy file path to clipboard |
+| `Tab` / `Shift+Tab` | Toggle selection (file mode, multi-select) |
 | `Ctrl+G` | Switch to grep mode (from file mode) |
 | `Ctrl+F` | Switch to file mode (from grep mode) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
@@ -113,6 +116,8 @@ finder.sh --mode=grep
 **Popup not appearing** — tmux < 3.2 doesn't support `display-popup`. The plugin falls back to `split-window` automatically, which opens a pane instead of a floating popup. Upgrade tmux for the popup experience.
 
 **"unknown action: become"** — Mode switching (`Ctrl+G`/`Ctrl+F`) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
+
+**Filenames with colons** — Grep mode parses `file:line:content` using colon as a delimiter. Files with `:` in the name (rare on Unix, impossible on Windows) will not be handled correctly. This is a known limitation shared by virtually all fzf+rg workflows.
 
 ## License
 

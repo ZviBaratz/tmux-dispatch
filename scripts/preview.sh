@@ -14,6 +14,7 @@ source "$SCRIPT_DIR/helpers.sh"
 
 FILE="$1"
 LINE="${2:-1}"
+[[ "$LINE" =~ ^[0-9]+$ ]] || LINE=1
 
 BAT_CMD=$(detect_bat)
 

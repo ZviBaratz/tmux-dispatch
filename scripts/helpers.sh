@@ -53,6 +53,8 @@ tmux_version_at_least() {
     local target="$1"
     local current
     current=$(tmux -V | sed 's/[^0-9.]//g')
+    # Dev/master builds produce empty or malformed versions — assume old tmux (safe fallback)
+    [[ "$current" =~ ^[0-9]+\. ]] || return 1
     [[ "$(printf '%s\n%s' "$target" "$current" | sort -V | head -n1)" == "$target" ]]
 }
 
