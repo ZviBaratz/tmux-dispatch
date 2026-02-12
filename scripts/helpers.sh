@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# helpers.sh — Shared utilities for tmux-fzf-finder
+# helpers.sh — Shared utilities for tmux-ferret
 # =============================================================================
 
 # Read a tmux option with fallback to default

@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 # =============================================================================
-# fzf-finder.tmux — TPM entry point for tmux-fzf-finder
+# ferret.tmux — TPM entry point for tmux-ferret
 # =============================================================================
 # Registers keybindings for file finding and content search popups.
-# Reads @finder-* tmux options for configuration.
+# Reads @ferret-* tmux options for configuration.
 #
 # Install via TPM:
-#   set -g @plugin 'ZviBaratz/tmux-fzf-finder'
+#   set -g @plugin 'ZviBaratz/tmux-ferret'
 # =============================================================================
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/helpers.sh
 source "$CURRENT_DIR/scripts/helpers.sh"
 
-FINDER="$CURRENT_DIR/scripts/finder.sh"
+FERRET="$CURRENT_DIR/scripts/ferret.sh"
 
 # ─── Read user configuration ─────────────────────────────────────────────────
 
-find_key=$(get_tmux_option "@finder-find-key" "M-f")
-grep_key=$(get_tmux_option "@finder-grep-key" "M-s")
-prefix_key=$(get_tmux_option "@finder-prefix-key" "e")
-popup_size=$(get_tmux_option "@finder-popup-size" "85%")
+find_key=$(get_tmux_option "@ferret-find-key" "M-f")
+grep_key=$(get_tmux_option "@ferret-grep-key" "M-s")
+prefix_key=$(get_tmux_option "@ferret-prefix-key" "e")
+popup_size=$(get_tmux_option "@ferret-popup-size" "85%")
 
 # ─── Bind a key to launch finder in a popup or split ─────────────────────────
 
@@ -28,7 +28,7 @@ bind_finder() {
     local key_flag="$1"  # "-n" for prefix-free, "" for prefix
     local key="$2"
     local mode="$3"
-    local cmd="$FINDER --mode=$mode --pane='#{pane_id}'"
+    local cmd="$FERRET --mode=$mode --pane='#{pane_id}'"
 
     if tmux_version_at_least "3.2"; then
         # tmux 3.2+: floating popup

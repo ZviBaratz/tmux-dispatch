@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# finder.sh — Unified file finder and content search for tmux popups
+# ferret.sh — Unified file finder and content search for tmux popups
 # =============================================================================
 # Two modes, switchable mid-session via fzf's become action:
 #
@@ -38,10 +38,10 @@ done
 
 # ─── Read tmux options ───────────────────────────────────────────────────────
 
-POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@finder-popup-editor" "")")
-PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@finder-pane-editor" "")")
-FD_EXTRA_ARGS=$(get_tmux_option "@finder-fd-args" "")
-RG_EXTRA_ARGS=$(get_tmux_option "@finder-rg-args" "")
+POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@ferret-popup-editor" "")")
+PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@ferret-pane-editor" "")")
+FD_EXTRA_ARGS=$(get_tmux_option "@ferret-fd-args" "")
+RG_EXTRA_ARGS=$(get_tmux_option "@ferret-rg-args" "")
 
 # ─── Detect tools ────────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ run_files_mode() {
     fi
 
     # Mode switch binding: Ctrl+G → grep mode
-    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query={q})"
+    local become_grep="become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query={q})"
 
     local result
     result=$(eval "$file_cmd" | fzf \
@@ -104,7 +104,7 @@ run_grep_mode() {
     local preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
 
     # Mode switch binding: Ctrl+F → files mode
-    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query={q})"
+    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID' --query={q})"
 
     # Build rg reload command
     local rg_reload="reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"

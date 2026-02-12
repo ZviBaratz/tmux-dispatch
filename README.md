@@ -1,6 +1,6 @@
-# tmux-fzf-finder
+# tmux-ferret
 
-[![CI](https://github.com/ZviBaratz/tmux-fzf-finder/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-fzf-finder/actions/workflows/ci.yml)
+[![CI](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Fuzzy file finder and live content search as tmux popups. Switch between modes mid-session, edit files in the popup or send commands to your working pane.
@@ -33,7 +33,7 @@ Fuzzy file finder and live content search as tmux popups. Switch between modes m
 Add to your `~/.tmux.conf`:
 
 ```tmux
-set -g @plugin 'ZviBaratz/tmux-fzf-finder'
+set -g @plugin 'ZviBaratz/tmux-ferret'
 ```
 
 Then press `prefix + I` to install.
@@ -41,13 +41,13 @@ Then press `prefix + I` to install.
 ### Manual
 
 ```bash
-git clone https://github.com/ZviBaratz/tmux-fzf-finder.git ~/.tmux/plugins/tmux-fzf-finder
+git clone https://github.com/ZviBaratz/tmux-ferret.git ~/.tmux/plugins/tmux-ferret
 ```
 
 Add to `~/.tmux.conf`:
 
 ```tmux
-run-shell ~/.tmux/plugins/tmux-fzf-finder/fzf-finder.tmux
+run-shell ~/.tmux/plugins/tmux-ferret/ferret.tmux
 ```
 
 ## Default Keybindings
@@ -77,34 +77,34 @@ All options are set via tmux options in `~/.tmux.conf`:
 
 ```tmux
 # Change keybindings (set to "none" to disable)
-set -g @finder-find-key "M-f"       # default: M-f (Alt+f)
-set -g @finder-grep-key "M-s"       # default: M-s (Alt+s)
-set -g @finder-prefix-key "e"       # default: e (prefix+e)
+set -g @ferret-find-key "M-f"       # default: M-f (Alt+f)
+set -g @ferret-grep-key "M-s"       # default: M-s (Alt+s)
+set -g @ferret-prefix-key "e"       # default: e (prefix+e)
 
 # Popup size
-set -g @finder-popup-size "85%"     # default: 85%
+set -g @ferret-popup-size "85%"     # default: 85%
 
 # Editors
-set -g @finder-popup-editor "nvim"  # default: auto-detect (nvim > vim > vi)
-set -g @finder-pane-editor "code"   # default: $EDITOR or auto-detect
+set -g @ferret-popup-editor "nvim"  # default: auto-detect (nvim > vim > vi)
+set -g @ferret-pane-editor "code"   # default: $EDITOR or auto-detect
 
 # Extra arguments for search tools
-set -g @finder-fd-args "--max-depth 8"
-set -g @finder-rg-args "--glob '!*.min.js'"
+set -g @ferret-fd-args "--max-depth 8"
+set -g @ferret-rg-args "--glob '!*.min.js'"
 ```
 
 ## How It Works
 
-The plugin uses a single unified script (`scripts/finder.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — when you press `Ctrl+G` in file mode, fzf replaces itself with a new instance in grep mode, preserving your query.
+The plugin uses a single unified script (`scripts/ferret.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — when you press `Ctrl+G` in file mode, fzf replaces itself with a new instance in grep mode, preserving your query.
 
 ```
-finder.sh --mode=files
+ferret.sh --mode=files
   ├── fd | fzf (filtering enabled)
-  │   └── Ctrl+G → become(finder.sh --mode=grep --query={q})
+  │   └── Ctrl+G → become(ferret.sh --mode=grep --query={q})
   │
-finder.sh --mode=grep
+ferret.sh --mode=grep
   ├── fzf --disabled + change:reload:rg (live search)
-  │   └── Ctrl+F → become(finder.sh --mode=files --query={q})
+  │   └── Ctrl+F → become(ferret.sh --mode=files --query={q})
 ```
 
 ## Troubleshooting
