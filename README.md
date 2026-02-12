@@ -1,5 +1,8 @@
 # tmux-fzf-finder
 
+[![CI](https://github.com/ZviBaratz/tmux-fzf-finder/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-fzf-finder/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Fuzzy file finder and live content search as tmux popups. Switch between modes mid-session, edit files in the popup or send commands to your working pane.
 
 <!-- TODO: demo GIF -->
@@ -100,6 +103,16 @@ finder.sh --mode=grep
   ├── fzf --disabled + change:reload:rg (live search)
   │   └── Ctrl+F → become(finder.sh --mode=files --query={q})
 ```
+
+## Troubleshooting
+
+**Alt keys not working** — Your terminal emulator must send Alt as Meta (Escape prefix). In iTerm2: Profiles → Keys → Left Option key → Esc+. In Alacritty/Kitty this is the default.
+
+**"ripgrep (rg) is required"** — Grep mode needs ripgrep installed. Install with `apt install ripgrep`, `brew install ripgrep`, or `mise use -g ripgrep@latest`.
+
+**Popup not appearing** — tmux < 3.2 doesn't support `display-popup`. The plugin falls back to `split-window` automatically, which opens a pane instead of a floating popup. Upgrade tmux for the popup experience.
+
+**"unknown action: become"** — Mode switching (`Ctrl+G`/`Ctrl+F`) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
 
 ## License
 

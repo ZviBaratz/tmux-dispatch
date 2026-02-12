@@ -29,7 +29,9 @@ detect_bat() {
 }
 
 detect_rg() {
-    command -v rg &>/dev/null && echo rg
+    if command -v rg &>/dev/null; then
+        echo rg
+    fi
 }
 
 # Detect best available popup editor (terminal-only)
@@ -44,6 +46,14 @@ detect_popup_editor() {
     else
         echo vi
     fi
+}
+
+# Version comparison — check if running tmux >= target version
+tmux_version_at_least() {
+    local target="$1"
+    local current
+    current=$(tmux -V | sed 's/[^0-9.]//g')
+    [[ "$(printf '%s\n%s' "$target" "$current" | sort -V | head -n1)" == "$target" ]]
 }
 
 # Detect editor for send-to-pane (can be GUI)

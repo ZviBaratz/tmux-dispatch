@@ -69,7 +69,7 @@ run_files_mode() {
     fi
 
     # Mode switch binding: Ctrl+G → grep mode
-    local become_grep="become($SCRIPT_DIR/finder.sh --mode=grep --pane=$PANE_ID --query={q})"
+    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query={q})"
 
     local result
     result=$(eval "$file_cmd" | fzf \
@@ -99,13 +99,13 @@ run_grep_mode() {
     # Preview command: bat with line highlighting
     local preview_cmd
     if [[ -n "$BAT_CMD" ]]; then
-        preview_cmd="$SCRIPT_DIR/preview.sh {1} {2}"
+        preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
     else
         preview_cmd="head -500 {1}"
     fi
 
     # Mode switch binding: Ctrl+F → files mode
-    local become_files="become($SCRIPT_DIR/finder.sh --mode=files --pane=$PANE_ID --query={q})"
+    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query={q})"
 
     # Build rg reload command
     local rg_reload="reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
@@ -155,6 +155,8 @@ handle_file_result() {
             # Send open command to the originating pane
             if [[ -n "$PANE_ID" ]]; then
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $(printf '%q' "$file")" Enter
+            else
+                tmux display-message "No target pane available"
             fi
             ;;
         *)
@@ -187,6 +189,8 @@ handle_grep_result() {
             # Send open command to the originating pane (with line number)
             if [[ -n "$PANE_ID" ]]; then
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR +$line_num $(printf '%q' "$file")" Enter
+            else
+                tmux display-message "No target pane available"
             fi
             ;;
         *)

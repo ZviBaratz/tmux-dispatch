@@ -30,26 +30,15 @@ bind_finder() {
     local mode="$3"
     local cmd="$FINDER --mode=$mode --pane='#{pane_id}'"
 
-    if tmux display-popup -C 2>/dev/null; then
+    if tmux_version_at_least "3.2"; then
         # tmux 3.2+: floating popup
-        if [[ -n "$key_flag" ]]; then
-            tmux bind-key "$key_flag" "$key" display-popup -E \
-                -w "$popup_size" -h "$popup_size" \
-                -d "#{pane_current_path}" "$cmd"
-        else
-            tmux bind-key "$key" display-popup -E \
-                -w "$popup_size" -h "$popup_size" \
-                -d "#{pane_current_path}" "$cmd"
-        fi
+        tmux bind-key ${key_flag:+"$key_flag"} "$key" display-popup -E \
+            -w "$popup_size" -h "$popup_size" \
+            -d "#{pane_current_path}" "$cmd"
     else
         # tmux < 3.2: split-window fallback
-        if [[ -n "$key_flag" ]]; then
-            tmux bind-key "$key_flag" "$key" split-window -v -l 80% \
-                -c "#{pane_current_path}" "$cmd"
-        else
-            tmux bind-key "$key" split-window -v -l 80% \
-                -c "#{pane_current_path}" "$cmd"
-        fi
+        tmux bind-key ${key_flag:+"$key_flag"} "$key" split-window -v -l 80% \
+            -c "#{pane_current_path}" "$cmd"
     fi
 }
 
