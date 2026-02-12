@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: shellcheck -x -e SC1091 fzf-finder.tmux scripts/*.sh
+
+      - name: Bash syntax check
+        run: |
+          bash -n fzf-finder.tmux
+          bash -n scripts/helpers.sh
+          bash -n scripts/finder.sh
+          bash -n scripts/preview.sh
+
+      - name: Verify scripts are executable
+        run: |
+          test -x fzf-finder.tmux
+          test -x scripts/helpers.sh
+          test -x scripts/finder.sh
+          test -x scripts/preview.sh
