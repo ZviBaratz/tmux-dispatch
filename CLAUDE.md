@@ -18,6 +18,12 @@ shellcheck -x -e SC1091 fzf-finder.tmux scripts/*.sh
 bash -n fzf-finder.tmux && bash -n scripts/helpers.sh && bash -n scripts/finder.sh && bash -n scripts/preview.sh
 ```
 
+### Unit tests
+```bash
+bats tests/
+```
+Requires [bats-core](https://github.com/bats-core/bats-core). Tests cover helpers.sh functions (tool detection, version comparison) using mocked externals.
+
 ### Manual testing
 Requires a running tmux session. Reload the plugin with:
 ```bash
@@ -35,7 +41,7 @@ Four shell scripts, no build step:
 
 ## Conventions
 
-- All scripts use `#!/usr/bin/env bash`; `finder.sh` and `preview.sh` use `set -euo pipefail`
+- All scripts use `#!/usr/bin/env bash`; `finder.sh` and `preview.sh` use `set -euo pipefail` (`fzf-finder.tmux` omits it as a TPM entry point; `helpers.sh` omits it because it's sourced)
 - ShellCheck directives: `# shellcheck source=helpers.sh` before sourcing; `-e SC1091` suppresses sourcing warnings globally
 - All new scripts must be executable (`chmod +x`)
 - Graceful fallbacks: every optional tool (`fd`, `bat`, `rg`) has a fallback path — maintain this pattern

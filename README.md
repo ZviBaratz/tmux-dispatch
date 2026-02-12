@@ -14,7 +14,7 @@ Fuzzy file finder and live content search as tmux popups. Switch between modes m
 - **Live grep** — Ripgrep reloads on every keystroke with line-highlighted preview
 - **Mode switching** — `Ctrl+G`/`Ctrl+F` toggles between file and grep mode (query preserved)
 - **Dual-action editing** — `Enter` edits in the popup, `Ctrl+O` sends `$EDITOR file` to your pane
-- **Multi-select** — `Tab`/`Shift+Tab` to select multiple files, open or copy them all at once
+- **Multi-select** — `Tab`/`Shift+Tab` in file mode to select multiple files, open or copy them all at once
 - **Clipboard** — `Ctrl+Y` copies file path(s) to system clipboard via tmux
 - **Editor-agnostic** — Popup uses vim/nvim, send-to-pane uses `$EDITOR` (VS Code, Cursor, etc.)
 - **Graceful fallbacks** — Works without `fd` (uses `find`), without `bat` (uses `head`)
@@ -23,7 +23,7 @@ Fuzzy file finder and live content search as tmux popups. Switch between modes m
 ## Requirements
 
 - **tmux** 2.6+ (3.2+ recommended for popup support)
-- **fzf** 0.38+ (for `become` action used in mode switching)
+- **fzf** (0.38+ recommended for mode switching; core features work with older versions)
 - **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode)
 
 ## Installation
@@ -63,7 +63,7 @@ run-shell ~/.tmux/plugins/tmux-fzf-finder/fzf-finder.tmux
 | Key | Action |
 |-----|--------|
 | `Enter` | Edit file in popup (vim/nvim) |
-| `Ctrl+O` | Send `$EDITOR [+line] file` to originating pane |
+| `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
 | `Tab` / `Shift+Tab` | Toggle selection (file mode, multi-select) |
 | `Ctrl+G` | Switch to grep mode (from file mode) |

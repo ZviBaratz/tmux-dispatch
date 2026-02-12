@@ -71,7 +71,7 @@ run_files_mode() {
     fi
 
     # Mode switch binding: Ctrl+G → grep mode
-    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query=\"{q}\")"
+    local become_grep="become('$SCRIPT_DIR/finder.sh' --mode=grep --pane='$PANE_ID' --query={q})"
 
     local result
     result=$(eval "$file_cmd" | fzf \
@@ -95,7 +95,7 @@ run_files_mode() {
 run_grep_mode() {
     if [[ -z "$RG_CMD" ]]; then
         echo "ripgrep (rg) is required for content search."
-        echo "Install: apt install ripgrep  OR  mise use -g ripgrep@latest"
+        echo "Install: apt install ripgrep  OR  brew install ripgrep  OR  mise use -g ripgrep@latest"
         read -r -p "Press Enter to close..."
         exit 1
     fi
@@ -104,7 +104,7 @@ run_grep_mode() {
     local preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
 
     # Mode switch binding: Ctrl+F → files mode
-    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query=\"{q}\")"
+    local become_files="become('$SCRIPT_DIR/finder.sh' --mode=files --pane='$PANE_ID' --query={q})"
 
     # Build rg reload command
     local rg_reload="reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
