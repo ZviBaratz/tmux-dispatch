@@ -12,6 +12,33 @@ setup() {
     source "$SCRIPT_DIR/helpers.sh"
 }
 
+teardown() {
+    unset -f command tmux 2>/dev/null || true
+}
+
+# ─── get_tmux_option ────────────────────────────────────────────────────────
+
+@test "get_tmux_option: returns value when option is set" {
+    tmux() { echo "my-value"; }
+    export -f tmux
+    run get_tmux_option "@ferret-editor" "default"
+    [ "$output" = "my-value" ]
+}
+
+@test "get_tmux_option: returns default when option is empty" {
+    tmux() { echo ""; }
+    export -f tmux
+    run get_tmux_option "@ferret-editor" "fallback"
+    [ "$output" = "fallback" ]
+}
+
+@test "get_tmux_option: returns default when tmux errors" {
+    tmux() { return 1; }
+    export -f tmux
+    run get_tmux_option "@ferret-editor" "fallback"
+    [ "$output" = "fallback" ]
+}
+
 # ─── tmux_version_at_least ──────────────────────────────────────────────────
 
 @test "tmux_version_at_least: 3.2 >= 3.2 (exact match)" {
@@ -61,6 +88,13 @@ setup() {
     export -f tmux
     run tmux_version_at_least "3.2"
     [ "$status" -ne 0 ]
+}
+
+@test "tmux_version_at_least: 3.10 >= 3.2 (multi-digit minor)" {
+    tmux() { echo "tmux 3.10"; }
+    export -f tmux
+    run tmux_version_at_least "3.2"
+    [ "$status" -eq 0 ]
 }
 
 # ─── detect_popup_editor ────────────────────────────────────────────────────
@@ -123,6 +157,29 @@ setup() {
     export -f command
     run detect_pane_editor ""
     [ "$output" = "nvim" ]
+}
+
+@test "detect_pane_editor: falls back to vim when nvim unavailable" {
+    unset EDITOR
+    command() {
+        if [[ "$1" == "-v" && "$2" == "nvim" ]]; then return 1; fi
+        if [[ "$1" == "-v" && "$2" == "vim" ]]; then return 0; fi
+        builtin command "$@"
+    }
+    export -f command
+    run detect_pane_editor ""
+    [ "$output" = "vim" ]
+}
+
+@test "detect_pane_editor: falls back to vi when nothing available" {
+    unset EDITOR
+    command() {
+        if [[ "$1" == "-v" && ( "$2" == "nvim" || "$2" == "vim" ) ]]; then return 1; fi
+        builtin command "$@"
+    }
+    export -f command
+    run detect_pane_editor ""
+    [ "$output" = "vi" ]
 }
 
 # ─── format_relative_time ──────────────────────────────────────────────────
@@ -216,6 +273,16 @@ setup() {
     export -f command
     run detect_bat
     [ "$output" = "batcat" ]
+}
+
+@test "detect_bat: returns empty when neither available" {
+    command() {
+        if [[ "$1" == "-v" && ( "$2" == "bat" || "$2" == "batcat" ) ]]; then return 1; fi
+        builtin command "$@"
+    }
+    export -f command
+    run detect_bat
+    [ "$output" = "" ]
 }
 
 # ─── detect_rg ──────────────────────────────────────────────────────────────

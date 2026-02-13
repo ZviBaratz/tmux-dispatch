@@ -8,29 +8,44 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Environment info
+        run: |
+          bash --version | head -1
+          perl --version | head -2 | tail -1
+
+      - name: Install ShellCheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
 
       - name: ShellCheck
         run: shellcheck -x -e SC1091 ferret.tmux scripts/*.sh
 
       - name: Bash syntax check
         run: |
-          bash -n ferret.tmux
-          bash -n scripts/helpers.sh
-          bash -n scripts/ferret.sh
-          bash -n scripts/preview.sh
+          for f in ferret.tmux scripts/*.sh; do
+            echo "Checking $f..."
+            bash -n "$f"
+          done
 
       - name: Verify scripts are executable
         run: |
-          test -x ferret.tmux
-          test -x scripts/helpers.sh
-          test -x scripts/ferret.sh
-          test -x scripts/preview.sh
+          for f in ferret.tmux scripts/*.sh; do
+            echo "Checking $f..."
+            test -x "$f"
+          done
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 

@@ -1,0 +1,74 @@
+name: Bug Report
+description: Report a bug in tmux-ferret
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Open tmux
+        2. Press prefix + f
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: tmux-version
+    attributes:
+      label: tmux version
+      description: Output of `tmux -V`
+      placeholder: "tmux 3.4"
+    validations:
+      required: true
+
+  - type: input
+    id: fzf-version
+    attributes:
+      label: fzf version
+      description: Output of `fzf --version`
+      placeholder: "0.46.0"
+    validations:
+      required: true
+
+  - type: input
+    id: bash-version
+    attributes:
+      label: bash version
+      description: Output of `bash --version | head -1`
+      placeholder: "5.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Ubuntu 24.04 / macOS 15"
+    validations:
+      required: true
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal emulator
+      placeholder: "iTerm2 / Alacritty / kitty"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other context, screenshots, or logs.
+    validations:
+      required: false

@@ -51,6 +51,19 @@ FD_CMD=$(detect_fd)
 BAT_CMD=$(detect_bat)
 RG_CMD=$(detect_rg)
 
+# ─── Require fzf ────────────────────────────────────────────────────────────
+
+command -v fzf &>/dev/null || {
+    echo "fzf is required for tmux-ferret."
+    echo "Install: apt install fzf  OR  brew install fzf  OR  https://github.com/junegunn/fzf#installation"
+    exit 1
+}
+
+fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+if [[ -n "$fzf_version" ]] && [[ "$(printf '%s\n%s' "0.38" "$fzf_version" | sort -V | head -n1)" != "0.38" ]]; then
+    echo "Warning: fzf 0.38+ recommended (found $fzf_version). Mode switching requires 0.38+."
+fi
+
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
 run_files_mode() {
@@ -251,10 +264,8 @@ run_session_mode() {
     session_list=$(
         tmux list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}' 2>/dev/null |
         while IFS='|' read -r name wins attached activity; do
-            local age
             age=$(format_relative_time $((now - activity)))
             # Display: name in default color, metadata in grey
-            local meta
             meta="\033[90m· ${wins}w · ${age}"
             [ "${attached:-0}" -gt 0 ] && meta="${meta} · attached"
             meta="${meta}\033[0m"

@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![tmux](https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux)](https://github.com/tmux/tmux)
 
 Fuzzy file finder, live content search, and session picker as tmux popups. Switch between modes mid-session, edit files in the popup, manage sessions, or send commands to your working pane.
 
@@ -26,7 +27,9 @@ Fuzzy file finder, live content search, and session picker as tmux popups. Switc
 ## Requirements
 
 - **tmux** 2.6+ (3.2+ recommended for popup support)
-- **fzf** (0.38+ recommended for mode switching; core features work with older versions)
+- **bash** 4.0+ (macOS users: install via `brew install bash` — the default `/bin/bash` is 3.2)
+- **fzf** 0.38+ (0.49+ recommended for all features; core file/grep works with older versions)
+- **perl** (required for session preview rendering)
 - **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode)
 
 ## Installation
@@ -52,6 +55,16 @@ Add to `~/.tmux.conf`:
 ```tmux
 run-shell ~/.tmux/plugins/tmux-ferret/ferret.tmux
 ```
+
+## Quick Start
+
+After installing, these keybindings are immediately available:
+
+- **`Alt+o`** — Find files in the current directory
+- **`Alt+s`** — Live grep (search file contents)
+- **`Alt+w`** — Switch or create tmux sessions
+
+Type `>` as the first character in file mode to jump to grep, or `@` to jump to sessions.
 
 ## Default Keybindings
 
@@ -153,6 +166,12 @@ ferret.sh --mode=session-new
 **"unknown action: become"** — Mode switching (`Ctrl+G`/`Ctrl+F`) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
 
 **Filenames with colons** — Grep mode parses `file:line:content` using colon as a delimiter. Files with `:` in the name (rare on Unix, impossible on Windows) will not be handled correctly. This is a known limitation shared by virtually all fzf+rg workflows.
+
+## Similar Projects
+
+- [sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) — fzf-based tmux management (sessions, windows, panes, commands). Complementary to tmux-ferret.
+- [wfxr/tmux-fzf-url](https://github.com/wfxr/tmux-fzf-url) — Open URLs from terminal output via fzf
+- [junegunn/fzf](https://github.com/junegunn/fzf) — The fuzzy finder that powers tmux-ferret (includes built-in `fzf-tmux`)
 
 ## License
 
