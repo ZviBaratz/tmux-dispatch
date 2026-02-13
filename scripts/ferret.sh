@@ -9,11 +9,11 @@
 #   --mode=sessions    tmux session picker/creator
 #   --mode=session-new directory-based session creation
 #
-# Mode switching:
-#   Ctrl+G/F   — Switch between files ↔ grep (query preserved)
-#   Ctrl+W     — Switch to sessions (one-way, from files or grep)
+# Mode switching (VSCode command palette style):
+#   Files is the home mode. Prefixes step into sub-modes:
 #   > prefix   — Files → grep (remainder becomes query)
-#   @ prefix   — Files/grep → sessions (query discarded)
+#   @ prefix   — Files → sessions (remainder becomes query)
+#   ⌫ on empty — Grep/sessions → files (return to home)
 #
 # Usage: ferret.sh --mode=files|grep|sessions|session-new [--pane=ID] [--query=TEXT]
 # =============================================================================
@@ -85,25 +85,22 @@ run_files_mode() {
         preview_cmd="head -500 {}"
     fi
 
-    # Mode switch bindings
-    local become_grep="become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\"{q}\")"
-    local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
-
     # Prefix switching: > → grep, @ → sessions
     # Must use if/elif (not A && B || C && D) to avoid bash precedence bug
     # where both branches execute when the first matches.
     local prefix_transform
-    prefix_transform="if [[ {q} == '>'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; elif [[ {q} == '@'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\"; fi"
+    prefix_transform="if [[ {q} == '>'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; elif [[ {q} == '@'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; fi"
 
     local result
     result=$(eval "$file_cmd" | fzf \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
+        --prompt '  ' \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left' \
         --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ > grep │ @ sess' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ > search │ @ sessions' \
         --height=100% \
         --layout=reverse \
         --highlight-line \
@@ -112,8 +109,6 @@ run_files_mode() {
         --border-label=' Files ' \
         --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
         --cycle \
-        --bind "ctrl-g:$become_grep" \
-        --bind "ctrl-w:$become_sessions" \
         --bind "change:transform:$prefix_transform" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
@@ -137,15 +132,11 @@ run_grep_mode() {
     # Strip leading > from prefix-based switch
     QUERY="${QUERY#>}"
 
-    # Mode switch bindings
-    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID' --query=\"{q}\")"
+    # Backspace-on-empty returns to files (home)
     local become_files_empty="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
-    local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
 
-    # Prefix switching merged with reload: @ → sessions, otherwise rg reload
+    # Live reload rg on every keystroke
     local rg_reload="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
-    local change_transform
-    change_transform="[[ {q} == '@'* ]] && echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')\" || echo \"reload($rg_reload)\""
 
     # Seed results if we have an initial query from mode switch
     local initial_cmd=":"
@@ -158,13 +149,14 @@ run_grep_mode() {
         --expect=ctrl-o,ctrl-y \
         --disabled \
         --query "$QUERY" \
+        --prompt '> ' \
         --ansi \
         --delimiter ':' \
-        --bind "change:transform:$change_transform" \
+        --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
         --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ ⌫ files │ @ sess' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ ⌫ home' \
         --height=100% \
         --layout=reverse \
         --highlight-line \
@@ -174,8 +166,6 @@ run_grep_mode() {
         --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
         --cycle \
         --bind "backward-eof:$become_files_empty" \
-        --bind "ctrl-f:$become_files" \
-        --bind "ctrl-w:$become_sessions" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
@@ -257,8 +247,6 @@ handle_grep_result() {
 run_session_mode() {
     # Strip leading @ from prefix-based switch
     QUERY="${QUERY#@}"
-    # Discard remainder — session names are unrelated to file/grep queries
-    QUERY=""
 
     # Build session list: name<TAB>  name · Nw · age [· attached]
     local now session_list
@@ -285,6 +273,8 @@ run_session_mode() {
         echo "$session_list" |
         fzf --print-query \
             --expect=ctrl-k,ctrl-y \
+            --query "$QUERY" \
+            --prompt '@ ' \
             --delimiter=$'\t' \
             --with-nth=2.. \
             --nth=1 \
@@ -297,7 +287,7 @@ run_session_mode() {
             --pointer='▸' \
             --border=rounded \
             --border-label=' Sessions ' \
-            --header 'Enter switch │ ^K kill │ ^N new dir │ ^Y copy │ ⌫ files' \
+            --header 'Enter switch │ ^K kill │ ^N new │ ^Y copy │ ⌫ home' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --preview-window 'down:75%:border-top' \
             --preview-label=' Preview ' \

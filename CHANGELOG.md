@@ -13,8 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File finder mode with `fd`/`find` and `bat` preview
 - Live grep mode with ripgrep and line-highlighted preview
 - Session picker/creator with window grid preview
-- Mode switching via `Ctrl+G`/`Ctrl+F`/`Ctrl+W` (requires fzf 0.38+)
-- Text prefix switching: `>` for grep, `@` for sessions
+- Mode switching via text prefixes: `>` for grep, `@` for sessions, backspace for home (requires fzf 0.38+)
 - Project launcher via `Ctrl+N` in session mode
 - Dual-action editing: popup editor and send-to-pane
 - Multi-select in file mode with `Tab`/`Shift+Tab`

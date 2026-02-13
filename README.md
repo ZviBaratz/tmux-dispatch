@@ -14,8 +14,7 @@ Fuzzy file finder, live content search, and session picker as tmux popups. Switc
 - **File finder** — `fd`/`find` with `bat` preview, instant filtering
 - **Live grep** — Ripgrep reloads on every keystroke with line-highlighted preview
 - **Session picker** — Switch, create, or kill tmux sessions with window grid preview
-- **Mode switching** — `Ctrl+G`/`Ctrl+F` toggles between file and grep mode (query preserved), `Ctrl+W` jumps to sessions
-- **Text prefix switching** — Type `>` in file mode to jump to grep, `@` from file/grep to jump to sessions (VSCode command palette style)
+- **Mode switching** — VSCode command palette style: type `>` to grep, `@` to sessions, backspace to return home (files)
 - **Project launcher** — `Ctrl+N` in session mode to create sessions from project directories
 - **Dual-action editing** — `Enter` edits in the popup, `Ctrl+O` sends `$EDITOR file` to your pane
 - **Multi-select** — `Tab`/`Shift+Tab` in file mode to select multiple files, open or copy them all at once
@@ -64,7 +63,7 @@ After installing, these keybindings are immediately available:
 - **`Alt+s`** — Live grep (search file contents)
 - **`Alt+w`** — Switch or create tmux sessions
 
-Type `>` as the first character in file mode to jump to grep, or `@` to jump to sessions.
+Type `>` to switch to grep, `@` to switch to sessions. Backspace on empty returns home to files — just like VSCode's command palette.
 
 ## Default Keybindings
 
@@ -75,19 +74,27 @@ Type `>` as the first character in file mode to jump to grep, or `@` to jump to 
 | `Alt+w` | prefix-free | Open session picker popup |
 | `prefix+e` | prefix | Open file finder popup |
 
-### Inside the popup — files & grep
+### Inside the popup — files (home mode)
 
 | Key | Action |
 |-----|--------|
 | `Enter` | Edit file in popup (vim/nvim) |
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
-| `Tab` / `Shift+Tab` | Toggle selection (file mode, multi-select) |
-| `Ctrl+G` | Switch to grep mode (from file mode) |
-| `Ctrl+F` | Switch to file mode (from grep mode) |
-| `Ctrl+W` | Switch to session picker |
-| `>` prefix | Type `>` as first character in file mode → switch to grep |
-| `@` prefix | Type `@` as first character → switch to sessions |
+| `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
+| `>` prefix | Switch to grep (remainder becomes query) |
+| `@` prefix | Switch to sessions (remainder becomes query) |
+| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `Escape` | Close popup |
+
+### Inside the popup — grep
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Edit file at matching line in popup |
+| `Ctrl+O` | Send editor open command to originating pane |
+| `Ctrl+Y` | Copy file path to clipboard |
+| `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
 
@@ -99,6 +106,7 @@ Type `>` as the first character in file mode to jump to grep, or `@` to jump to 
 | `Ctrl+K` | Kill selected session (refuses to kill current) |
 | `Ctrl+N` | Create session from project directory |
 | `Ctrl+Y` | Copy session name to clipboard |
+| `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
 
@@ -131,24 +139,21 @@ set -g @ferret-session-dirs "$HOME/Projects:$HOME/work"
 
 ## How It Works
 
-The plugin uses a single unified script (`scripts/ferret.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — when you press `Ctrl+G` in file mode, fzf replaces itself with a new instance in grep mode, preserving your query.
+The plugin uses a single unified script (`scripts/ferret.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — VSCode command palette style, where files is the home mode, prefixes step into sub-modes, and backspace returns home.
 
 ```
-ferret.sh --mode=files
+ferret.sh --mode=files  (home mode, prompt: "  ")
   ├── fd | fzf (filtering enabled)
-  │   ├── Ctrl+G → become(ferret.sh --mode=grep --query={q})
-  │   ├── Ctrl+W → become(ferret.sh --mode=sessions)
   │   ├── ">" prefix → become(ferret.sh --mode=grep --query={q})
-  │   └── "@" prefix → become(ferret.sh --mode=sessions)
+  │   └── "@" prefix → become(ferret.sh --mode=sessions --query={q})
   │
-ferret.sh --mode=grep
+ferret.sh --mode=grep  (prompt: "> ")
   ├── fzf --disabled + change:reload:rg (live search)
-  │   ├── Ctrl+F → become(ferret.sh --mode=files --query={q})
-  │   ├── Ctrl+W → become(ferret.sh --mode=sessions)
-  │   └── "@" prefix → become(ferret.sh --mode=sessions)
+  │   └── ⌫ on empty → become(ferret.sh --mode=files)
   │
-ferret.sh --mode=sessions
+ferret.sh --mode=sessions  (prompt: "@ ")
   ├── tmux list-sessions | fzf (session picker + creator)
+  │   ├── ⌫ on empty → become(ferret.sh --mode=files)
   │   └── Ctrl+N → become(ferret.sh --mode=session-new)
   │
 ferret.sh --mode=session-new
@@ -163,7 +168,7 @@ ferret.sh --mode=session-new
 
 **Popup not appearing** — tmux < 3.2 doesn't support `display-popup`. The plugin falls back to `split-window` automatically, which opens a pane instead of a floating popup. Upgrade tmux for the popup experience.
 
-**"unknown action: become"** — Mode switching (`Ctrl+G`/`Ctrl+F`) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
+**"unknown action: become"** — Mode switching (prefix-based and backspace-to-home) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
 
 **Filenames with colons** — Grep mode parses `file:line:content` using colon as a delimiter. Files with `:` in the name (rare on Unix, impossible on Windows) will not be handled correctly. This is a known limitation shared by virtually all fzf+rg workflows.
 

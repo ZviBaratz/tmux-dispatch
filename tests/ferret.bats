@@ -127,14 +127,13 @@ teardown() {
     [ "$output" = "hello world" ]
 }
 
-@test "session mode strips leading @ and clears query" {
+@test "session mode strips leading @ and preserves remainder" {
     run bash -c '
         QUERY="@mysession"
         QUERY="${QUERY#@}"
-        QUERY=""
-        echo "[$QUERY]"
+        echo "$QUERY"
     '
-    [ "$output" = "[]" ]
+    [ "$output" = "mysession" ]
 }
 
 # ─── Session name sanitization ──────────────────────────────────────────────
