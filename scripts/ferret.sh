@@ -60,8 +60,8 @@ command -v fzf &>/dev/null || {
 }
 
 fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
-if [[ -n "$fzf_version" ]] && [[ "$(printf '%s\n%s' "0.38" "$fzf_version" | sort -V | head -n1)" != "0.38" ]]; then
-    echo "Warning: fzf 0.38+ recommended (found $fzf_version). Mode switching requires 0.38+."
+if [[ -n "$fzf_version" ]] && [[ "$(printf '%s\n%s' "0.45" "$fzf_version" | sort -V | head -n1)" != "0.45" ]]; then
+    echo "Warning: fzf 0.45+ recommended (found $fzf_version). Dynamic labels require 0.45+."
 fi
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
@@ -77,40 +77,57 @@ run_files_mode() {
         file_cmd="find . -type f -not -path '*/.git/*'"
     fi
 
-    # Preview command
-    local preview_cmd
+    # File preview command (bat or head fallback)
+    local file_preview
     if [[ -n "$BAT_CMD" ]]; then
-        preview_cmd="$BAT_CMD --color=always --style=numbers --line-range=:500 {}"
+        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 {}"
     else
-        preview_cmd="head -500 {}"
+        file_preview="head -500 {}"
     fi
 
-    # Prefix switching: > → grep, @ → sessions
-    # Must use if/elif (not A && B || C && D) to avoid bash precedence bug
-    # where both branches execute when the first matches.
-    local prefix_transform
-    prefix_transform="if [[ {q} == '>'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; elif [[ {q} == '@'* ]]; then echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"; fi"
+    # Welcome cheat sheet shown when query is empty
+    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  >  grep code\\n  @  switch sessions\\n\\n  Enter  open in editor\\n  ^O     send to pane\\n  ^Y     copy path'"
+
+    # Initial preview: welcome if no query, file preview otherwise
+    local initial_preview="$welcome_preview"
+    local initial_border_label=" Ferret "
+    local initial_preview_label=" Guide "
+    if [[ -n "$QUERY" ]]; then
+        initial_preview="$file_preview"
+        initial_border_label=" Files "
+        initial_preview_label=" Preview "
+    fi
+
+    # change:transform handles three concerns:
+    # 1. > prefix → become grep mode
+    # 2. @ prefix → become sessions mode
+    # 3. empty ↔ non-empty → toggle welcome/file preview and border label
+    local change_transform
+    change_transform="if [[ {q} == '>'* ]]; then
+  echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+elif [[ {q} == '@'* ]]; then
+  echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+elif [[ -z {q} ]]; then
+  echo \"change-preview($welcome_preview)+change-border-label( Ferret )+change-preview-label( Guide )\"
+else
+  echo \"change-preview($file_preview)+change-border-label( Files )+change-preview-label( Preview )\"
+fi"
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
 
     local result
     result=$(eval "$file_cmd" | fzf \
+        "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
         --prompt '  ' \
-        --preview "$preview_cmd" \
-        --preview-window 'right:60%:border-left' \
-        --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ > search │ @ sessions' \
-        --height=100% \
-        --layout=reverse \
-        --highlight-line \
-        --pointer='▸' \
-        --border=rounded \
-        --border-label=' Files ' \
-        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
-        --cycle \
-        --bind "change:transform:$prefix_transform" \
-        --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+        --preview "$initial_preview" \
+        --preview-label="$initial_preview_label" \
+        --border-label="$initial_border_label" \
+        --bind "change:transform:$change_transform" \
     ) || exit 0
 
     handle_file_result "$result"
@@ -144,8 +161,13 @@ run_grep_mode() {
         initial_cmd="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- $(printf '%q' "$QUERY") || true"
     fi
 
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
     local result
     result=$(eval "$initial_cmd" | fzf \
+        "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --disabled \
         --query "$QUERY" \
@@ -155,18 +177,8 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ ⌫ home' \
-        --height=100% \
-        --layout=reverse \
-        --highlight-line \
-        --pointer='▸' \
-        --border=rounded \
         --border-label=' Grep ' \
-        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
-        --cycle \
         --bind "backward-eof:$become_files_empty" \
-        --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
     handle_grep_result "$result"
@@ -268,10 +280,15 @@ run_session_mode() {
     local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
     local become_new="become('$SCRIPT_DIR/ferret.sh' --mode=session-new --pane='$PANE_ID')"
 
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
     local result
     result=$(
         echo "$session_list" |
         fzf --print-query \
+            "${base_opts[@]}" \
             --expect=ctrl-k,ctrl-y \
             --query "$QUERY" \
             --prompt '@ ' \
@@ -281,20 +298,10 @@ run_session_mode() {
             --accept-nth=1 \
             --ansi \
             --no-sort \
-            --height=100% \
-            --layout=reverse \
-            --highlight-line \
-            --pointer='▸' \
-            --border=rounded \
             --border-label=' Sessions ' \
-            --header 'Enter switch │ ^K kill │ ^N new │ ^Y copy │ ⌫ home' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
-            --preview-window 'down:75%:border-top' \
-            --preview-label=' Preview ' \
-            --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
-            --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
     handle_session_result "$result"
@@ -380,17 +387,15 @@ run_session_new_mode() {
         preview_cmd="ls -la --color=always {}"
     fi
 
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
     local selected
     selected=$(eval "$dir_cmd" | sort | fzf \
-        --height=100% \
-        --layout=reverse \
-        --border=rounded \
-        --border-label=' New session from directory ' \
-        --header 'Select project directory │ Enter=create session' \
+        "${base_opts[@]}" \
+        --border-label=' New Session ' \
         --preview "$preview_cmd" \
-        --preview-window 'right:50%' \
-        --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
-        --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
 
     [[ -z "$selected" ]] && exit 0

@@ -74,6 +74,23 @@ tmux_version_at_least() {
     [[ "$(printf '%s\n%s' "$target" "$current" | sort -V | head -n1)" == "$target" ]]
 }
 
+# Shared fzf visual options used by all ferret modes
+build_fzf_base_opts() {
+    local -a opts=(
+        --height=100%
+        --layout=reverse
+        --highlight-line
+        --pointer='▸'
+        --border=rounded
+        --preview-window='right:60%:border-left'
+        --preview-label=' Preview '
+        --color='bg+:236,fg+:39:bold,pointer:39,border:244,prompt:39,label:39:bold'
+        --bind='ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
+        --cycle
+    )
+    printf '%s\n' "${opts[@]}"
+}
+
 # Detect editor for send-to-pane (can be GUI)
 detect_pane_editor() {
     local configured="$1"
