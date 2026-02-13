@@ -103,7 +103,7 @@ run_files_mode() {
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left' \
         --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ ^G grep │ ^W sess' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ > grep │ @ sess' \
         --height=100% \
         --layout=reverse \
         --highlight-line \
@@ -139,6 +139,7 @@ run_grep_mode() {
 
     # Mode switch bindings
     local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID' --query=\"{q}\")"
+    local become_files_empty="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
     local become_sessions="become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID')"
 
     # Prefix switching merged with reload: @ → sessions, otherwise rg reload
@@ -163,7 +164,7 @@ run_grep_mode() {
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
         --preview-label=' Preview ' \
-        --header 'Enter edit │ ^O pane │ ^Y copy │ ^F files │ ^W sess' \
+        --header 'Enter edit │ ^O pane │ ^Y copy │ ⌫ files │ @ sess' \
         --height=100% \
         --layout=reverse \
         --highlight-line \
@@ -172,6 +173,7 @@ run_grep_mode() {
         --border-label=' Grep ' \
         --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
         --cycle \
+        --bind "backward-eof:$become_files_empty" \
         --bind "ctrl-f:$become_files" \
         --bind "ctrl-w:$become_sessions" \
         --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
@@ -275,6 +277,7 @@ run_session_mode() {
 
     [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
 
+    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
     local become_new="become('$SCRIPT_DIR/ferret.sh' --mode=session-new --pane='$PANE_ID')"
 
     local result
@@ -294,11 +297,12 @@ run_session_mode() {
             --pointer='▸' \
             --border=rounded \
             --border-label=' Sessions ' \
-            --header 'Enter switch │ ^K kill │ ^N new dir │ ^Y copy' \
+            --header 'Enter switch │ ^K kill │ ^N new dir │ ^Y copy │ ⌫ files' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --preview-window 'down:75%:border-top' \
             --preview-label=' Preview ' \
             --color='bg+:236,fg+:39:bold,pointer:39,border:244,header:244,prompt:39,label:39:bold' \
+            --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
             --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
     ) || exit 0
