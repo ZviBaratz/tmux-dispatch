@@ -25,18 +25,18 @@ jobs:
         run: brew install shellcheck
 
       - name: ShellCheck
-        run: shellcheck -x -e SC1091 ferret.tmux scripts/*.sh
+        run: shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh
 
       - name: Bash syntax check
         run: |
-          for f in ferret.tmux scripts/*.sh; do
+          for f in dispatch.tmux scripts/*.sh; do
             echo "Checking $f..."
             bash -n "$f"
           done
 
       - name: Verify scripts are executable
         run: |
-          for f in ferret.tmux scripts/*.sh; do
+          for f in dispatch.tmux scripts/*.sh; do
             echo "Checking $f..."
             test -x "$f"
           done

@@ -1,4 +1,4 @@
-# VHS recording script for tmux-ferret demo
+# VHS recording script for tmux-dispatch demo
 # Run with: vhs demo.tape
 # Produces: demo.gif
 # Requires: vhs (https://github.com/charmbracelet/vhs), tmux, fzf, fd, bat, rg
@@ -22,7 +22,7 @@ Sleep 500ms
 Type "cd /tmp/demo-project && tmux new-session -d -s demo"
 Enter
 Sleep 500ms
-Type "tmux run-shell $PWD/ferret.tmux && tmux attach -t demo"
+Type "tmux run-shell $PWD/dispatch.tmux && tmux attach -t demo"
 Enter
 Sleep 1.5s
 Type "clear"

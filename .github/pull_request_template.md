@@ -8,6 +8,6 @@
 
 ## Testing
 
-- [ ] `shellcheck -x -e SC1091 ferret.tmux scripts/*.sh` passes
+- [ ] `shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh` passes
 - [ ] `bats tests/` passes
 - [ ] Manually tested in tmux (version: )

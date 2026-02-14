@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ferret.sh — Unified file finder, content search, and session picker
+# dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
 # Four modes, switchable mid-session via fzf's become action:
 #
@@ -15,7 +15,7 @@
 #   @ prefix   — Files → sessions (remainder becomes query)
 #   ⌫ on empty — Grep/sessions → files (return to home)
 #
-# Usage: ferret.sh --mode=files|grep|sessions|session-new [--pane=ID] [--query=TEXT]
+# Usage: dispatch.sh --mode=files|grep|sessions|session-new [--pane=ID] [--query=TEXT]
 # =============================================================================
 
 set -euo pipefail
@@ -40,10 +40,10 @@ done
 
 # ─── Read tmux options ───────────────────────────────────────────────────────
 
-POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@ferret-popup-editor" "")")
-PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@ferret-pane-editor" "")")
-FD_EXTRA_ARGS=$(get_tmux_option "@ferret-fd-args" "")
-RG_EXTRA_ARGS=$(get_tmux_option "@ferret-rg-args" "")
+POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@dispatch-popup-editor" "")")
+PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@dispatch-pane-editor" "")")
+FD_EXTRA_ARGS=$(get_tmux_option "@dispatch-fd-args" "")
+RG_EXTRA_ARGS=$(get_tmux_option "@dispatch-rg-args" "")
 
 # ─── Detect tools ────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ RG_CMD=$(detect_rg)
 # ─── Require fzf ────────────────────────────────────────────────────────────
 
 command -v fzf &>/dev/null || {
-    echo "fzf is required for tmux-ferret."
+    echo "fzf is required for tmux-dispatch."
     echo "Install: apt install fzf  OR  brew install fzf  OR  https://github.com/junegunn/fzf#installation"
     exit 1
 }
@@ -90,7 +90,7 @@ run_files_mode() {
 
     # Initial preview: welcome if no query, file preview otherwise
     local initial_preview="$welcome_preview"
-    local initial_border_label=" Ferret "
+    local initial_border_label=" Dispatch "
     local initial_preview_label=" Guide "
     if [[ -n "$QUERY" ]]; then
         initial_preview="$file_preview"
@@ -104,11 +104,11 @@ run_files_mode() {
     # 3. empty ↔ non-empty → toggle welcome/file preview and border label
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
-  echo \"become('$SCRIPT_DIR/ferret.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ {q} == '@'* ]]; then
-  echo \"become('$SCRIPT_DIR/ferret.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ -z {q} ]]; then
-  echo \"change-preview($welcome_preview)+change-border-label( Ferret )+change-preview-label( Guide )\"
+  echo \"change-preview($welcome_preview)+change-border-label( Dispatch )+change-preview-label( Guide )\"
 else
   echo \"change-preview($file_preview)+change-border-label( Files )+change-preview-label( Preview )\"
 fi"
@@ -150,7 +150,7 @@ run_grep_mode() {
     QUERY="${QUERY#>}"
 
     # Backspace-on-empty returns to files (home)
-    local become_files_empty="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
+    local become_files_empty="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
 
     # Live reload rg on every keystroke
     local rg_reload="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
@@ -277,8 +277,8 @@ run_session_mode() {
 
     [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
 
-    local become_files="become('$SCRIPT_DIR/ferret.sh' --mode=files --pane='$PANE_ID')"
-    local become_new="become('$SCRIPT_DIR/ferret.sh' --mode=session-new --pane='$PANE_ID')"
+    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+    local become_new="become('$SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$PANE_ID')"
 
     # Load shared visual options
     local -a base_opts
@@ -352,7 +352,7 @@ handle_session_result() {
 
 run_session_new_mode() {
     local session_dirs
-    session_dirs=$(get_tmux_option "@ferret-session-dirs" "$HOME/Projects")
+    session_dirs=$(get_tmux_option "@dispatch-session-dirs" "$HOME/Projects")
 
     # Build directory listing from all configured dirs (colon-separated)
     local dir_cmd=""
@@ -374,7 +374,7 @@ run_session_new_mode() {
 
     if [[ -z "$dir_cmd" ]]; then
         echo "No valid session directories found."
-        echo "Configure with: set -g @ferret-session-dirs '/path/one:/path/two'"
+        echo "Configure with: set -g @dispatch-session-dirs '/path/one:/path/two'"
         read -r -p "Press Enter to close..."
         exit 1
     fi

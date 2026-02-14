@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ferret.tmux — TPM entry point for tmux-ferret
+# dispatch.tmux — TPM entry point for tmux-dispatch
 # =============================================================================
 # Registers keybindings for file finding and content search popups.
-# Reads @ferret-* tmux options for configuration.
+# Reads @dispatch-* tmux options for configuration.
 #
 # Install via TPM:
-#   set -g @plugin 'ZviBaratz/tmux-ferret'
+#   set -g @plugin 'ZviBaratz/tmux-dispatch'
 # =============================================================================
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/helpers.sh
 source "$CURRENT_DIR/scripts/helpers.sh"
 
-FERRET="$CURRENT_DIR/scripts/ferret.sh"
+DISPATCH="$CURRENT_DIR/scripts/dispatch.sh"
 
 # ─── Read user configuration ─────────────────────────────────────────────────
 
-find_key=$(get_tmux_option "@ferret-find-key" "M-o")
-grep_key=$(get_tmux_option "@ferret-grep-key" "M-s")
-session_key=$(get_tmux_option "@ferret-session-key" "M-w")
-prefix_key=$(get_tmux_option "@ferret-prefix-key" "e")
-session_prefix_key=$(get_tmux_option "@ferret-session-prefix-key" "none")
-popup_size=$(get_tmux_option "@ferret-popup-size" "85%")
+find_key=$(get_tmux_option "@dispatch-find-key" "M-o")
+grep_key=$(get_tmux_option "@dispatch-grep-key" "M-s")
+session_key=$(get_tmux_option "@dispatch-session-key" "M-w")
+prefix_key=$(get_tmux_option "@dispatch-prefix-key" "e")
+session_prefix_key=$(get_tmux_option "@dispatch-session-prefix-key" "none")
+popup_size=$(get_tmux_option "@dispatch-popup-size" "85%")
 
 # ─── Bind a key to launch finder in a popup or split ─────────────────────────
 
@@ -30,7 +30,7 @@ bind_finder() {
     local key_flag="$1"  # "-n" for prefix-free, "" for prefix
     local key="$2"
     local mode="$3"
-    local cmd="$FERRET --mode=$mode --pane='#{pane_id}'"
+    local cmd="$DISPATCH --mode=$mode --pane='#{pane_id}'"
 
     if tmux_version_at_least "3.2"; then
         # tmux 3.2+: floating popup

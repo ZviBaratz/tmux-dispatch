@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# helpers.sh — Shared utilities for tmux-ferret
+# helpers.sh — Shared utilities for tmux-dispatch
 # =============================================================================
 
 # Read a tmux option with fallback to default
@@ -74,7 +74,7 @@ tmux_version_at_least() {
     [[ "$(printf '%s\n%s' "$target" "$current" | sort -V | head -n1)" == "$target" ]]
 }
 
-# Shared fzf visual options used by all ferret modes
+# Shared fzf visual options used by all dispatch modes
 build_fzf_base_opts() {
     local -a opts=(
         --height=100%

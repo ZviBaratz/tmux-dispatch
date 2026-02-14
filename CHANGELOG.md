@@ -23,5 +23,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tmux < 3.2 support via `split-window` fallback
 - CI pipeline with ShellCheck, syntax checking, and bats tests
 
-[Unreleased]: https://github.com/ZviBaratz/tmux-ferret/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ZviBaratz/tmux-ferret/releases/tag/v1.0.0
+[Unreleased]: https://github.com/ZviBaratz/tmux-dispatch/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ZviBaratz/tmux-dispatch/releases/tag/v1.0.0

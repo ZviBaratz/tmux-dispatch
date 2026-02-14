@@ -1,4 +1,4 @@
-# Contributing to tmux-ferret
+# Contributing to tmux-dispatch
 
 Contributions are welcome! Here's how to help.
 
@@ -17,14 +17,14 @@ Please include:
 2. Follow the project conventions:
    - `#!/usr/bin/env bash` shebang
    - `set -euo pipefail` in executable scripts
-   - ShellCheck must pass: `shellcheck -x -e SC1091 ferret.tmux scripts/*.sh`
+   - ShellCheck must pass: `shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh`
    - New scripts must be executable (`chmod +x`)
    - Maintain graceful fallbacks for optional tools
-   - tmux options use the `@ferret-` prefix
+   - tmux options use the `@dispatch-` prefix
    - Conventional commits, lowercase (`feat: add feature`, `fix: resolve bug`)
 3. Run checks before submitting:
    ```bash
-   shellcheck -x -e SC1091 ferret.tmux scripts/*.sh
+   shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh
    bats tests/
    ```
 4. Open a pull request with a clear description

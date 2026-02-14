@@ -21,21 +21,21 @@ teardown() {
 @test "get_tmux_option: returns value when option is set" {
     tmux() { echo "my-value"; }
     export -f tmux
-    run get_tmux_option "@ferret-editor" "default"
+    run get_tmux_option "@dispatch-editor" "default"
     [ "$output" = "my-value" ]
 }
 
 @test "get_tmux_option: returns default when option is empty" {
     tmux() { echo ""; }
     export -f tmux
-    run get_tmux_option "@ferret-editor" "fallback"
+    run get_tmux_option "@dispatch-editor" "fallback"
     [ "$output" = "fallback" ]
 }
 
 @test "get_tmux_option: returns default when tmux errors" {
     tmux() { return 1; }
     export -f tmux
-    run get_tmux_option "@ferret-editor" "fallback"
+    run get_tmux_option "@dispatch-editor" "fallback"
     [ "$output" = "fallback" ]
 }
 

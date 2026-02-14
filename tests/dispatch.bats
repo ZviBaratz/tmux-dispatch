@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # =============================================================================
-# Unit tests for scripts/ferret.sh
+# Unit tests for scripts/dispatch.sh
 # =============================================================================
-# Run with: bats tests/ferret.bats
+# Run with: bats tests/dispatch.bats
 # Tests argument parsing, dispatch, query manipulation, and session name
 # sanitization without requiring fzf or a running tmux server.
 # =============================================================================
@@ -111,7 +111,7 @@ teardown() {
 # ─── Mode dispatch ──────────────────────────────────────────────────────────
 
 @test "dispatch: unknown mode exits 1 with error" {
-    run bash -c 'source "'"$SCRIPT_DIR"'/ferret.sh" --mode=bogus 2>&1'
+    run bash -c 'source "'"$SCRIPT_DIR"'/dispatch.sh" --mode=bogus 2>&1'
     [ "$status" -eq 1 ]
     [[ "$output" == *"Unknown mode: bogus"* ]]
 }

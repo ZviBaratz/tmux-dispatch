@@ -1,6 +1,6 @@
-# tmux-ferret
+# tmux-dispatch
 
-[![CI](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-ferret/actions/workflows/ci.yml)
+[![CI](https://github.com/ZviBaratz/tmux-dispatch/actions/workflows/ci.yml/badge.svg)](https://github.com/ZviBaratz/tmux-dispatch/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![tmux](https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux)](https://github.com/tmux/tmux)
 
@@ -38,7 +38,7 @@ Fuzzy file finder, live content search, and session picker as tmux popups. Switc
 Add to your `~/.tmux.conf`:
 
 ```tmux
-set -g @plugin 'ZviBaratz/tmux-ferret'
+set -g @plugin 'ZviBaratz/tmux-dispatch'
 ```
 
 Then press `prefix + I` to install.
@@ -46,13 +46,13 @@ Then press `prefix + I` to install.
 ### Manual
 
 ```bash
-git clone https://github.com/ZviBaratz/tmux-ferret.git ~/.tmux/plugins/tmux-ferret
+git clone https://github.com/ZviBaratz/tmux-dispatch.git ~/.tmux/plugins/tmux-dispatch
 ```
 
 Add to `~/.tmux.conf`:
 
 ```tmux
-run-shell ~/.tmux/plugins/tmux-ferret/ferret.tmux
+run-shell ~/.tmux/plugins/tmux-dispatch/dispatch.tmux
 ```
 
 ## Quick Start
@@ -116,47 +116,47 @@ All options are set via tmux options in `~/.tmux.conf`:
 
 ```tmux
 # Change keybindings (set to "none" to disable)
-set -g @ferret-find-key "M-o"              # default: M-o (Alt+o)
-set -g @ferret-grep-key "M-s"              # default: M-s (Alt+s)
-set -g @ferret-session-key "M-w"           # default: M-w (Alt+w)
-set -g @ferret-prefix-key "e"              # default: e (prefix+e)
-set -g @ferret-session-prefix-key "none"   # default: none
+set -g @dispatch-find-key "M-o"              # default: M-o (Alt+o)
+set -g @dispatch-grep-key "M-s"              # default: M-s (Alt+s)
+set -g @dispatch-session-key "M-w"           # default: M-w (Alt+w)
+set -g @dispatch-prefix-key "e"              # default: e (prefix+e)
+set -g @dispatch-session-prefix-key "none"   # default: none
 
 # Popup size
-set -g @ferret-popup-size "85%"            # default: 85%
+set -g @dispatch-popup-size "85%"            # default: 85%
 
 # Editors
-set -g @ferret-popup-editor "nvim"         # default: auto-detect (nvim > vim > vi)
-set -g @ferret-pane-editor "code"          # default: $EDITOR or auto-detect
+set -g @dispatch-popup-editor "nvim"         # default: auto-detect (nvim > vim > vi)
+set -g @dispatch-pane-editor "code"          # default: $EDITOR or auto-detect
 
 # Extra arguments for search tools
-set -g @ferret-fd-args "--max-depth 8"
-set -g @ferret-rg-args "--glob '!*.min.js'"
+set -g @dispatch-fd-args "--max-depth 8"
+set -g @dispatch-rg-args "--glob '!*.min.js'"
 
 # Session mode: directories for Ctrl+N project picker (colon-separated)
-set -g @ferret-session-dirs "$HOME/Projects:$HOME/work"
+set -g @dispatch-session-dirs "$HOME/Projects:$HOME/work"
 ```
 
 ## How It Works
 
-The plugin uses a single unified script (`scripts/ferret.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — VSCode command palette style, where files is the home mode, prefixes step into sub-modes, and backspace returns home.
+The plugin uses a single unified script (`scripts/dispatch.sh`) with a `--mode` flag. fzf's [`become`](https://junegunn.github.io/fzf/reference/#action) action enables seamless mode switching — VSCode command palette style, where files is the home mode, prefixes step into sub-modes, and backspace returns home.
 
 ```
-ferret.sh --mode=files  (home mode, prompt: "  ")
+dispatch.sh --mode=files  (home mode, prompt: "  ")
   ├── fd | fzf (filtering enabled)
-  │   ├── ">" prefix → become(ferret.sh --mode=grep --query={q})
-  │   └── "@" prefix → become(ferret.sh --mode=sessions --query={q})
+  │   ├── ">" prefix → become(dispatch.sh --mode=grep --query={q})
+  │   └── "@" prefix → become(dispatch.sh --mode=sessions --query={q})
   │
-ferret.sh --mode=grep  (prompt: "> ")
+dispatch.sh --mode=grep  (prompt: "> ")
   ├── fzf --disabled + change:reload:rg (live search)
-  │   └── ⌫ on empty → become(ferret.sh --mode=files)
+  │   └── ⌫ on empty → become(dispatch.sh --mode=files)
   │
-ferret.sh --mode=sessions  (prompt: "@ ")
+dispatch.sh --mode=sessions  (prompt: "@ ")
   ├── tmux list-sessions | fzf (session picker + creator)
-  │   ├── ⌫ on empty → become(ferret.sh --mode=files)
-  │   └── Ctrl+N → become(ferret.sh --mode=session-new)
+  │   ├── ⌫ on empty → become(dispatch.sh --mode=files)
+  │   └── Ctrl+N → become(dispatch.sh --mode=session-new)
   │
-ferret.sh --mode=session-new
+dispatch.sh --mode=session-new
   └── fd directories | fzf (project directory picker)
 ```
 
@@ -174,9 +174,9 @@ ferret.sh --mode=session-new
 
 ## Similar Projects
 
-- [sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) — fzf-based tmux management (sessions, windows, panes, commands). Complementary to tmux-ferret.
+- [sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) — fzf-based tmux management (sessions, windows, panes, commands). Complementary to tmux-dispatch.
 - [wfxr/tmux-fzf-url](https://github.com/wfxr/tmux-fzf-url) — Open URLs from terminal output via fzf
-- [junegunn/fzf](https://github.com/junegunn/fzf) — The fuzzy finder that powers tmux-ferret (includes built-in `fzf-tmux`)
+- [junegunn/fzf](https://github.com/junegunn/fzf) — The fuzzy finder that powers tmux-dispatch (includes built-in `fzf-tmux`)
 
 ## License
 
