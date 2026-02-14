@@ -44,6 +44,7 @@ POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@dispatch-popup-editor" "
 PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@dispatch-pane-editor" "")")
 FD_EXTRA_ARGS=$(get_tmux_option "@dispatch-fd-args" "")
 RG_EXTRA_ARGS=$(get_tmux_option "@dispatch-rg-args" "")
+HISTORY_ENABLED=$(get_tmux_option "@dispatch-history" "on")
 
 # ─── Detect tools ────────────────────────────────────────────────────────────
 
@@ -118,7 +119,12 @@ fi"
     mapfile -t base_opts < <(build_fzf_base_opts)
 
     local result
-    result=$(eval "$file_cmd" | fzf \
+    result=$(
+        if [[ "$HISTORY_ENABLED" == "on" ]]; then
+            { recent_files_for_pwd "$PWD"; eval "$file_cmd"; } | awk '!seen[$0]++'
+        else
+            eval "$file_cmd"
+        fi | fzf \
         "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --multi \
@@ -206,6 +212,7 @@ handle_file_result() {
             if [[ -n "$PANE_ID" ]]; then
                 local quoted_files=""
                 for f in "${files[@]}"; do
+                    [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
                     quoted_files+=" $(printf '%q' "$f")"
                 done
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR$quoted_files" Enter
@@ -215,6 +222,9 @@ handle_file_result() {
             ;;
         *)
             # Open in popup editor
+            if [[ "$HISTORY_ENABLED" == "on" ]]; then
+                for f in "${files[@]}"; do record_file_open "$PWD" "$f"; done
+            fi
             exec "$POPUP_EDITOR" "${files[@]}"
             ;;
     esac
@@ -242,6 +252,7 @@ handle_grep_result() {
         ctrl-o)
             # Send open command to the originating pane (with line number)
             if [[ -n "$PANE_ID" ]]; then
+                [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR +$line_num $(printf '%q' "$file")" Enter
             else
                 tmux display-message "No target pane available"
@@ -249,6 +260,7 @@ handle_grep_result() {
             ;;
         *)
             # Open in popup editor at matching line
+            [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
             exec "$POPUP_EDITOR" "+$line_num" "$file"
             ;;
     esac

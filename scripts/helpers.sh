@@ -106,3 +106,58 @@ detect_pane_editor() {
         echo vi
     fi
 }
+
+# ─── File history ──────────────────────────────────────────────────────────
+
+# Portable reverse-file (tac on Linux, tail -r on macOS)
+_dispatch_tac() {
+    if command -v tac &>/dev/null; then tac "$@"; else tail -r "$@"; fi
+}
+
+# Returns history file path, creates dir if needed
+_dispatch_history_file() {
+    local dir="${XDG_DATA_HOME:-$HOME/.local/share}/tmux-dispatch"
+    [[ -d "$dir" ]] || mkdir -p "$dir"
+    echo "$dir/history"
+}
+
+# Background maintenance — trims to 1000 lines when exceeding 2000
+_dispatch_history_trim() {
+    local history_file="$1" max_lines=2000 keep_lines=1000
+    local count
+    count=$(wc -l < "$history_file" 2>/dev/null) || return 0
+    if [[ "$count" -gt "$max_lines" ]]; then
+        local tmp="${history_file}.tmp.$$"
+        tail -n "$keep_lines" "$history_file" > "$tmp" && \mv "$tmp" "$history_file"
+    fi
+}
+
+# Append entry + async trim
+record_file_open() {
+    local pwd_dir="$1" file_path="$2"
+    file_path="${file_path#./}"  # normalize find's ./ prefix
+    local history_file
+    history_file=$(_dispatch_history_file)
+    printf '%s\t%s\n' "$pwd_dir" "$file_path" >> "$history_file"
+    _dispatch_history_trim "$history_file" &
+}
+
+# Retrieve recent files (newest first, deduped, existence-checked)
+recent_files_for_pwd() {
+    local pwd_dir="$1" max="${2:-50}"
+    local history_file
+    history_file=$(_dispatch_history_file)
+    [[ -f "$history_file" ]] || return 0
+    local count=0
+    declare -A seen
+    while IFS=$'\t' read -r dir file; do
+        [[ "$dir" == "$pwd_dir" ]] || continue
+        [[ -n "${seen[$file]+x}" ]] && continue
+        seen[$file]=1
+        [[ -f "$pwd_dir/$file" ]] || continue
+        printf '%s\n' "$file"
+        ((count++))
+        [[ "$count" -ge "$max" ]] && break
+    done < <(_dispatch_tac "$history_file")
+    return 0
+}

@@ -133,6 +133,9 @@ set -g @dispatch-pane-editor "code"          # default: $EDITOR or auto-detect
 set -g @dispatch-fd-args "--max-depth 8"
 set -g @dispatch-rg-args "--glob '!*.min.js'"
 
+# Recently opened files appear first in file finder
+set -g @dispatch-history "off"               # default: on
+
 # Session mode: directories for Ctrl+N project picker (colon-separated)
 set -g @dispatch-session-dirs "$HOME/Projects:$HOME/work"
 ```
