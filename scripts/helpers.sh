@@ -154,12 +154,11 @@ recent_files_for_pwd() {
     local history_file
     history_file=$(_dispatch_history_file)
     [[ -f "$history_file" ]] || return 0
-    local count=0
-    declare -A seen
+    local count=0 seen=""
     while IFS=$'\t' read -r dir file; do
         [[ "$dir" == "$pwd_dir" ]] || continue
-        [[ -n "${seen[$file]+x}" ]] && continue
-        seen[$file]=1
+        case "$seen" in *"|$file|"*) continue ;; esac
+        seen="$seen|$file|"
         [[ -f "$pwd_dir/$file" ]] || continue
         printf '%s\n' "$file"
         ((count++))
