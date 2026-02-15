@@ -80,11 +80,17 @@ build_fzf_base_opts() {
         --height=100%
         --layout=reverse
         --highlight-line
-        --pointer='▸'
+        --pointer='▏'
         --border=rounded
-        --preview-window='right:60%:border-left'
-        --preview-label=' Preview '
-        --color='bg+:236,fg+:39:bold,pointer:39,border:244,prompt:39,label:39:bold'
+        --preview-window='right:60%:border-line'
+        --info=hidden
+        --no-separator
+        --no-scrollbar
+        --color='bg+:#1e2030,fg+:#c8d3f5:bold,hl:#82aaff,hl+:#82aaff:bold'
+        --color='pointer:#82aaff,border:#2a2f4a,prompt:#82aaff,label:#65719e'
+        --color='info:#545a7e,separator:#2a2f4a,scrollbar:#2a2f4a'
+        --color='preview-border:#2a2f4a,preview-label:#65719e'
+        --color='header:#65719e,gutter:-1'
         --bind='ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
         --cycle
     )

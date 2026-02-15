@@ -87,16 +87,16 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  >  grep code\\n  @  switch sessions\\n\\n  Enter  open in editor\\n  ^O     send to pane\\n  ^Y     copy path'"
+    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path'"
 
     # Initial preview: welcome if no query, file preview otherwise
     local initial_preview="$welcome_preview"
-    local initial_border_label=" Dispatch "
-    local initial_preview_label=" Guide "
+    local initial_border_label=" dispatch "
+    local initial_preview_label=" guide "
     if [[ -n "$QUERY" ]]; then
         initial_preview="$file_preview"
-        initial_border_label=" Files "
-        initial_preview_label=" Preview "
+        initial_border_label=" files "
+        initial_preview_label=" preview "
     fi
 
     # change:transform handles three concerns:
@@ -109,9 +109,9 @@ run_files_mode() {
 elif [[ {q} == '@'* ]]; then
   echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ -z {q} ]]; then
-  echo \"change-preview($welcome_preview)+change-border-label( Dispatch )+change-preview-label( Guide )\"
+  echo \"change-preview($welcome_preview)+change-border-label( dispatch )+change-preview-label( guide )\"
 else
-  echo \"change-preview($file_preview)+change-border-label( Files )+change-preview-label( Preview )\"
+  echo \"change-preview($file_preview)+change-border-label( files )+change-preview-label( preview )\"
 fi"
 
     # Load shared visual options
@@ -134,7 +134,7 @@ fi"
         --preview-label="$initial_preview_label" \
         --border-label="$initial_border_label" \
         --bind "change:transform:$change_transform" \
-        --bind "focus:change-preview($file_preview)+change-border-label( Files )+change-preview-label( Preview )" \
+        --bind "focus:change-preview($file_preview)+change-border-label( files )+change-preview-label( preview )" \
     ) || exit 0
 
     handle_file_result "$result"
@@ -184,7 +184,7 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label=' Grep ' \
+        --border-label=' grep ' \
         --bind "backward-eof:$become_files_empty" \
     ) || exit 0
 
@@ -311,7 +311,7 @@ run_session_mode() {
             --accept-nth=1 \
             --ansi \
             --no-sort \
-            --border-label=' Sessions ' \
+            --border-label=' sessions ' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
@@ -407,7 +407,7 @@ run_session_new_mode() {
     local selected
     selected=$(eval "$dir_cmd" | sort | fzf \
         "${base_opts[@]}" \
-        --border-label=' New Session ' \
+        --border-label=' new session ' \
         --preview "$preview_cmd" \
     ) || exit 0
 
