@@ -38,6 +38,16 @@ for arg in "$@"; do
     esac
 done
 
+# ─── Validate mode ──────────────────────────────────────────────────────────
+
+case "$MODE" in
+    files|grep|sessions|session-new) ;;
+    *)
+        echo "Unknown mode: $MODE (expected: files, grep, sessions, session-new)"
+        exit 1
+        ;;
+esac
+
 # ─── Read tmux options ───────────────────────────────────────────────────────
 
 POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@dispatch-popup-editor" "")")
@@ -435,8 +445,4 @@ case "$MODE" in
     grep)        run_grep_mode ;;
     sessions)    run_session_mode ;;
     session-new) run_session_new_mode ;;
-    *)
-        echo "Unknown mode: $MODE (expected: files, grep, sessions, session-new)"
-        exit 1
-        ;;
 esac
