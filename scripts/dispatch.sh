@@ -134,6 +134,7 @@ fi"
         --preview-label="$initial_preview_label" \
         --border-label="$initial_border_label" \
         --bind "change:transform:$change_transform" \
+        --bind "focus:change-preview($file_preview)+change-border-label( Files )+change-preview-label( Preview )" \
     ) || exit 0
 
     handle_file_result "$result"
