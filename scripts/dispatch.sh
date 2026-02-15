@@ -97,7 +97,7 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path'"
+    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
 
     # Initial preview: welcome if no query, file preview otherwise
     local initial_preview="$welcome_preview"
@@ -145,6 +145,8 @@ fi"
         --border-label="$initial_border_label" \
         --bind "change:transform:$change_transform" \
         --bind "focus:transform:[[ -n {q} ]] && echo \"change-preview($file_preview)+change-border-label( files )+change-preview-label( preview )\"" \
+        --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-file {})+reload($file_cmd)" \
+        --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files {+})+reload($file_cmd)" \
     ) || exit 0
 
     handle_file_result "$result"
@@ -195,6 +197,7 @@ run_grep_mode() {
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
         --border-label=' grep ' \
+        --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-file {1})+reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true" \
         --bind "backward-eof:$become_files_empty" \
     ) || exit 0
 
@@ -283,20 +286,9 @@ run_session_mode() {
     # Strip leading @ from prefix-based switch
     QUERY="${QUERY#@}"
 
-    # Build session list: name<TAB>  name · Nw · age [· attached]
-    local now session_list
-    now=$(date +%s)
-    session_list=$(
-        tmux list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}' 2>/dev/null |
-        while IFS='|' read -r name wins attached activity; do
-            age=$(format_relative_time $((now - activity)))
-            # Display: name in default color, metadata in grey
-            meta="\033[90m· ${wins}w · ${age}"
-            [ "${attached:-0}" -gt 0 ] && meta="${meta} · attached"
-            meta="${meta}\033[0m"
-            printf '%s\t  %s %b\n' "$name" "$name" "$meta"
-        done
-    )
+    # Build session list via shared helper (also used by reload)
+    local session_list
+    session_list=$("$SCRIPT_DIR/actions.sh" list-sessions)
 
     [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
 
@@ -323,6 +315,7 @@ run_session_mode() {
             --no-sort \
             --border-label=' sessions ' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
+            --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-session {1})+reload('$SCRIPT_DIR/actions.sh' list-sessions)" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
     ) || exit 0

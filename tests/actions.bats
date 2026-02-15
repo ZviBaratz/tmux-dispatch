@@ -1,0 +1,268 @@
+#!/usr/bin/env bats
+# =============================================================================
+# Unit tests for scripts/actions.sh
+# =============================================================================
+# Run with: bats tests/actions.bats
+# Tests action handlers using temp files and mocked tmux.
+# =============================================================================
+
+setup() {
+    SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/../scripts" && pwd)"
+    ACTIONS="$SCRIPT_DIR/actions.sh"
+
+    # Stub tmux so helpers.sh sourcing succeeds
+    export PATH="$BATS_TEST_TMPDIR:$PATH"
+    printf '#!/usr/bin/env bash\necho ""\n' > "$BATS_TEST_TMPDIR/tmux"
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+}
+
+teardown() {
+    rm -f "$BATS_TEST_TMPDIR/tmux"
+}
+
+# ─── rename-file ──────────────────────────────────────────────────────────────
+
+@test "rename-file: successful rename" {
+    local src="$BATS_TEST_TMPDIR/old.txt"
+    local dst="$BATS_TEST_TMPDIR/new.txt"
+    echo "content" > "$src"
+
+    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
+    [ "$status" -eq 0 ]
+    [ ! -f "$src" ]
+    [ -f "$dst" ]
+    [ "$(cat "$dst")" = "content" ]
+}
+
+@test "rename-file: creates parent directories" {
+    local src="$BATS_TEST_TMPDIR/file.txt"
+    local dst="$BATS_TEST_TMPDIR/sub/dir/file.txt"
+    echo "content" > "$src"
+
+    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
+    [ "$status" -eq 0 ]
+    [ -f "$dst" ]
+}
+
+@test "rename-file: same name is a no-op" {
+    local src="$BATS_TEST_TMPDIR/same.txt"
+    echo "content" > "$src"
+
+    run bash -c "echo '$src' | '$ACTIONS' rename-file '$src'"
+    [ "$status" -eq 0 ]
+    [ -f "$src" ]
+}
+
+@test "rename-file: empty input is a no-op" {
+    local src="$BATS_TEST_TMPDIR/keep.txt"
+    echo "content" > "$src"
+
+    run bash -c "echo '' | '$ACTIONS' rename-file '$src'"
+    [ "$status" -eq 0 ]
+    [ -f "$src" ]
+}
+
+@test "rename-file: target exists fails with error" {
+    local src="$BATS_TEST_TMPDIR/a.txt"
+    local dst="$BATS_TEST_TMPDIR/b.txt"
+    echo "aaa" > "$src"
+    echo "bbb" > "$dst"
+
+    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
+    [ "$status" -eq 1 ]
+    # Both files should still exist (no overwrite)
+    [ -f "$src" ]
+    [ -f "$dst" ]
+    [[ "$output" == *"Already exists"* ]]
+}
+
+@test "rename-file: missing file fails with error" {
+    run bash -c "echo '' | '$ACTIONS' rename-file '$BATS_TEST_TMPDIR/nonexistent.txt'"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"File not found"* ]]
+}
+
+# ─── delete-files ─────────────────────────────────────────────────────────────
+
+@test "delete-files: confirmed delete removes files" {
+    local f1="$BATS_TEST_TMPDIR/del1.txt"
+    local f2="$BATS_TEST_TMPDIR/del2.txt"
+    echo "a" > "$f1"
+    echo "b" > "$f2"
+
+    run bash -c "echo 'y' | '$ACTIONS' delete-files '$f1' '$f2'"
+    [ "$status" -eq 0 ]
+    [ ! -f "$f1" ]
+    [ ! -f "$f2" ]
+    [[ "$output" == *"Deleted"* ]]
+}
+
+@test "delete-files: cancelled delete preserves files" {
+    local f1="$BATS_TEST_TMPDIR/keep1.txt"
+    echo "a" > "$f1"
+
+    run bash -c "echo 'n' | '$ACTIONS' delete-files '$f1'"
+    [ "$status" -eq 0 ]
+    [ -f "$f1" ]
+}
+
+@test "delete-files: empty input cancels" {
+    local f1="$BATS_TEST_TMPDIR/keep2.txt"
+    echo "a" > "$f1"
+
+    run bash -c "echo '' | '$ACTIONS' delete-files '$f1'"
+    [ "$status" -eq 0 ]
+    [ -f "$f1" ]
+}
+
+@test "delete-files: no args is a no-op" {
+    run "$ACTIONS" delete-files
+    [ "$status" -eq 0 ]
+}
+
+# ─── rename-session ───────────────────────────────────────────────────────────
+
+@test "rename-session: successful rename calls tmux rename-session" {
+    # Mock tmux: has-session succeeds for old-sess, fails for new-sess
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session)
+        if [ "$3" = "old-sess" ]; then exit 0; else exit 1; fi ;;
+    rename-session) exit 0 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run bash -c "echo 'new-sess' | '$ACTIONS' rename-session 'old-sess'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Renamed"* ]]
+}
+
+@test "rename-session: same name is a no-op" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 0 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run bash -c "echo 'same-sess' | '$ACTIONS' rename-session 'same-sess'"
+    [ "$status" -eq 0 ]
+}
+
+@test "rename-session: session not found fails" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 1 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run bash -c "echo '' | '$ACTIONS' rename-session 'ghost'"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Session not found"* ]]
+}
+
+@test "rename-session: target session exists fails" {
+    # has-session succeeds for both old and new names
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 0 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run bash -c "echo 'existing' | '$ACTIONS' rename-session 'old-sess'"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Session already exists"* ]]
+}
+
+# ─── list-sessions ────────────────────────────────────────────────────────────
+
+@test "list-sessions: formats output correctly" {
+    local now
+    now=$(date +%s)
+    local activity=$((now - 120))  # 2 minutes ago
+
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+case "\$1" in
+    list-sessions) echo "main|3|1|${activity}" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-sessions
+    [ "$status" -eq 0 ]
+    # Output should contain session name, window count, and relative time
+    [[ "$output" == *"main"* ]]
+    [[ "$output" == *"3w"* ]]
+    [[ "$output" == *"2m"* ]]
+    [[ "$output" == *"attached"* ]]
+}
+
+@test "list-sessions: unattached session omits attached label" {
+    local now
+    now=$(date +%s)
+    local activity=$((now - 60))
+
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+case "\$1" in
+    list-sessions) echo "dev|2|0|${activity}" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-sessions
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"dev"* ]]
+    [[ "$output" == *"2w"* ]]
+    [[ "$output" != *"attached"* ]]
+}
+
+@test "list-sessions: tab-delimited format for fzf" {
+    local now
+    now=$(date +%s)
+
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+case "\$1" in
+    list-sessions) echo "work|1|0|${now}" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-sessions
+    [ "$status" -eq 0 ]
+    # First tab-delimited field should be the session name
+    local first_field
+    first_field=$(echo "$output" | cut -f1)
+    [ "$first_field" = "work" ]
+}
+
+# ─── unknown action ──────────────────────────────────────────────────────────
+
+@test "unknown action exits with error" {
+    run "$ACTIONS" bogus-action
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Unknown action"* ]]
+}
