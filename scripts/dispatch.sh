@@ -144,6 +144,17 @@ run_files_mode() {
         [[ -n "$find_name_filter" ]] && find_name_filter+=" \\)"
     fi
 
+    # Extension filter applied after dedup — catches bookmarks/frecency that bypass fd/find.
+    # Two representations: function for direct invocation, string for fzf reload command.
+    local ext_filter_str=""
+    _ext_filter() { cat; }  # no-op default
+    if [[ -n "$FILE_TYPES" ]]; then
+        local ext_re
+        ext_re=$(IFS='|'; exts_arr=(); for e in "${exts[@]}"; do e="${e## }"; e="${e%% }"; [[ -n "$e" ]] && exts_arr+=("$e"); done; echo "${exts_arr[*]}")
+        ext_filter_str="| grep -E '\\.($ext_re)$'"
+        _ext_filter() { grep -E "\\.(${ext_re})$" || true; }
+    fi
+
     if [[ -n "$FD_CMD" ]]; then
         local strip_prefix=""
         $FD_CMD --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
@@ -280,17 +291,17 @@ fi"
     local annotate_cmd="awk -v bfile='$bf' -v pwd='$PWD' -v do_git=$do_git -v prefix='$git_prefix' '${annotate_awk}'"
     local file_list_cmd
     if [[ "$HISTORY_ENABLED" == "on" ]]; then
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' | $annotate_cmd"
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     else
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' | $annotate_cmd"
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     fi
 
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
-            { bookmarks_for_pwd "$PWD"; recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
+            { bookmarks_for_pwd "$PWD"; recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++' | _ext_filter
         else
-            { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
+            { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++' | _ext_filter
         fi | _annotate_files | fzf \
         "${base_opts[@]}" \
         --ansi --delimiter=$'\t' --nth=2.. --tabstop=3 \
