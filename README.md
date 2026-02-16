@@ -34,6 +34,22 @@ Fuzzy file finder, live content search, and session picker as tmux popups. Switc
 - **perl** (required for session preview rendering)
 - **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode)
 
+### Installing dependencies
+
+```bash
+# macOS (Homebrew)
+brew install bash fzf fd bat ripgrep
+
+# Ubuntu / Debian
+sudo apt install fzf fd-find bat ripgrep
+
+# Arch Linux
+pacman -S fzf fd bat ripgrep
+
+# Fedora
+sudo dnf install fzf fd-find bat ripgrep
+```
+
 ## Installation
 
 ### Via [TPM](https://github.com/tmux-plugins/tpm)
@@ -175,6 +191,16 @@ dispatch.sh --mode=session-new
 **Popup not appearing** — tmux < 3.2 doesn't support `display-popup`. The plugin falls back to `split-window` automatically, which opens a pane instead of a floating popup. Upgrade tmux for the popup experience.
 
 **"unknown action: become"** — Mode switching (prefix-based and backspace-to-home) requires fzf 0.38+. Upgrade fzf to use this feature. File finding and grep work without it — you just can't switch between modes.
+
+**"command not found" for fzf/fd/rg** — tmux runs plugins in a minimal environment that may not include your login shell's PATH. The plugin automatically checks common locations (Homebrew, mise, asdf, Nix, Cargo), but if your tools are installed elsewhere, add this to your `~/.tmux.conf`:
+
+```tmux
+set-environment -g PATH "/your/custom/bin:$PATH"
+```
+
+**Clipboard not working on WSL** — The `Ctrl+Y` copy uses `tmux load-buffer -w`, which syncs to the system clipboard via tmux's `set-clipboard` option. On WSL, you may need to install [`win32yank`](https://github.com/equalsraf/win32yank) or configure tmux to use `clip.exe`. See the [tmux wiki on clipboard](https://github.com/tmux/tmux/wiki/Clipboard) for details.
+
+**Box-drawing characters garbled** — The session preview uses Unicode box-drawing (┌─│└). If these render as question marks or garbled text, ensure your terminal uses a Unicode-capable font (e.g., any Nerd Font, JetBrains Mono, or Fira Code).
 
 **Filenames with colons** — Grep mode parses `file:line:content` using colon as a delimiter. Files with `:` in the name (rare on Unix, impossible on Windows) will not be handled correctly. This is a known limitation shared by virtually all fzf+rg workflows.
 

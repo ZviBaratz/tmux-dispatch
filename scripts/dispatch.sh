@@ -20,6 +20,16 @@
 
 set -euo pipefail
 
+# ─── Require bash 4.0+ ──────────────────────────────────────────────────────
+# mapfile, declare -A (associative arrays), and [[ -v ]] need bash 4.0+.
+# macOS ships bash 3.2 — users need: brew install bash
+if ((BASH_VERSINFO[0] < 4)); then
+    echo "tmux-dispatch requires bash 4.0+ (found ${BASH_VERSION})."
+    echo "macOS users: brew install bash"
+    echo "Then ensure the Homebrew bash is first in your PATH."
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "$SCRIPT_DIR/helpers.sh"

@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Recently opened files appear first in file finder
-
 ## [1.0.0] - 2026-02-12
 
 ### Added
@@ -21,8 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dual-action editing: popup editor and send-to-pane
 - Multi-select in file mode with `Tab`/`Shift+Tab`
 - Clipboard support via `Ctrl+Y`
+- In-place rename and delete actions for files and sessions
+- Recently opened files appear first in file finder (configurable via `@dispatch-history`)
 - Configurable keybindings, popup size, and editor preferences
 - Graceful fallbacks for `fd`, `bat`, and `rg`
+- PATH augmentation for Homebrew, mise, asdf, Nix, and Cargo
+- Bash 4.0+ version guard with clear error message on macOS
 - tmux < 3.2 support via `split-window` fallback
 - CI pipeline with ShellCheck, syntax checking, and bats tests
 

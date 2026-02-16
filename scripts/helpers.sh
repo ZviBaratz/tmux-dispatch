@@ -3,6 +3,28 @@
 # helpers.sh — Shared utilities for tmux-dispatch
 # =============================================================================
 
+# ─── PATH augmentation ──────────────────────────────────────────────────────
+# tmux's run-shell / display-popup may not inherit the user's login PATH.
+# Ensure common tool locations are reachable (idempotent, no duplicates).
+_dispatch_augment_path() {
+    local -a dirs=(
+        /opt/homebrew/bin          # macOS Homebrew (Apple Silicon)
+        /usr/local/bin             # macOS Homebrew (Intel) / Linux manual installs
+        "$HOME/.local/bin"         # pip, pipx, cargo, etc.
+        "$HOME/.cargo/bin"         # Rust / cargo installs
+        "$HOME/.nix-profile/bin"   # Nix single-user
+        /run/current-system/sw/bin # NixOS system profile
+    )
+    # mise/asdf shims — only if the shim dir exists
+    [[ -d "$HOME/.local/share/mise/shims" ]] && dirs+=("$HOME/.local/share/mise/shims")
+    [[ -d "$HOME/.asdf/shims" ]] && dirs+=("$HOME/.asdf/shims")
+    for d in "${dirs[@]}"; do
+        [[ -d "$d" ]] && [[ ":$PATH:" != *":$d:"* ]] && PATH="$PATH:$d"
+    done
+    export PATH
+}
+_dispatch_augment_path
+
 # Read a tmux option with fallback to default
 get_tmux_option() {
     local option="$1" default="$2"

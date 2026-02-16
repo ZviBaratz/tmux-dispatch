@@ -41,6 +41,21 @@ jobs:
             test -x "$f"
           done
 
+      - name: Verify bash 3.2 version guard (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # macOS ships /bin/bash 3.2 — dispatch.sh must reject it gracefully
+          output=$(/bin/bash scripts/dispatch.sh --mode=files 2>&1) && {
+            echo "FAIL: dispatch.sh should have exited non-zero under bash 3.2"
+            exit 1
+          }
+          echo "$output"
+          echo "$output" | grep -q "requires bash 4.0+" || {
+            echo "FAIL: expected clear version error, got unexpected output"
+            exit 1
+          }
+          echo "PASS: bash 3.2 version guard works"
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
