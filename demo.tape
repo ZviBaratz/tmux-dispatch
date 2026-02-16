@@ -10,46 +10,181 @@ Set Width 1200
 Set Height 700
 Set Padding 10
 
-# Set up a sample project and start tmux with the plugin loaded
-Type "mkdir -p /tmp/demo-project/src /tmp/demo-project/tests /tmp/demo-project/docs"
-Enter
-Sleep 500ms
-Type "echo 'hello world' > /tmp/demo-project/src/main.sh && echo 'function greet() { return 42; }' > /tmp/demo-project/src/utils.sh && echo '# Project Guide' > /tmp/demo-project/docs/guide.md && echo 'test case' > /tmp/demo-project/tests/test.sh"
-Enter
-Sleep 500ms
+# ─── Set up a sample project with colorful content ──────────────────────────
 
-# Start tmux session and load the plugin
+Type "mkdir -p /tmp/demo-project/src /tmp/demo-project/tests /tmp/demo-project/docs /tmp/demo-project/scripts"
+Enter
+Sleep 300ms
+
+# Create files with enough content for bat to syntax-highlight
+Type@0 "cat > /tmp/demo-project/src/main.sh << 'EOF'"
+Enter
+Type@0 "#!/usr/bin/env bash"
+Enter
+Type@0 "# Main entry point for the application"
+Enter
+Type@0 "source ./src/utils.sh"
+Enter
+Type@0 ""
+Enter
+Type@0 "main() {"
+Enter
+Type@0 "    local name=\"\${1:-world}\""
+Enter
+Type@0 "    echo \"$(greet \"$name\") — running v$(version)\""
+Enter
+Type@0 "}"
+Enter
+Type@0 ""
+Enter
+Type@0 "main \"\$@\""
+Enter
+Type@0 "EOF"
+Enter
+Sleep 200ms
+
+Type@0 "cat > /tmp/demo-project/src/utils.sh << 'EOF'"
+Enter
+Type@0 "#!/usr/bin/env bash"
+Enter
+Type@0 "# Shared utility functions"
+Enter
+Type@0 ""
+Enter
+Type@0 "greet() { echo \"Hello, \$1!\"; }"
+Enter
+Type@0 "version() { echo \"1.2.0\"; }"
+Enter
+Type@0 "EOF"
+Enter
+Sleep 200ms
+
+Type@0 "cat > /tmp/demo-project/tests/test_main.sh << 'EOF'"
+Enter
+Type@0 "#!/usr/bin/env bash"
+Enter
+Type@0 "# Test suite for main.sh"
+Enter
+Type@0 "source ./src/utils.sh"
+Enter
+Type@0 ""
+Enter
+Type@0 "test_greet() {"
+Enter
+Type@0 "    result=\"$(greet 'Alice')\""
+Enter
+Type@0 "    [ \"$result\" = \"Hello, Alice!\" ] && echo 'PASS: greet' || echo 'FAIL: greet'"
+Enter
+Type@0 "}"
+Enter
+Type@0 ""
+Enter
+Type@0 "test_greet"
+Enter
+Type@0 "EOF"
+Enter
+Sleep 200ms
+
+Type@0 "cat > /tmp/demo-project/docs/README.md << 'EOF'"
+Enter
+Type@0 "# Demo Project"
+Enter
+Type@0 ""
+Enter
+Type@0 "A sample project to demonstrate **tmux-dispatch**."
+Enter
+Type@0 ""
+Enter
+Type@0 "## Usage"
+Enter
+Type@0 ""
+Enter
+Type@0 "Run \`./src/main.sh\` to greet the world."
+Enter
+Type@0 "EOF"
+Enter
+Sleep 200ms
+
+Type@0 "cat > /tmp/demo-project/scripts/deploy.sh << 'EOF'"
+Enter
+Type@0 "#!/usr/bin/env bash"
+Enter
+Type@0 "set -euo pipefail"
+Enter
+Type@0 "echo \"Deploying version $(cat VERSION)...\""
+Enter
+Type@0 "echo \"Hello from deploy script\""
+Enter
+Type@0 "EOF"
+Enter
+Sleep 200ms
+
+Type@0 "echo '1.2.0' > /tmp/demo-project/VERSION"
+Enter
+Sleep 200ms
+
+# ─── Start tmux and load the plugin ─────────────────────────────────────────
+
+# Get the plugin directory (where demo.tape lives)
+Type "PLUGIN_DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]:-$0}\")\" && pwd)\""
+Enter
+Sleep 200ms
 Type "cd /tmp/demo-project && tmux new-session -d -s demo"
 Enter
 Sleep 500ms
-Type "tmux run-shell $PWD/dispatch.tmux && tmux attach -t demo"
+Type "tmux run-shell \"$PLUGIN_DIR/dispatch.tmux\" && tmux attach -t demo"
 Enter
 Sleep 1.5s
 Type "clear"
 Enter
 Sleep 1s
 
+# ─── 1. File finder — welcome cheat sheet ───────────────────────────────────
+
 # Open file finder with Alt+O
 Alt+o
-Sleep 2s
+Sleep 2.5s
 
-# Type a partial filename to filter
+# ─── 2. Type to filter files (bat preview appears) ─────────────────────────
+
 Type@150ms "main"
-Sleep 1.5s
-
-# Switch to grep mode with Ctrl+G
-Ctrl+g
 Sleep 2s
 
-# Search for content
-Type@150ms "hello"
+# ─── 3. Switch to grep mode with > prefix ──────────────────────────────────
+
+# Clear the query first, then type > to switch modes
+Ctrl+u
+Sleep 500ms
+Type@150ms ">greet"
+Sleep 2.5s
+
+# ─── 4. Show grep results ──────────────────────────────────────────────────
+
+# Clear and try another search
+Ctrl+u
+Sleep 300ms
+Type@150ms "Hello"
 Sleep 2s
 
-# Press Escape to close
+# ─── 5. Return to files via backspace on empty ─────────────────────────────
+
+Ctrl+u
+Sleep 300ms
+Backspace
+Sleep 2s
+
+# ─── 6. Switch to sessions with @ prefix ───────────────────────────────────
+
+Type@150ms "@"
+Sleep 2s
+
+# ─── 7. Close ──────────────────────────────────────────────────────────────
+
 Escape
 Sleep 1s
 
-# Clean up
+# ─── Clean up ───────────────────────────────────────────────────────────────
+
 Type "exit"
 Enter
 Sleep 500ms

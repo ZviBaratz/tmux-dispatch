@@ -6,8 +6,11 @@
 
 Fuzzy file finder, live content search, and session picker as tmux popups. Switch between modes mid-session, edit files in the popup, manage sessions, or send commands to your working pane.
 
-<!-- Demo GIF: record with `vhs demo.tape` (requires https://github.com/charmbracelet/vhs) -->
-<!-- TODO: embed demo.gif once recorded -->
+<p align="center">
+  <img src="demo.gif" alt="tmux-dispatch demo" width="800">
+</p>
+
+<!-- Re-record: vhs demo.tape (requires https://github.com/charmbracelet/vhs) -->
 
 ## Features
 
