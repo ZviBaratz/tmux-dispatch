@@ -711,7 +711,7 @@ run_directory_mode() {
     # Directory listing command
     _run_dir_cmd() {
         if [[ -n "$ZOXIDE_CMD" ]]; then
-            zoxide query --list 2>/dev/null | grep -F "$PWD" || true
+            zoxide query --list 2>/dev/null | sed "s|^$HOME|~|" || true
         elif [[ -n "$FD_CMD" ]]; then
             "$FD_CMD" --type d --hidden --follow --exclude .git
         else
@@ -719,14 +719,14 @@ run_directory_mode() {
         fi
     }
 
-    # Preview command
+    # Preview command — expand display ~ back to $HOME for tool access
     local dir_preview
     if command -v tree &>/dev/null; then
-        dir_preview="tree -C -L 2 {}"
+        dir_preview="tree -C -L 2 \"\$(echo {} | sed \"s|^~|$HOME|\")\""
     elif ls --color=always /dev/null 2>/dev/null; then
-        dir_preview="ls -la --color=always {}"
+        dir_preview="ls -la --color=always \"\$(echo {} | sed \"s|^~|$HOME|\")\""
     else
-        dir_preview="ls -laG {}"
+        dir_preview="ls -laG \"\$(echo {} | sed \"s|^~|$HOME|\")\""
     fi
 
     local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
@@ -756,6 +756,9 @@ handle_directory_result() {
     key=$(head -1 <<< "$result")
     dir=$(tail -1 <<< "$result")
     [[ -z "$dir" ]] && exit 0
+
+    # Expand display ~ back to $HOME for correct shell handling
+    [[ "$dir" == "~"* ]] && dir="$HOME${dir#\~}"
 
     case "$key" in
         ctrl-y)
