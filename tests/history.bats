@@ -194,3 +194,37 @@ teardown() {
     [ "$status" -eq 0 ]
     [ "$output" = "" ]
 }
+
+@test "recent_files_for_pwd: handles glob metacharacters in filenames" {
+    local hf
+    hf=$(_dispatch_history_file)
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    # Files with glob metacharacters: [, *, ?
+    touch "$BATS_TEST_TMPDIR/proj/test[1].txt"
+    touch "$BATS_TEST_TMPDIR/proj/star*.log"
+    touch "$BATS_TEST_TMPDIR/proj/what?.md"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "test[1].txt" >> "$hf"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "star*.log" >> "$hf"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "what?.md" >> "$hf"
+    run recent_files_for_pwd "$BATS_TEST_TMPDIR/proj"
+    [ "$status" -eq 0 ]
+    [ "${#lines[@]}" -eq 3 ]
+    # Newest first (tac reverses)
+    [ "${lines[0]}" = "what?.md" ]
+    [ "${lines[1]}" = "star*.log" ]
+    [ "${lines[2]}" = "test[1].txt" ]
+}
+
+@test "recent_files_for_pwd: deduplicates files with glob metacharacters" {
+    local hf
+    hf=$(_dispatch_history_file)
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/test[1].txt"
+    # Same file opened multiple times
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "test[1].txt" >> "$hf"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "test[1].txt" >> "$hf"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "test[1].txt" >> "$hf"
+    run recent_files_for_pwd "$BATS_TEST_TMPDIR/proj"
+    [ "${#lines[@]}" -eq 1 ]
+    [ "${lines[0]}" = "test[1].txt" ]
+}

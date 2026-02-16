@@ -78,8 +78,14 @@ fi
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
 run_files_mode() {
-    # File listing command
+    # File listing command — built as both a string (for fzf reload bindings)
+    # and invoked directly via _run_file_cmd (avoids eval for the initial pipe).
+    # Note: fzf reload bindings execute strings via sh -c; FD_EXTRA_ARGS is a
+    # trust boundary (set by the user themselves via tmux options, not external input).
     local file_cmd
+    local -a fd_extra_args_arr=()
+    [[ -n "$FD_EXTRA_ARGS" ]] && read -ra fd_extra_args_arr <<< "$FD_EXTRA_ARGS"
+
     if [[ -n "$FD_CMD" ]]; then
         local strip_prefix=""
         $FD_CMD --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
@@ -87,6 +93,15 @@ run_files_mode() {
     else
         file_cmd="find . -type f -not -path '*/.git/*'"
     fi
+
+    _run_file_cmd() {
+        if [[ -n "$FD_CMD" ]]; then
+            "$FD_CMD" --type f --hidden --follow --exclude .git \
+                ${strip_prefix:+"$strip_prefix"} "${fd_extra_args_arr[@]}"
+        else
+            find . -type f -not -path '*/.git/*'
+        fi
+    }
 
     # File preview command (bat or head fallback)
     local file_preview
@@ -99,12 +114,18 @@ run_files_mode() {
     # Welcome cheat sheet shown when query is empty
     local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
 
-    # Initial preview: welcome if no query, file preview otherwise
-    local initial_preview="$welcome_preview"
+    # Flag file: preview shows welcome on first run (flag exists), file preview after
+    local welcome_flag
+    welcome_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXX")
+    trap 'command rm -f "$welcome_flag"' EXIT
+
+    # Smart preview: when flag exists → welcome + delete flag; otherwise → file preview
+    local smart_preview="if [ -f '$welcome_flag' ]; then command rm -f '$welcome_flag'; $welcome_preview; else $file_preview; fi"
+
     local initial_border_label=" dispatch "
     local initial_preview_label=" guide "
     if [[ -n "$QUERY" ]]; then
-        initial_preview="$file_preview"
+        command rm -f "$welcome_flag"  # skip welcome when query is provided
         initial_border_label=" files "
         initial_preview_label=" preview "
     fi
@@ -113,15 +134,19 @@ run_files_mode() {
     # 1. > prefix → become grep mode
     # 2. @ prefix → become sessions mode
     # 3. empty ↔ non-empty → toggle welcome/file preview and border label
+    #
+    # Uses execute-silent + refresh-preview to update the flag file and re-run
+    # the smart preview, rather than change-preview which would replace the
+    # stateful preview command with a static one.
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
   echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ {q} == '@'* ]]; then
   echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ -z {q} ]]; then
-  echo \"change-preview($welcome_preview)+change-border-label( dispatch )+change-preview-label( guide )\"
+  echo \"execute-silent(touch '$welcome_flag')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
 else
-  echo \"change-preview($file_preview)+change-border-label( files )+change-preview-label( preview )\"
+  echo \"execute-silent(command rm -f '$welcome_flag')+refresh-preview+change-border-label( files )+change-preview-label( preview )\"
 fi"
 
     # Load shared visual options
@@ -131,20 +156,23 @@ fi"
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
-            { recent_files_for_pwd "$PWD"; eval "$file_cmd"; } | awk '!seen[$0]++'
+            { recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
         else
-            eval "$file_cmd"
+            _run_file_cmd
         fi | fzf \
         "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
         --prompt '  ' \
-        --preview "$initial_preview" \
+        --preview "$smart_preview" \
         --preview-label="$initial_preview_label" \
         --border-label="$initial_border_label" \
         --bind "change:transform:$change_transform" \
-        --bind "focus:transform:[[ -n {q} ]] && echo \"change-preview($file_preview)+change-border-label( files )+change-preview-label( preview )\"" \
+        --bind "focus:change-border-label( files )+change-preview-label( preview )" \
+        --bind "start:unbind(focus)" \
+        --bind "down:rebind(focus)+down" \
+        --bind "up:rebind(focus)+up" \
         --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-file {})+reload($file_cmd)" \
         --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files {+})+reload($file_cmd)" \
     ) || exit 0
@@ -171,21 +199,28 @@ run_grep_mode() {
     # Backspace-on-empty returns to files (home)
     local become_files_empty="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
 
-    # Live reload rg on every keystroke
+    # Live reload rg on every keystroke (fzf executes via sh -c — must be a string).
+    # RG_EXTRA_ARGS is a trust boundary: set by the user via tmux options, not external input.
     local rg_reload="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true"
 
-    # Seed results if we have an initial query from mode switch
-    local initial_cmd=":"
-    if [[ -n "$QUERY" ]]; then
-        initial_cmd="$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- $(printf '%q' "$QUERY") || true"
-    fi
+    # Split RG_EXTRA_ARGS for safe direct invocation (avoids eval)
+    local -a rg_extra_args_arr=()
+    [[ -n "$RG_EXTRA_ARGS" ]] && read -ra rg_extra_args_arr <<< "$RG_EXTRA_ARGS"
+
+    # Seed results directly if we have an initial query from mode switch
+    _run_initial_rg() {
+        if [[ -n "$QUERY" ]]; then
+            "$RG_CMD" --line-number --no-heading --color=always --smart-case \
+                "${rg_extra_args_arr[@]}" -- "$QUERY" || true
+        fi
+    }
 
     # Load shared visual options
     local -a base_opts
     mapfile -t base_opts < <(build_fzf_base_opts)
 
     local result
-    result=$(eval "$initial_cmd" | fzf \
+    result=$(_run_initial_rg | fzf \
         "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --disabled \
@@ -227,9 +262,9 @@ handle_file_result() {
                 local quoted_files=""
                 for f in "${files[@]}"; do
                     [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
-                    quoted_files+=" $(printf '%q' "$f")"
+                    quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
                 done
-                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR$quoted_files" Enter
+                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $quoted_files" Enter
             else
                 tmux display-message "No target pane available"
             fi
@@ -370,37 +405,40 @@ run_session_new_mode() {
     local session_dirs
     session_dirs=$(get_tmux_option "@dispatch-session-dirs" "$HOME/Projects")
 
-    # Build directory listing from all configured dirs (colon-separated)
-    local dir_cmd=""
+    # Collect valid session directories (colon-separated)
+    local -a valid_dirs=()
     local IFS=':'
     for dir in $session_dirs; do
-        [[ -d "$dir" ]] || continue
-        if [[ -n "$FD_CMD" ]]; then
-            local part="$FD_CMD --type d --max-depth 1 --min-depth 1 . '$dir'"
-        else
-            local part="find '$dir' -mindepth 1 -maxdepth 1 -type d"
-        fi
-        if [[ -n "$dir_cmd" ]]; then
-            dir_cmd="$dir_cmd; $part"
-        else
-            dir_cmd="$part"
-        fi
+        [[ -d "$dir" ]] && valid_dirs+=("$dir")
     done
     unset IFS
 
-    if [[ -z "$dir_cmd" ]]; then
+    if [[ ${#valid_dirs[@]} -eq 0 ]]; then
         echo "No valid session directories found."
         echo "Configure with: set -g @dispatch-session-dirs '/path/one:/path/two'"
         read -r -p "Press Enter to close..."
         exit 1
     fi
 
-    # Preview with ls or tree
+    # List subdirectories from all configured dirs (avoids eval)
+    _run_dir_cmd() {
+        for dir in "${valid_dirs[@]}"; do
+            if [[ -n "$FD_CMD" ]]; then
+                "$FD_CMD" --type d --max-depth 1 --min-depth 1 . "$dir"
+            else
+                find "$dir" -mindepth 1 -maxdepth 1 -type d
+            fi
+        done
+    }
+
+    # Preview with ls or tree (ls -G for macOS BSD, --color for GNU)
     local preview_cmd
     if command -v tree &>/dev/null; then
         preview_cmd="tree -C -L 2 {}"
-    else
+    elif ls --color=always /dev/null 2>/dev/null; then
         preview_cmd="ls -la --color=always {}"
+    else
+        preview_cmd="ls -laG {}"
     fi
 
     # Load shared visual options
@@ -408,7 +446,7 @@ run_session_new_mode() {
     mapfile -t base_opts < <(build_fzf_base_opts)
 
     local selected
-    selected=$(eval "$dir_cmd" | sort | fzf \
+    selected=$(_run_dir_cmd | sort | fzf \
         "${base_opts[@]}" \
         --border-label=' new session ' \
         --preview "$preview_cmd" \

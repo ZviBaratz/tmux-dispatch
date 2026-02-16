@@ -196,3 +196,45 @@ teardown() {
     '
     [ "$status" -eq 0 ]
 }
+
+# ─── quoted_files building ─────────────────────────────────────────────────
+
+@test "quoted_files: builds space-separated quoted list" {
+    run bash -c '
+        files=("src/main.sh" "my file.txt" "test.sh")
+        quoted_files=""
+        for f in "${files[@]}"; do
+            quoted_files="${quoted_files:+$quoted_files }$(printf "%q" "$f")"
+        done
+        echo "EDITOR $quoted_files"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == "EDITOR src/main.sh my\\ file.txt test.sh" ]]
+}
+
+@test "quoted_files: single file has no leading space" {
+    run bash -c '
+        files=("src/main.sh")
+        quoted_files=""
+        for f in "${files[@]}"; do
+            quoted_files="${quoted_files:+$quoted_files }$(printf "%q" "$f")"
+        done
+        echo "EDITOR $quoted_files"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == "EDITOR src/main.sh" ]]
+}
+
+@test "quoted_files: handles special characters" {
+    run bash -c '
+        files=("file with spaces.txt" "test[1].txt" "name'\''s file.sh")
+        quoted_files=""
+        for f in "${files[@]}"; do
+            quoted_files="${quoted_files:+$quoted_files }$(printf "%q" "$f")"
+        done
+        # Verify EDITOR and first arg are separated by exactly one space
+        [[ "$quoted_files" == file* ]] || { echo "unexpected leading char"; exit 1; }
+        echo "$quoted_files"
+    '
+    [ "$status" -eq 0 ]
+}

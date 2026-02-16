@@ -39,7 +39,7 @@ action_rename_file() {
     local dir
     dir=$(dirname "$new_name")
     [[ -d "$dir" ]] || mkdir -p "$dir"
-    mv "$file" "$new_name"
+    command mv "$file" "$new_name"
     printf ' \033[32mRenamed.\033[0m\n'
     sleep 0.3
 }
@@ -56,7 +56,7 @@ action_delete_files() {
     read -r ans
 
     [[ "$ans" == [yY] ]] || exit 0
-    rm "${files[@]}"
+    command rm "${files[@]}"
     printf ' \033[32mDeleted.\033[0m\n'
     sleep 0.3
 }
