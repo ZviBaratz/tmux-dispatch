@@ -3,7 +3,7 @@
 # Produces: demo.gif
 # Requires: vhs (https://github.com/charmbracelet/vhs), tmux, fzf, fd, bat, rg
 
-Output demo.gif
+Output assets/demo.gif
 Set Shell bash
 Set FontSize 14
 Set Width 1200
