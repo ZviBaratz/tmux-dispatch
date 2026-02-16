@@ -6,6 +6,8 @@
 # so fzf can reload() the list afterward.
 #
 # Usage: actions.sh <action> [args...]
+#   edit-file     <editor> <pwd> <history> <file>...  Open files in editor
+#   edit-grep     <editor> <pwd> <history> <file> <line>  Open file at line
 #   rename-file   <filepath>       Rename a single file
 #   delete-files  <file>...        Delete one or more files (with confirmation)
 #   rename-session <session-name>  Rename a tmux session
@@ -17,6 +19,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "$SCRIPT_DIR/helpers.sh"
+
+# ─── edit-file ───────────────────────────────────────────────────────────────
+
+action_edit_file() {
+    local editor="$1"; shift
+    local pwd_dir="$1"; shift
+    local history_enabled="$1"; shift
+    [[ $# -eq 0 ]] && return 0
+    if [[ "$history_enabled" == "on" ]]; then
+        for f in "$@"; do record_file_open "$pwd_dir" "$f"; done
+    fi
+    "$editor" "$@"
+}
+
+# ─── edit-grep ───────────────────────────────────────────────────────────────
+
+action_edit_grep() {
+    local editor="$1" pwd_dir="$2" history_enabled="$3" file="$4" line_num="$5"
+    [[ -z "$file" ]] && return 0
+    [[ "$line_num" =~ ^[0-9]+$ ]] || line_num=1
+    [[ "$history_enabled" == "on" ]] && record_file_open "$pwd_dir" "$file"
+    "$editor" "+$line_num" "$file"
+}
 
 # ─── rename-file ──────────────────────────────────────────────────────────────
 
@@ -160,6 +185,8 @@ action="${1:-}"
 shift || true
 
 case "$action" in
+    edit-file)              action_edit_file "$@" ;;
+    edit-grep)              action_edit_grep "$@" ;;
     rename-file)            action_rename_file "$@" ;;
     delete-files)           action_delete_files "$@" ;;
     rename-session)         action_rename_session "$@" ;;

@@ -199,6 +199,7 @@ fi"
         --bind "up:rebind(focus)+up" \
         --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={})" \
         --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files {+})+reload($file_cmd)" \
+        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {+})" \
     ) || exit 0
 
     handle_file_result "$result"
@@ -258,6 +259,7 @@ run_grep_mode() {
         --border-label=' grep ' \
         --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
+        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-grep '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {1} {2})" \
     ) || exit 0
 
     handle_grep_result "$result"
@@ -294,11 +296,7 @@ handle_file_result() {
             fi
             ;;
         *)
-            # Open in popup editor
-            if [[ "$HISTORY_ENABLED" == "on" ]]; then
-                for f in "${files[@]}"; do record_file_open "$PWD" "$f"; done
-            fi
-            exec "$POPUP_EDITOR" "${files[@]}"
+            # Enter is now handled by fzf execute() binding — this branch is a no-op
             ;;
     esac
 }
@@ -332,9 +330,7 @@ handle_grep_result() {
             fi
             ;;
         *)
-            # Open in popup editor at matching line
-            [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-            exec "$POPUP_EDITOR" "+$line_num" "$file"
+            # Enter is now handled by fzf execute() binding — this branch is a no-op
             ;;
     esac
 }

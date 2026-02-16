@@ -365,6 +365,115 @@ MOCK
     [[ "$output" == *"empty"* ]]
 }
 
+# ─── edit-file ────────────────────────────────────────────────────────────────
+
+@test "edit-file: calls editor with all files" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    run "$ACTIONS" edit-file "$BATS_TEST_TMPDIR/mock-editor" "/some/dir" "off" "a.txt" "b.txt"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$log")" = "$(printf 'a.txt\nb.txt')" ]
+}
+
+@test "edit-file: no-op when no files given" {
+    run "$ACTIONS" edit-file "/bin/false" "/some/dir" "off"
+    [ "$status" -eq 0 ]
+}
+
+@test "edit-file: records history when enabled" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    local history_file="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/history"
+
+    run "$ACTIONS" edit-file "$BATS_TEST_TMPDIR/mock-editor" "/wd" "on" "foo.txt" "bar.txt"
+    [ "$status" -eq 0 ]
+    [ -f "$log" ]
+    [ -f "$history_file" ]
+    local count
+    count=$(wc -l < "$history_file")
+    [ "$count" -eq 2 ]
+}
+
+@test "edit-file: skips history when disabled" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    local history_file="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/history"
+
+    run "$ACTIONS" edit-file "$BATS_TEST_TMPDIR/mock-editor" "/wd" "off" "foo.txt"
+    [ "$status" -eq 0 ]
+    [ -f "$log" ]
+    [ ! -f "$history_file" ]
+}
+
+# ─── edit-grep ────────────────────────────────────────────────────────────────
+
+@test "edit-grep: calls editor with +line and file" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    run "$ACTIONS" edit-grep "$BATS_TEST_TMPDIR/mock-editor" "/some/dir" "off" "main.rs" "42"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$log")" = "$(printf '+42\nmain.rs')" ]
+}
+
+@test "edit-grep: defaults invalid line number to 1" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    run "$ACTIONS" edit-grep "$BATS_TEST_TMPDIR/mock-editor" "/dir" "off" "file.rs" "notanum"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$log")" = "$(printf '+1\nfile.rs')" ]
+}
+
+@test "edit-grep: no-op when file is empty" {
+    run "$ACTIONS" edit-grep "/bin/false" "/dir" "off" "" "10"
+    [ "$status" -eq 0 ]
+}
+
+@test "edit-grep: records history when enabled" {
+    local log="$BATS_TEST_TMPDIR/editor.log"
+    cat > "$BATS_TEST_TMPDIR/mock-editor" <<MOCK
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/mock-editor"
+
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    local history_file="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/history"
+
+    run "$ACTIONS" edit-grep "$BATS_TEST_TMPDIR/mock-editor" "/wd" "on" "file.rs" "10"
+    [ "$status" -eq 0 ]
+    [ -f "$history_file" ]
+    local count
+    count=$(wc -l < "$history_file")
+    [ "$count" -eq 1 ]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {
