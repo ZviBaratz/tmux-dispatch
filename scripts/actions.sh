@@ -179,6 +179,35 @@ action_rename_session_preview() {
     fi
 }
 
+# ─── bookmark-toggle ─────────────────────────────────────────────────────────
+
+action_bookmark_toggle() {
+    local pwd_dir="$1" file="$2"
+    [[ -z "$file" ]] && return 0
+    local result
+    result=$(toggle_bookmark "$pwd_dir" "$file")
+    if [[ "$result" == "added" ]]; then
+        tmux display-message "Bookmarked: $file"
+    else
+        tmux display-message "Unbookmarked: $file"
+    fi
+}
+
+# ─── git-toggle ──────────────────────────────────────────────────────────────
+
+action_git_toggle() {
+    local file="$1"
+    [[ -z "$file" ]] && return 0
+    # Check if file is staged (index has changes)
+    local staged
+    staged=$(git diff --cached --name-only -- "$file" 2>/dev/null)
+    if [[ -n "$staged" ]]; then
+        git restore --staged -- "$file"
+    else
+        git add -- "$file"
+    fi
+}
+
 # ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 action="${1:-}"
@@ -193,9 +222,11 @@ case "$action" in
     rename-preview)         action_rename_preview "$@" ;;
     rename-session-preview) action_rename_session_preview "$@" ;;
     list-sessions)          action_list_sessions ;;
+    git-toggle)             action_git_toggle "$@" ;;
+    bookmark-toggle)        action_bookmark_toggle "$@" ;;
     *)
         echo "Unknown action: $action"
-        echo "Usage: actions.sh <rename-file|delete-files|rename-session|list-sessions> [args...]"
+        echo "Usage: actions.sh <action> [args...]"
         exit 1
         ;;
 esac

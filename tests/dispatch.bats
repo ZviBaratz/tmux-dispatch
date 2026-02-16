@@ -136,6 +136,24 @@ teardown() {
     [ "$output" = "mysession" ]
 }
 
+@test "git mode strips leading ! from query" {
+    run bash -c '
+        QUERY="!unstaged"
+        QUERY="${QUERY#!}"
+        echo "$QUERY"
+    '
+    [ "$output" = "unstaged" ]
+}
+
+@test "directory mode strips leading # from query" {
+    run bash -c '
+        QUERY="#src/components"
+        QUERY="${QUERY#\#}"
+        echo "$QUERY"
+    '
+    [ "$output" = "src/components" ]
+}
+
 # ─── Session name sanitization ──────────────────────────────────────────────
 
 @test "session name: dots replaced with dashes" {
@@ -237,4 +255,166 @@ teardown() {
         echo "$quoted_files"
     '
     [ "$status" -eq 0 ]
+}
+
+# ─── FILE_TYPES parsing ──────────────────────────────────────────────────
+
+@test "FILE_TYPES: parses comma-separated extensions into --extension flags" {
+    run bash -c '
+        FILE_TYPES="py,rs, js "
+        type_flags=()
+        IFS="," read -ra exts <<< "$FILE_TYPES"
+        for ext in "${exts[@]}"; do
+            ext="${ext## }"; ext="${ext%% }"
+            [[ -n "$ext" ]] || continue
+            type_flags+=(--extension "$ext")
+        done
+        printf "%s\n" "${type_flags[@]}"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "--extension" ]
+    [ "${lines[1]}" = "py" ]
+    [ "${lines[2]}" = "--extension" ]
+    [ "${lines[3]}" = "rs" ]
+    [ "${lines[4]}" = "--extension" ]
+    [ "${lines[5]}" = "js" ]
+}
+
+# ─── Git annotation awk ──────────────────────────────────────────────────
+
+_setup_git_repo() {
+    local repo="$BATS_TEST_TMPDIR/git-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" config user.email "test@test.com"
+    git -C "$repo" config user.name "Test"
+    echo "clean" > "$repo/clean.txt"
+    echo "tracked" > "$repo/modified.txt"
+    git -C "$repo" add . && git -C "$repo" commit -q -m "init"
+    echo "changed" > "$repo/modified.txt"
+    echo "new" > "$repo/untracked.txt"
+    echo "$repo"
+}
+
+# Extract the awk body from dispatch.sh to test it in isolation.
+# We duplicate it here rather than sourcing dispatch.sh (which requires fzf/tmux).
+_git_annotate_awk='BEGIN {
+    plen = length(prefix)
+    cmd = "git status --porcelain 2>/dev/null"
+    while ((cmd | getline line) > 0) {
+        xy = substr(line, 1, 2)
+        file = substr(line, 4)
+        if (plen > 0) {
+            if (substr(file, 1, plen) != prefix) continue
+            file = substr(file, plen + 1)
+        }
+        x = substr(xy, 1, 1)
+        y = substr(xy, 2, 1)
+        if (x == "?" && y == "?")       s[file] = "\033[33m?\033[0m"
+        else if (x != " " && y != " ")  s[file] = "\033[35m\342\234\271\033[0m"
+        else if (x != " ")              s[file] = "\033[32m\342\234\232\033[0m"
+        else                            s[file] = "\033[31m\342\227\217\033[0m"
+    }
+    close(cmd)
+}
+{ f = $0; sub(/^\.\//, "", f); if (f in s) printf "%s\t%s\n", s[f], $0; else printf "\t%s\n", $0 }'
+
+@test "git-annotate: modified file gets red icon, clean file gets empty prefix" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local result
+    result=$(printf '%s\n' "clean.txt" "modified.txt" | awk -v prefix="" "$_git_annotate_awk")
+    # Clean file: tab-only prefix
+    local clean_line
+    clean_line=$(grep "clean.txt" <<< "$result")
+    [[ "$clean_line" == $'\t'"clean.txt" ]]
+    # Modified file: has a non-empty icon before the tab
+    local mod_line
+    mod_line=$(grep "modified.txt" <<< "$result")
+    local icon
+    icon=$(cut -f1 <<< "$mod_line")
+    [[ -n "$icon" ]]
+}
+
+@test "git-annotate: untracked file gets yellow ? icon" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local result
+    result=$(printf '%s\n' "untracked.txt" | awk -v prefix="" "$_git_annotate_awk")
+    # Strip ANSI to check the icon character
+    local icon
+    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$icon" = "?" ]
+}
+
+@test "git-annotate: staged file gets green icon" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    git -C "$repo" add modified.txt
+    local result
+    result=$(printf '%s\n' "modified.txt" | awk -v prefix="" "$_git_annotate_awk")
+    local icon
+    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    # ✚ is the staged icon
+    [ "$icon" = "✚" ]
+}
+
+@test "git-annotate: prefix strips repo-relative path for subdirectory" {
+    local repo
+    repo=$(_setup_git_repo)
+    # Add a tracked file in a subdirectory, then modify it
+    mkdir -p "$repo/src"
+    echo "code" > "$repo/src/main.rs"
+    git -C "$repo" add src/main.rs
+    git -C "$repo" commit -q -m "add src"
+    echo "changed" > "$repo/src/main.rs"
+    cd "$repo"
+    local result
+    result=$(printf '%s\n' "main.rs" | awk -v prefix="src/" "$_git_annotate_awk")
+    # main.rs is modified under src/, should get ● icon after prefix strip
+    local icon
+    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$icon" = "●" ]
+}
+
+@test "git-annotate: non-git directory passes files through bare" {
+    cd "$BATS_TEST_TMPDIR"
+    local result
+    result=$(printf '%s\n' "a.txt" "b.txt" | awk -v prefix="" "$_git_annotate_awk")
+    # No git status output → all files get empty prefix
+    [[ "$(sed -n '1p' <<< "$result")" == $'\t'"a.txt" ]]
+    [[ "$(sed -n '2p' <<< "$result")" == $'\t'"b.txt" ]]
+}
+
+@test "git-annotate: ./prefix files match git status" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local result
+    result=$(printf '%s\n' "./modified.txt" | awk -v prefix="" "$_git_annotate_awk")
+    # Should still match (awk strips ./ before lookup)
+    local icon
+    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    [[ -n "$icon" ]]
+    [ "$icon" != "" ]
+}
+
+@test "FILE_TYPES: empty string produces no flags" {
+    run bash -c '
+        FILE_TYPES=""
+        type_flags=()
+        if [[ -n "$FILE_TYPES" ]]; then
+            IFS="," read -ra exts <<< "$FILE_TYPES"
+            for ext in "${exts[@]}"; do
+                ext="${ext## }"; ext="${ext%% }"
+                [[ -n "$ext" ]] || continue
+                type_flags+=(--extension "$ext")
+            done
+        fi
+        echo "${#type_flags[@]}"
+    '
+    [ "$output" = "0" ]
 }

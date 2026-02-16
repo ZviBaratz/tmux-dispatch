@@ -56,6 +56,10 @@ detect_rg() {
     fi
 }
 
+detect_zoxide() {
+    if command -v zoxide &>/dev/null; then echo zoxide; fi
+}
+
 # Detect best available popup editor (terminal-only)
 detect_popup_editor() {
     local configured="$1"
@@ -166,26 +170,70 @@ record_file_open() {
     file_path="${file_path#./}"  # normalize find's ./ prefix
     local history_file
     history_file=$(_dispatch_history_file)
-    printf '%s\t%s\n' "$pwd_dir" "$file_path" >> "$history_file"
+    printf '%s\t%s\t%s\n' "$pwd_dir" "$file_path" "$(date +%s)" >> "$history_file"
     _dispatch_history_trim "$history_file" &
 }
 
-# Retrieve recent files (newest first, deduped, existence-checked)
+# Retrieve files ranked by frecency (frequency + recency), deduped, existence-checked.
+# Score formula: sum of 10 / (age_hours + 1) per access.
+# Old-format entries (no timestamp) get age_hours=168 (1 week, low score).
 recent_files_for_pwd() {
     local pwd_dir="$1" max="${2:-50}"
     local history_file
     history_file=$(_dispatch_history_file)
     [[ -f "$history_file" ]] || return 0
     local count=0
-    local -A seen=()
-    while IFS=$'\t' read -r dir file; do
-        [[ "$dir" == "$pwd_dir" ]] || continue
-        [[ -v "seen[$file]" ]] && continue
-        seen[$file]=1
+    awk -F'\t' -v pwd="$pwd_dir" -v now="$(date +%s)" '
+        $1 == pwd {
+            ts = ($3 != "" ? $3 + 0 : now - 604800)
+            age_h = (now - ts) / 3600
+            if (age_h < 0) age_h = 0
+            score[$2] += 10 / (age_h + 1)
+        }
+        END {
+            for (f in score) print score[f], f
+        }
+    ' "$history_file" | sort -rn | while read -r _score file; do
         [[ -f "$pwd_dir/$file" ]] || continue
         printf '%s\n' "$file"
         ((count++))
         [[ "$count" -ge "$max" ]] && break
-    done < <(_dispatch_tac "$history_file")
+    done
     return 0
+}
+
+# ─── Bookmarks ────────────────────────────────────────────────────────────
+
+_dispatch_bookmark_file() {
+    local dir="${XDG_DATA_HOME:-$HOME/.local/share}/tmux-dispatch"
+    [[ -d "$dir" ]] || mkdir -p "$dir"
+    echo "$dir/bookmarks"
+}
+
+toggle_bookmark() {
+    local pwd_dir="$1" file_path="$2"
+    file_path="${file_path#./}"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    local entry="$pwd_dir"$'\t'"$file_path"
+    if grep -qxF "$entry" "$bf" 2>/dev/null; then
+        grep -vxF "$entry" "$bf" > "${bf}.tmp" || true
+        \mv "${bf}.tmp" "$bf"
+        echo "removed"
+    else
+        printf '%s\n' "$entry" >> "$bf"
+        echo "added"
+    fi
+}
+
+bookmarks_for_pwd() {
+    local pwd_dir="$1"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    [[ -f "$bf" ]] || return 0
+    while IFS=$'\t' read -r dir file; do
+        [[ "$dir" == "$pwd_dir" ]] || continue
+        [[ -f "$pwd_dir/$file" ]] || continue
+        printf '%s\n' "$file"
+    done < "$bf"
 }

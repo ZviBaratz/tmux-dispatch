@@ -474,6 +474,50 @@ MOCK
     [ "$count" -eq 1 ]
 }
 
+# ─── git-toggle ──────────────────────────────────────────────────────────────
+
+@test "git-toggle: stages an unstaged file" {
+    # Mock git: diff --cached returns empty (not staged), add succeeds
+    local log="$BATS_TEST_TMPDIR/git.log"
+    cat > "$BATS_TEST_TMPDIR/git" <<MOCK
+#!/usr/bin/env bash
+if [[ "\$1" == "diff" && "\$2" == "--cached" ]]; then
+    echo ""  # not staged
+elif [[ "\$1" == "add" ]]; then
+    echo "add \$@" > "$log"
+elif [[ "\$1" == "restore" ]]; then
+    echo "restore \$@" > "$log"
+fi
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/git"
+
+    run "$ACTIONS" git-toggle "src/main.rs"
+    [ "$status" -eq 0 ]
+    [[ "$(cat "$log")" == *"add"*"src/main.rs"* ]]
+}
+
+@test "git-toggle: unstages a staged file" {
+    local log="$BATS_TEST_TMPDIR/git.log"
+    cat > "$BATS_TEST_TMPDIR/git" <<MOCK
+#!/usr/bin/env bash
+if [[ "\$1" == "diff" && "\$2" == "--cached" ]]; then
+    echo "src/main.rs"  # is staged
+elif [[ "\$1" == "restore" ]]; then
+    echo "restore \$@" > "$log"
+fi
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/git"
+
+    run "$ACTIONS" git-toggle "src/main.rs"
+    [ "$status" -eq 0 ]
+    [[ "$(cat "$log")" == *"restore"*"src/main.rs"* ]]
+}
+
+@test "git-toggle: empty file is a no-op" {
+    run "$ACTIONS" git-toggle ""
+    [ "$status" -eq 0 ]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {

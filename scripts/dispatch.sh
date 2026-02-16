@@ -2,12 +2,15 @@
 # =============================================================================
 # dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Six modes, switchable mid-session via fzf's become action:
+# Ten modes, switchable mid-session via fzf's become action:
 #
 #   --mode=files          fd/find → fzf (normal filtering, bat preview)
 #   --mode=grep           fzf --disabled + change:reload:rg (live search)
+#   --mode=git            git status with stage/unstage toggle
+#   --mode=dirs           directory picker (zoxide/fd/find)
 #   --mode=sessions       tmux session picker/creator
 #   --mode=session-new    directory-based session creation
+#   --mode=windows        tmux window picker for a session
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
 #
@@ -15,9 +18,11 @@
 #   Files is the home mode. Prefixes step into sub-modes:
 #   > prefix   — Files → grep (remainder becomes query)
 #   @ prefix   — Files → sessions (remainder becomes query)
-#   ⌫ on empty — Grep/sessions → files (return to home)
+#   ! prefix   — Files → git status (remainder becomes query)
+#   # prefix   — Files → directories (remainder becomes query)
+#   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|sessions|session-new|rename|rename-session
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session
 #        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
 # =============================================================================
 
@@ -65,9 +70,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|sessions|session-new|rename|rename-session) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, sessions, session-new)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new)"
         exit 1
         ;;
 esac
@@ -79,6 +84,8 @@ PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@dispatch-pane-editor" "")"
 FD_EXTRA_ARGS=$(get_tmux_option "@dispatch-fd-args" "")
 RG_EXTRA_ARGS=$(get_tmux_option "@dispatch-rg-args" "")
 HISTORY_ENABLED=$(get_tmux_option "@dispatch-history" "on")
+FILE_TYPES=$(get_tmux_option "@dispatch-file-types" "")
+GIT_INDICATORS=$(get_tmux_option "@dispatch-git-indicators" "on")
 
 # ─── Detect tools ────────────────────────────────────────────────────────────
 
@@ -110,33 +117,99 @@ run_files_mode() {
     local -a fd_extra_args_arr=()
     [[ -n "$FD_EXTRA_ARGS" ]] && read -ra fd_extra_args_arr <<< "$FD_EXTRA_ARGS"
 
+    # Parse file type filters (comma-separated extensions from @dispatch-file-types)
+    # Two representations: array for direct find invocation, string for fzf reload command.
+    local -a type_flags=()
+    local type_flags_str=""
+    local find_name_filter=""
+    local -a find_name_args=()
+    if [[ -n "$FILE_TYPES" ]]; then
+        IFS=',' read -ra exts <<< "$FILE_TYPES"
+        local first=true
+        for ext in "${exts[@]}"; do
+            ext="${ext## }"; ext="${ext%% }"  # trim whitespace
+            [[ -n "$ext" ]] || continue
+            type_flags+=(--extension "$ext")
+            type_flags_str+=" --extension $ext"
+            if $first; then
+                find_name_args+=("(" -name "*.${ext}")
+                find_name_filter="\\( -name '*.${ext}'"
+                first=false
+            else
+                find_name_args+=(-o -name "*.${ext}")
+                find_name_filter+=" -o -name '*.${ext}'"
+            fi
+        done
+        [[ ${#find_name_args[@]} -gt 0 ]] && find_name_args+=(")")
+        [[ -n "$find_name_filter" ]] && find_name_filter+=" \\)"
+    fi
+
     if [[ -n "$FD_CMD" ]]; then
         local strip_prefix=""
         $FD_CMD --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
-        file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $strip_prefix $FD_EXTRA_ARGS"
+        file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $strip_prefix$type_flags_str $FD_EXTRA_ARGS"
     else
-        file_cmd="find . -type f -not -path '*/.git/*'"
+        file_cmd="find . -type f -not -path '*/.git/*'${find_name_filter:+ $find_name_filter}"
     fi
 
     _run_file_cmd() {
         if [[ -n "$FD_CMD" ]]; then
             "$FD_CMD" --type f --hidden --follow --exclude .git \
-                ${strip_prefix:+"$strip_prefix"} "${fd_extra_args_arr[@]}"
+                ${strip_prefix:+"$strip_prefix"} "${type_flags[@]}" "${fd_extra_args_arr[@]}"
         else
-            find . -type f -not -path '*/.git/*'
+            find . -type f -not -path '*/.git/*' "${find_name_args[@]}"
         fi
     }
+
+    # ─── Git status indicators ────────────────────────────────────────────────
+    # Prepend colored icons to dirty files in the listing. Clean files get an
+    # empty first field (tab only) so fzf's --nth=2.. matches filenames only.
+    local git_active=false
+    local fzf_file="{}" fzf_files="{+}"
+    local -a git_fzf_opts=()
+    local git_prefix=""
+    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+    local git_annotate_awk='BEGIN {
+        plen = length(prefix)
+        cmd = "git status --porcelain 2>/dev/null"
+        while ((cmd | getline line) > 0) {
+            xy = substr(line, 1, 2)
+            file = substr(line, 4)
+            if (plen > 0) {
+                if (substr(file, 1, plen) != prefix) continue
+                file = substr(file, plen + 1)
+            }
+            x = substr(xy, 1, 1)
+            y = substr(xy, 2, 1)
+            if (x == "?" && y == "?")       s[file] = "\033[33m?\033[0m"
+            else if (x != " " && y != " ")  s[file] = "\033[35m✹\033[0m"
+            else if (x != " ")              s[file] = "\033[32m✚\033[0m"
+            else                            s[file] = "\033[31m●\033[0m"
+        }
+        close(cmd)
+    }
+    { f = $0; sub(/^\.\//, "", f); if (f in s) printf "%s\t%s\n", s[f], $0; else printf "\t%s\n", $0 }'
+
+    if [[ "$GIT_INDICATORS" == "on" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
+        git_active=true
+        git_prefix=$(git rev-parse --show-prefix 2>/dev/null)
+        fzf_file="{2..}"
+        fzf_files="{+2..}"
+        git_fzf_opts=(--ansi --delimiter=$'\t' --nth=2.. --tabstop=3)
+    fi
+
+    _annotate_git() { awk -v prefix="$git_prefix" "$git_annotate_awk"; }
 
     # File preview command (bat or head fallback)
     local file_preview
     if [[ -n "$BAT_CMD" ]]; then
-        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 {}"
+        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 $fzf_file"
     else
-        file_preview="head -500 {}"
+        file_preview="head -500 $fzf_file"
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
+    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
 
     # Flag file: preview shows welcome on first run (flag exists), file preview after
     local welcome_flag
@@ -167,6 +240,10 @@ run_files_mode() {
   echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ {q} == '@'* ]]; then
   echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+elif [[ {q} == '!'* ]]; then
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=git --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+elif [[ {q} == '#'* ]]; then
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
 elif [[ -z {q} ]]; then
   echo \"execute-silent(touch '$welcome_flag')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
 else
@@ -177,14 +254,29 @@ fi"
     local -a base_opts
     mapfile -t base_opts < <(build_fzf_base_opts)
 
+    # Reloadable file list command (bookmarks + frecency + files, deduped).
+    # Used by fzf reload bindings (ctrl-x, ctrl-b).
+    # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
+    # inner '...' passed to bash -c protects awk's $0 and function calls from sh.
+    local file_list_cmd
+    if [[ "$HISTORY_ENABLED" == "on" ]]; then
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | awk !seen[\$0]++'"
+    else
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | awk !seen[\$0]++'"
+    fi
+    if $git_active; then
+        file_list_cmd="$file_list_cmd | awk -v prefix='$git_prefix' '${git_annotate_awk}'"
+    fi
+
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
-            { recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
+            { bookmarks_for_pwd "$PWD"; recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
         else
-            _run_file_cmd
-        fi | fzf \
+            { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
+        fi | if $git_active; then _annotate_git; else cat; fi | fzf \
         "${base_opts[@]}" \
+        "${git_fzf_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
@@ -197,10 +289,17 @@ fi"
         --bind "start:unbind(focus)" \
         --bind "down:rebind(focus)+down" \
         --bind "up:rebind(focus)+up" \
-        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={})" \
-        --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files {+})+reload($file_cmd)" \
-        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {+})" \
+        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file=$fzf_file)" \
+        --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
+        --bind "ctrl-b:execute-silent('$SCRIPT_DIR/actions.sh' bookmark-toggle '$PWD' $fzf_file)+reload:$file_list_cmd" \
+        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' $fzf_files)" \
     ) || exit 0
+
+    # Strip icon prefix from fzf output (icon\tfile → file).
+    # cut -f2- is a no-op for lines without tabs (the --expect key line).
+    if $git_active && [[ -n "$result" ]]; then
+        result=$(cut -f2- <<< "$result")
+    fi
 
     handle_file_result "$result"
 }
@@ -316,9 +415,9 @@ handle_grep_result() {
 
     case "$key" in
         ctrl-y)
-            # Copy path to system clipboard via tmux
-            echo -n "$file" | tmux load-buffer -w -
-            tmux display-message "Copied: $file"
+            # Copy file:line to system clipboard via tmux
+            echo -n "$file:$line_num" | tmux load-buffer -w -
+            tmux display-message "Copied: $file:$line_num"
             ;;
         ctrl-o)
             # Send open command to the originating pane (with line number)
@@ -372,6 +471,7 @@ run_session_mode() {
             --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
+            --bind "ctrl-w:become('$SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$PANE_ID' --session={1})" \
     ) || exit 0
 
     handle_session_result "$result"
@@ -582,13 +682,227 @@ run_rename_session_mode() {
     exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
 }
 
+# ─── Mode: dirs ───────────────────────────────────────────────────────────────
+
+run_directory_mode() {
+    # Strip leading # from prefix-based switch
+    QUERY="${QUERY#\#}"
+
+    local ZOXIDE_CMD
+    ZOXIDE_CMD=$(detect_zoxide)
+
+    # Directory listing command
+    _run_dir_cmd() {
+        if [[ -n "$ZOXIDE_CMD" ]]; then
+            zoxide query --list 2>/dev/null | grep -F "$PWD" || true
+        elif [[ -n "$FD_CMD" ]]; then
+            "$FD_CMD" --type d --hidden --follow --exclude .git
+        else
+            find . -type d -not -path '*/.git/*'
+        fi
+    }
+
+    # Preview command
+    local dir_preview
+    if command -v tree &>/dev/null; then
+        dir_preview="tree -C -L 2 {}"
+    elif ls --color=always /dev/null 2>/dev/null; then
+        dir_preview="ls -la --color=always {}"
+    else
+        dir_preview="ls -laG {}"
+    fi
+
+    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
+    local result
+    result=$(_run_dir_cmd | fzf \
+        "${base_opts[@]}" \
+        --expect=ctrl-y \
+        --query "$QUERY" \
+        --prompt '# ' \
+        --preview "$dir_preview" \
+        --border-label=' directories ' \
+        --bind "backward-eof:$become_files" \
+    ) || exit 0
+
+    handle_directory_result "$result"
+}
+
+handle_directory_result() {
+    local result="$1"
+    local key dir
+
+    key=$(head -1 <<< "$result")
+    dir=$(tail -1 <<< "$result")
+    [[ -z "$dir" ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            echo -n "$dir" | tmux load-buffer -w -
+            tmux display-message "Copied: $dir"
+            ;;
+        *)
+            # Enter → send cd command to originating pane
+            if [[ -n "$PANE_ID" ]]; then
+                tmux send-keys -t "$PANE_ID" "cd $(printf '%q' "$dir")" Enter
+            else
+                tmux display-message "No target pane available"
+            fi
+            ;;
+    esac
+}
+
+# ─── Mode: windows ────────────────────────────────────────────────────────────
+
+run_windows_mode() {
+    if [[ -z "$SESSION" ]]; then
+        echo "No session specified for window picker."
+        exit 1
+    fi
+
+    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+        tmux display-message "Session not found: $SESSION"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+    fi
+
+    local win_list
+    win_list=$(tmux list-windows -t "$SESSION" \
+        -F '#{window_index}: #{window_name}  #{?window_active,*,}  (#{window_panes} panes)' 2>/dev/null)
+
+    [[ -z "$win_list" ]] && { echo "No windows found."; exit 0; }
+
+    local become_sessions="become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID')"
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
+    local result
+    result=$(
+        echo "$win_list" |
+        fzf \
+            "${base_opts[@]}" \
+            --prompt '  ' \
+            --border-label=" $SESSION windows " \
+            --preview "'$SCRIPT_DIR/window-preview.sh' '$SESSION' {1}" \
+            --bind "backward-eof:$become_sessions" \
+    ) || exit 0
+
+    [[ -z "$result" ]] && exit 0
+
+    # Extract window index (first field before colon)
+    local win_idx
+    win_idx=$(awk -F: '{print $1}' <<< "$result")
+    [[ -z "$win_idx" ]] && exit 0
+
+    tmux select-window -t "$SESSION:$win_idx"
+    tmux switch-client -t "$SESSION"
+}
+
+# ─── Mode: git ────────────────────────────────────────────────────────────────
+
+run_git_mode() {
+    # Strip leading ! from prefix-based switch
+    QUERY="${QUERY#!}"
+
+    if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+        echo "Not a git repository."
+        read -r -p "Press Enter to close..."
+        exit 1
+    fi
+
+    # Git status: porcelain v1 → colored icons (ICON<tab>filepath)
+    # Shared awk body used by both the initial load function and fzf reload string.
+    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+    local git_awk='{
+        xy = substr($0, 1, 2)
+        file = substr($0, 4)
+        x = substr(xy, 1, 1)
+        y = substr(xy, 2, 1)
+        if (x == "?" && y == "?")       icon = "\033[33m?\033[0m"
+        else if (x != " " && y != " ")  icon = "\033[35m✹\033[0m"
+        else if (x != " ")              icon = "\033[32m✚\033[0m"
+        else                            icon = "\033[31m●\033[0m"
+        printf "%s\t%s\n", icon, file
+    }'
+
+    _run_git_status() { git status --porcelain 2>/dev/null | awk "$git_awk"; }
+
+    # fzf reload string — single quotes around $git_awk protect awk's $0 from sh
+    local git_status_cmd="git status --porcelain 2>/dev/null | awk '${git_awk}'"
+
+    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
+    local result
+    result=$(_run_git_status | fzf \
+        "${base_opts[@]}" \
+        --expect=ctrl-o,ctrl-y \
+        --query "$QUERY" \
+        --prompt '! ' \
+        --ansi \
+        --delimiter=$'\t' \
+        --nth=2.. \
+        --tabstop=3 \
+        --preview "'$SCRIPT_DIR/git-preview.sh' {2..} {1}" \
+        --preview-window 'right:60%:border-left' \
+        --border-label=' git ' \
+        --bind "tab:execute-silent('$SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
+        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {2..})" \
+        --bind "backward-eof:$become_files" \
+    ) || exit 0
+
+    handle_git_result "$result"
+}
+
+handle_git_result() {
+    local result="$1"
+    local key line file
+
+    key=$(head -1 <<< "$result")
+    line=$(tail -1 <<< "$result")
+    [[ -z "$line" ]] && exit 0
+
+    # Extract file from tab-delimited format (icon\tfile)
+    file=$(cut -f2 <<< "$line")
+    [[ -z "$file" ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            echo -n "$file" | tmux load-buffer -w -
+            tmux display-message "Copied: $file"
+            ;;
+        ctrl-o)
+            if [[ -n "$PANE_ID" ]]; then
+                [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
+                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $(printf '%q' "$file")" Enter
+            else
+                tmux display-message "No target pane available"
+            fi
+            ;;
+        *)
+            # Enter is handled by fzf execute() binding
+            ;;
+    esac
+}
+
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
 case "$MODE" in
     files)          run_files_mode ;;
     grep)           run_grep_mode ;;
+    git)            run_git_mode ;;
+    dirs)           run_directory_mode ;;
     sessions)       run_session_mode ;;
     session-new)    run_session_new_mode ;;
+    windows)        run_windows_mode ;;
     rename)         run_rename_mode ;;
     rename-session) run_rename_session_mode ;;
 esac
