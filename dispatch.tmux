@@ -30,16 +30,24 @@ bind_finder() {
     local key_flag="$1"  # "-n" for prefix-free, "" for prefix
     local key="$2"
     local mode="$3"
-    local cmd="$DISPATCH --mode=$mode --pane='#{pane_id}'"
+    # display-popup does not expand #{...} formats in -e or the shell-command.
+    # run-shell is the only tmux command documented to expand formats before
+    # passing to the shell, so we use it to stash the pane ID in a global
+    # option, then read it back inside the popup script.
+    local cmd="$DISPATCH --mode=$mode"
 
     if tmux_version_at_least "3.2"; then
-        # tmux 3.2+: floating popup
-        tmux bind-key ${key_flag:+"$key_flag"} "$key" display-popup -E \
+        # tmux 3.2+: run-shell (foreground) sets the pane ID, then display-popup opens
+        tmux bind-key ${key_flag:+"$key_flag"} "$key" \
+            run-shell 'tmux set-option -g @dispatch-origin-pane "#{pane_id}"' \\\; \
+            display-popup -E \
             -w "$popup_size" -h "$popup_size" \
             -d "#{pane_current_path}" "$cmd"
     else
         # tmux < 3.2: split-window fallback
-        tmux bind-key ${key_flag:+"$key_flag"} "$key" split-window -v -l 80% \
+        tmux bind-key ${key_flag:+"$key_flag"} "$key" \
+            run-shell 'tmux set-option -g @dispatch-origin-pane "#{pane_id}"' \\\; \
+            split-window -v -l 80% \
             -c "#{pane_current_path}" "$cmd"
     fi
 }

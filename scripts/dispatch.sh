@@ -55,6 +55,13 @@ for arg in "$@"; do
     esac
 done
 
+# Resolve pane ID: prefer --pane arg, fall back to @dispatch-origin-pane option.
+# display-popup doesn't expand #{...} formats in the shell-command argument,
+# so the binding uses run-shell to stash the pane ID in a global option first.
+if [[ -z "$PANE_ID" || "$PANE_ID" == '#{pane_id}' ]]; then
+    PANE_ID=$(get_tmux_option "@dispatch-origin-pane" "")
+fi
+
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
