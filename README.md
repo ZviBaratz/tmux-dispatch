@@ -8,7 +8,7 @@
   <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux" alt="tmux"></a>
 </p>
 
-<h3 align="center">A unified command palette for tmux — files, grep, and sessions in one popup.</h3>
+<h3 align="center">A unified command palette for tmux — files, grep, git, directories, and sessions in one popup.</h3>
 
 <p align="center">
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
@@ -20,14 +20,20 @@
 
 - **File finder** — `fd`/`find` with `bat` preview, instant filtering
 - **Live grep** — Ripgrep reloads on every keystroke with line-highlighted preview
+- **Git status** — View changed files with colored status icons, stage/unstage with `Tab`
+- **Directory jump** — Browse zoxide history (or `fd`/`find` directories), `Enter` sends `cd` to your pane
 - **Session picker** — Switch, create, or kill tmux sessions with window grid preview
-- **Mode switching** — Type `>` to grep, `@` to sessions, backspace to return home — just like a command palette
+- **Window picker** — `Ctrl+W` in sessions to browse windows with pane content preview
+- **Mode switching** — Type `>` to grep, `@` to sessions, `!` to git, `#` to directories — backspace returns home
+- **Bookmarks** — `Ctrl+B` to bookmark files, bookmarked files show ★ and appear first
+- **Frecency ranking** — Recently and frequently opened files float to the top (per-directory)
+- **File type filters** — Restrict file finder to specific extensions via `@dispatch-file-types`
+- **Git status indicators** — Modified/staged/untracked files show colored icons inline
 - **In-place actions** — `Ctrl+R` to rename files/sessions, `Ctrl+X` to delete files
 - **Project launcher** — `Ctrl+N` in session mode to create sessions from project directories
-- **Recently opened files** — Most recently edited files appear first (per-directory, toggleable)
 - **Dual-action editing** — `Enter` edits in the popup, `Ctrl+O` sends `$EDITOR file` to your pane
 - **Multi-select** — `Tab`/`Shift+Tab` to select multiple files, open or copy them all at once
-- **Clipboard** — `Ctrl+Y` copies file path(s) or session name to system clipboard via tmux
+- **Clipboard** — `Ctrl+Y` copies file path(s), `file:line` in grep, or session name to clipboard
 - **Editor-agnostic** — Popup uses vim/nvim, send-to-pane uses `$EDITOR` (VS Code, Cursor, etc.)
 - **Graceful fallbacks** — Works without `fd` (uses `find`), without `bat` (uses `head`), without popups (uses split-window)
 
@@ -39,7 +45,7 @@ After installing, these keybindings are immediately available:
 - **`Alt+s`** — Live grep (search file contents)
 - **`Alt+w`** — Switch or create tmux sessions
 
-Type `>` to switch to grep, `@` to switch to sessions. Backspace on empty returns home to files — just like VSCode's command palette.
+Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories. Backspace on empty returns home to files — just like VSCode's command palette.
 
 ## Installation
 
@@ -72,7 +78,7 @@ run-shell ~/.tmux/plugins/tmux-dispatch/dispatch.tmux
 - **bash** 4.0+ (macOS users: install via `brew install bash` — the default `/bin/bash` is 3.2)
 - **fzf** 0.38+ (0.49+ recommended for all features; core file/grep works with older versions)
 - **perl** (required for session preview rendering)
-- **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode)
+- **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode), `zoxide` (frecency-ranked directories for `#` mode)
 
 ```bash
 # macOS (Homebrew)
@@ -111,11 +117,14 @@ sudo dnf install fzf fd-find bat ripgrep
 | `Enter` | Edit file in popup (vim/nvim) |
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
+| `Ctrl+B` | Toggle bookmark (★ indicator, pinned to top) |
 | `Ctrl+R` | Rename file |
 | `Ctrl+X` | Delete file(s) (multi-select supported) |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `>` prefix | Switch to grep (remainder becomes query) |
 | `@` prefix | Switch to sessions (remainder becomes query) |
+| `!` prefix | Switch to git status (remainder becomes query) |
+| `#` prefix | Switch to directories (remainder becomes query) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
 
@@ -125,8 +134,30 @@ sudo dnf install fzf fd-find bat ripgrep
 |-----|--------|
 | `Enter` | Edit file at matching line in popup |
 | `Ctrl+O` | Send editor open command to originating pane |
-| `Ctrl+Y` | Copy file path to clipboard |
+| `Ctrl+Y` | Copy `file:line` to clipboard |
 | `Ctrl+R` | Rename file |
+| `Backspace` on empty | Return to files (home) |
+| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `Escape` | Close popup |
+
+### Inside the popup — git status
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Edit file in popup |
+| `Tab` | Stage/unstage file |
+| `Ctrl+O` | Send editor open command to originating pane |
+| `Ctrl+Y` | Copy file path to clipboard |
+| `Backspace` on empty | Return to files (home) |
+| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `Escape` | Close popup |
+
+### Inside the popup — directories
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Send `cd` command to originating pane |
+| `Ctrl+Y` | Copy directory path to clipboard |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
@@ -138,6 +169,7 @@ sudo dnf install fzf fd-find bat ripgrep
 | `Enter` | Switch to selected session, or create if name is new |
 | `Ctrl+K` | Kill selected session (refuses to kill current) |
 | `Ctrl+N` | Create session from project directory |
+| `Ctrl+W` | Browse windows for selected session |
 | `Ctrl+Y` | Copy session name to clipboard |
 | `Ctrl+R` | Rename session |
 | `Backspace` on empty | Return to files (home) |
@@ -156,6 +188,7 @@ All options are set via tmux options in `~/.tmux.conf`:
 set -g @dispatch-find-key "M-o"              # default: M-o (Alt+o)
 set -g @dispatch-grep-key "M-s"              # default: M-s (Alt+s)
 set -g @dispatch-session-key "M-w"           # default: M-w (Alt+w)
+set -g @dispatch-git-key "none"              # default: none (use ! prefix instead)
 set -g @dispatch-prefix-key "e"              # default: e (prefix+e)
 set -g @dispatch-session-prefix-key "none"   # default: none
 
@@ -173,6 +206,12 @@ set -g @dispatch-rg-args "--glob '!*.min.js'"
 # Recently opened files appear first in file finder
 set -g @dispatch-history "off"               # default: on
 
+# Git status indicators in file finder (colored icons for modified/staged/untracked)
+set -g @dispatch-git-indicators "off"        # default: on
+
+# Restrict file finder to specific extensions (comma-separated)
+set -g @dispatch-file-types "ts,tsx,js"      # default: "" (all files)
+
 # Session mode: directories for Ctrl+N project picker (colon-separated)
 set -g @dispatch-session-dirs "$HOME/Projects:$HOME/work"
 ```
@@ -186,18 +225,29 @@ The plugin uses a single unified script (`scripts/dispatch.sh`) with a `--mode` 
 
 ```
 dispatch.sh --mode=files  (home mode, prompt: "  ")
-  ├── fd | fzf (filtering enabled)
+  ├── fd | fzf (filtering, bookmarks ★, git indicators, frecency ranking)
   │   ├── ">" prefix → become(dispatch.sh --mode=grep --query={q})
-  │   └── "@" prefix → become(dispatch.sh --mode=sessions --query={q})
+  │   ├── "@" prefix → become(dispatch.sh --mode=sessions --query={q})
+  │   ├── "!" prefix → become(dispatch.sh --mode=git --query={q})
+  │   └── "#" prefix → become(dispatch.sh --mode=dirs --query={q})
   │
 dispatch.sh --mode=grep  (prompt: "> ")
   ├── fzf --disabled + change:reload:rg (live search)
   │   └── ⌫ on empty → become(dispatch.sh --mode=files)
   │
+dispatch.sh --mode=git  (prompt: "! ")
+  ├── git status --porcelain | fzf (stage/unstage with Tab, diff preview)
+  │   └── ⌫ on empty → become(dispatch.sh --mode=files)
+  │
+dispatch.sh --mode=dirs  (prompt: "# ")
+  ├── zoxide/fd/find directories | fzf (tree preview, cd on Enter)
+  │   └── ⌫ on empty → become(dispatch.sh --mode=files)
+  │
 dispatch.sh --mode=sessions  (prompt: "@ ")
   ├── tmux list-sessions | fzf (session picker + creator)
   │   ├── ⌫ on empty → become(dispatch.sh --mode=files)
-  │   └── Ctrl+N → become(dispatch.sh --mode=session-new)
+  │   ├── Ctrl+N → become(dispatch.sh --mode=session-new)
+  │   └── Ctrl+W → become(dispatch.sh --mode=windows --session={1})
   │
 dispatch.sh --mode=session-new
   └── fd directories | fzf (project directory picker)

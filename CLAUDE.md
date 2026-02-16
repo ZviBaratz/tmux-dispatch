@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-tmux-dispatch is a tmux plugin (installed via TPM) that provides fuzzy file finding and live grep search in tmux popups. Written entirely in bash.
+tmux-dispatch is a tmux plugin (installed via TPM) that provides a unified command palette for tmux — fuzzy file finding, live grep, git status, directory jump, session/window management — all in one popup. Written entirely in bash.
 
 ## Commands
 
@@ -15,7 +15,7 @@ shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh
 
 ### Syntax check
 ```bash
-bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.sh && bash -n scripts/preview.sh
+bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.sh && bash -n scripts/preview.sh && bash -n scripts/actions.sh && bash -n scripts/git-preview.sh && bash -n scripts/window-preview.sh && bash -n scripts/session-preview.sh
 ```
 
 ### Unit tests
@@ -32,12 +32,16 @@ tmux source-file ~/.tmux.conf
 
 ## Architecture
 
-Four shell scripts, no build step:
+Eight shell scripts, no build step:
 
 - **`dispatch.tmux`** — TPM entry point. Reads `@dispatch-*` tmux options and registers keybindings. Detects tmux version to choose between `display-popup` (3.2+) and `split-window` fallback.
-- **`scripts/helpers.sh`** — Sourced by all other scripts. Provides `get_tmux_option` and tool detection functions (`detect_fd`, `detect_bat`, `detect_rg`, `detect_popup_editor`, `detect_pane_editor`). Handles Debian/Ubuntu renamed binaries (e.g., `fdfind`, `batcat`).
-- **`scripts/dispatch.sh`** — Main script dispatched in two modes via `--mode=files|grep`. Uses fzf's `become` action to switch modes mid-session while preserving the query. Handles all user actions (edit in popup, send to pane, clipboard copy).
-- **`scripts/preview.sh`** — Called by fzf as the preview command in grep mode. Shows file content with line highlighting via bat (or head fallback).
+- **`scripts/helpers.sh`** — Sourced by all other scripts. Provides `get_tmux_option`, tool detection (`detect_fd`, `detect_bat`, `detect_rg`, `detect_zoxide`, `detect_popup_editor`, `detect_pane_editor`), file history/frecency, bookmarks, and fzf visual options. Handles Debian/Ubuntu renamed binaries (e.g., `fdfind`, `batcat`).
+- **`scripts/dispatch.sh`** — Main script with nine modes via `--mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session`. Uses fzf's `become` action to switch modes mid-session. Handles mode-specific fzf configuration, indicators (bookmarks ★, git status icons), and result actions.
+- **`scripts/actions.sh`** — Extracted action handlers called by fzf bindings: file edit, grep edit, delete, rename, bookmark toggle, git stage/unstage, session list/rename, and preview helpers.
+- **`scripts/preview.sh`** — Preview command for grep mode. Shows file content with line highlighting via bat (or head fallback).
+- **`scripts/git-preview.sh`** — Preview command for git mode. Shows `git diff` for changed files.
+- **`scripts/session-preview.sh`** — Preview command for session mode. Shows window layout grid with pane content.
+- **`scripts/window-preview.sh`** — Preview command for window picker. Shows pane content for the selected window.
 
 ## Conventions
 
