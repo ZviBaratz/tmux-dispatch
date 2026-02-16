@@ -189,7 +189,7 @@ for ((row = 0; row < grid_rows; row++)); do
       lbl="${lbl:0:$((inner_w - 3))}.."
       lbl_len=${#lbl}
     fi
-    fill_len=$((inner_w - lbl_len))
+    fill_len=$((inner_w - lbl_len - 1))
     [ "$fill_len" -lt 0 ] && fill_len=0
     fill=$(rep '─' "$fill_len")
 
