@@ -226,6 +226,9 @@ toggle_bookmark() {
     fi
 }
 
+# Deduplicate stdin preserving order (safe to call inside bash -c strings)
+dedup_lines() { awk '!seen[$0]++'; }
+
 bookmarks_for_pwd() {
     local pwd_dir="$1"
     local bf

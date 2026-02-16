@@ -161,44 +161,63 @@ run_files_mode() {
         fi
     }
 
-    # ─── Git status indicators ────────────────────────────────────────────────
-    # Prepend colored icons to dirty files in the listing. Clean files get an
-    # empty first field (tab only) so fzf's --nth=2.. matches filenames only.
-    local git_active=false
-    local fzf_file="{}" fzf_files="{+}"
-    local -a git_fzf_opts=()
-    local git_prefix=""
-    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
-    local git_annotate_awk='BEGIN {
-        plen = length(prefix)
-        cmd = "git status --porcelain 2>/dev/null"
-        while ((cmd | getline line) > 0) {
-            xy = substr(line, 1, 2)
-            file = substr(line, 4)
-            if (plen > 0) {
-                if (substr(file, 1, plen) != prefix) continue
-                file = substr(file, plen + 1)
-            }
-            x = substr(xy, 1, 1)
-            y = substr(xy, 2, 1)
-            if (x == "?" && y == "?")       s[file] = "\033[33m?\033[0m"
-            else if (x != " " && y != " ")  s[file] = "\033[35m✹\033[0m"
-            else if (x != " ")              s[file] = "\033[32m✚\033[0m"
-            else                            s[file] = "\033[31m●\033[0m"
-        }
-        close(cmd)
-    }
-    { f = $0; sub(/^\.\//, "", f); if (f in s) printf "%s\t%s\n", s[f], $0; else printf "\t%s\n", $0 }'
-
+    # ─── File indicators (bookmarks + git status) ──────────────────────────────
+    # Always tab-delimited: indicators\tfilename.
+    # Indicator column: ★ for bookmarked, git icon for dirty files.
+    local fzf_file="{2..}" fzf_files="{+2..}"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    local git_active=false git_prefix=""
     if [[ "$GIT_INDICATORS" == "on" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
         git_active=true
         git_prefix=$(git rev-parse --show-prefix 2>/dev/null)
-        fzf_file="{2..}"
-        fzf_files="{+2..}"
-        git_fzf_opts=(--ansi --delimiter=$'\t' --nth=2.. --tabstop=3)
     fi
+    local do_git=0
+    $git_active && do_git=1
 
-    _annotate_git() { awk -v prefix="$git_prefix" "$git_annotate_awk"; }
+    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+    local annotate_awk='BEGIN {
+        if (bfile != "") {
+            while ((getline line < bfile) > 0) {
+                n = split(line, a, "\t")
+                if (n >= 2 && a[1] == pwd) bm[a[2]] = 1
+            }
+            close(bfile)
+        }
+        if (do_git) {
+            plen = length(prefix)
+            cmd = "git status --porcelain 2>/dev/null"
+            while ((cmd | getline line) > 0) {
+                xy = substr(line, 1, 2)
+                file = substr(line, 4)
+                if (plen > 0) {
+                    if (substr(file, 1, plen) != prefix) continue
+                    file = substr(file, plen + 1)
+                }
+                x = substr(xy, 1, 1)
+                y = substr(xy, 2, 1)
+                if (x == "?" && y == "?")       gs[file] = "\033[33m?\033[0m"
+                else if (x != " " && y != " ")  gs[file] = "\033[35m✹\033[0m"
+                else if (x != " ")              gs[file] = "\033[32m✚\033[0m"
+                else                            gs[file] = "\033[31m●\033[0m"
+            }
+            close(cmd)
+        }
+    }
+    {
+        f = $0; sub(/^\.\//, "", f)
+        if (f in bm) ind = "\033[33m★\033[0m"
+        else ind = " "
+        if (do_git) {
+            if (f in gs) ind = ind gs[f]
+            else ind = ind " "
+        }
+        printf "%s\t%s\n", ind, $0
+    }'
+
+    _annotate_files() {
+        awk -v bfile="$bf" -v pwd="$PWD" -v do_git="$do_git" -v prefix="$git_prefix" "$annotate_awk"
+    }
 
     # File preview command (bat or head fallback)
     local file_preview
@@ -258,14 +277,12 @@ fi"
     # Used by fzf reload bindings (ctrl-x, ctrl-b).
     # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
     # inner '...' passed to bash -c protects awk's $0 and function calls from sh.
+    local annotate_cmd="awk -v bfile='$bf' -v pwd='$PWD' -v do_git=$do_git -v prefix='$git_prefix' '${annotate_awk}'"
     local file_list_cmd
     if [[ "$HISTORY_ENABLED" == "on" ]]; then
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | awk !seen[\$0]++'"
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' | $annotate_cmd"
     else
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | awk !seen[\$0]++'"
-    fi
-    if $git_active; then
-        file_list_cmd="$file_list_cmd | awk -v prefix='$git_prefix' '${git_annotate_awk}'"
+        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' | $annotate_cmd"
     fi
 
     local result
@@ -274,9 +291,9 @@ fi"
             { bookmarks_for_pwd "$PWD"; recent_files_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
         else
             { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++'
-        fi | if $git_active; then _annotate_git; else cat; fi | fzf \
+        fi | _annotate_files | fzf \
         "${base_opts[@]}" \
-        "${git_fzf_opts[@]}" \
+        --ansi --delimiter=$'\t' --nth=2.. --tabstop=3 \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
@@ -295,9 +312,9 @@ fi"
         --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' $fzf_files)" \
     ) || exit 0
 
-    # Strip icon prefix from fzf output (icon\tfile → file).
+    # Strip indicator prefix from fzf output (indicator\tfile → file).
     # cut -f2- is a no-op for lines without tabs (the --expect key line).
-    if $git_active && [[ -n "$result" ]]; then
+    if [[ -n "$result" ]]; then
         result=$(cut -f2- <<< "$result")
     fi
 

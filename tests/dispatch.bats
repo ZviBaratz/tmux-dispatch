@@ -280,7 +280,7 @@ teardown() {
     [ "${lines[5]}" = "js" ]
 }
 
-# ─── Git annotation awk ──────────────────────────────────────────────────
+# ─── File annotation awk (bookmarks + git) ──────────────────────────────
 
 _setup_git_repo() {
     local repo="$BATS_TEST_TMPDIR/git-repo"
@@ -296,76 +296,101 @@ _setup_git_repo() {
     echo "$repo"
 }
 
-# Extract the awk body from dispatch.sh to test it in isolation.
-# We duplicate it here rather than sourcing dispatch.sh (which requires fzf/tmux).
-_git_annotate_awk='BEGIN {
-    plen = length(prefix)
-    cmd = "git status --porcelain 2>/dev/null"
-    while ((cmd | getline line) > 0) {
-        xy = substr(line, 1, 2)
-        file = substr(line, 4)
-        if (plen > 0) {
-            if (substr(file, 1, plen) != prefix) continue
-            file = substr(file, plen + 1)
+# Combined annotation awk (mirrors dispatch.sh annotate_awk).
+# Variables: bfile (bookmark file), pwd (working dir), do_git (0|1), prefix (git prefix).
+# Output: indicator\tfilename — indicator is bookmark star + git icon.
+_annotate_awk='BEGIN {
+    if (bfile != "") {
+        while ((getline line < bfile) > 0) {
+            n = split(line, a, "\t")
+            if (n >= 2 && a[1] == pwd) bm[a[2]] = 1
         }
-        x = substr(xy, 1, 1)
-        y = substr(xy, 2, 1)
-        if (x == "?" && y == "?")       s[file] = "\033[33m?\033[0m"
-        else if (x != " " && y != " ")  s[file] = "\033[35m\342\234\271\033[0m"
-        else if (x != " ")              s[file] = "\033[32m\342\234\232\033[0m"
-        else                            s[file] = "\033[31m\342\227\217\033[0m"
+        close(bfile)
     }
-    close(cmd)
+    if (do_git) {
+        plen = length(prefix)
+        cmd = "git status --porcelain 2>/dev/null"
+        while ((cmd | getline line) > 0) {
+            xy = substr(line, 1, 2)
+            file = substr(line, 4)
+            if (plen > 0) {
+                if (substr(file, 1, plen) != prefix) continue
+                file = substr(file, plen + 1)
+            }
+            x = substr(xy, 1, 1)
+            y = substr(xy, 2, 1)
+            if (x == "?" && y == "?")       gs[file] = "\033[33m?\033[0m"
+            else if (x != " " && y != " ")  gs[file] = "\033[35m\342\234\271\033[0m"
+            else if (x != " ")              gs[file] = "\033[32m\342\234\232\033[0m"
+            else                            gs[file] = "\033[31m\342\227\217\033[0m"
+        }
+        close(cmd)
+    }
 }
-{ f = $0; sub(/^\.\//, "", f); if (f in s) printf "%s\t%s\n", s[f], $0; else printf "\t%s\n", $0 }'
+{
+    f = $0; sub(/^\.\//, "", f)
+    if (f in bm) ind = "\033[33m\342\230\205\033[0m"
+    else ind = " "
+    if (do_git) {
+        if (f in gs) ind = ind gs[f]
+        else ind = ind " "
+    }
+    printf "%s\t%s\n", ind, $0
+}'
 
-@test "git-annotate: modified file gets red icon, clean file gets empty prefix" {
+# Helper: run annotate awk with git enabled and no bookmarks
+_run_annotate_git() {
+    awk -v bfile="" -v pwd="" -v do_git=1 -v prefix="${1:-}" "$_annotate_awk"
+}
+
+@test "annotate: modified file gets git icon, clean file gets space prefix" {
     local repo
     repo=$(_setup_git_repo)
     cd "$repo"
     local result
-    result=$(printf '%s\n' "clean.txt" "modified.txt" | awk -v prefix="" "$_git_annotate_awk")
-    # Clean file: tab-only prefix
+    result=$(printf '%s\n' "clean.txt" "modified.txt" | _run_annotate_git)
+    # Clean file: space + space (git placeholder) + tab + filename
     local clean_line
     clean_line=$(grep "clean.txt" <<< "$result")
-    [[ "$clean_line" == $'\t'"clean.txt" ]]
-    # Modified file: has a non-empty icon before the tab
+    local clean_ind
+    clean_ind=$(cut -f1 <<< "$clean_line" | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$clean_ind" = "  " ]
+    # Modified file: indicator column has non-space content (space + icon)
     local mod_line
     mod_line=$(grep "modified.txt" <<< "$result")
-    local icon
-    icon=$(cut -f1 <<< "$mod_line")
-    [[ -n "$icon" ]]
+    local mod_ind
+    mod_ind=$(cut -f1 <<< "$mod_line" | sed 's/\x1b\[[0-9;]*m//g')
+    [[ "$mod_ind" =~ [^\ ] ]]
 }
 
-@test "git-annotate: untracked file gets yellow ? icon" {
+@test "annotate: untracked file gets yellow ? icon" {
     local repo
     repo=$(_setup_git_repo)
     cd "$repo"
     local result
-    result=$(printf '%s\n' "untracked.txt" | awk -v prefix="" "$_git_annotate_awk")
-    # Strip ANSI to check the icon character
-    local icon
-    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
-    [ "$icon" = "?" ]
+    result=$(printf '%s\n' "untracked.txt" | _run_annotate_git)
+    # Strip ANSI to check the git icon (second char in indicator)
+    local ind
+    ind=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    [[ "$ind" == *"?"* ]]
 }
 
-@test "git-annotate: staged file gets green icon" {
+@test "annotate: staged file gets green icon" {
     local repo
     repo=$(_setup_git_repo)
     cd "$repo"
     git -C "$repo" add modified.txt
     local result
-    result=$(printf '%s\n' "modified.txt" | awk -v prefix="" "$_git_annotate_awk")
-    local icon
-    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    result=$(printf '%s\n' "modified.txt" | _run_annotate_git)
+    local ind
+    ind=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
     # ✚ is the staged icon
-    [ "$icon" = "✚" ]
+    [[ "$ind" == *"✚"* ]]
 }
 
-@test "git-annotate: prefix strips repo-relative path for subdirectory" {
+@test "annotate: prefix strips repo-relative path for subdirectory" {
     local repo
     repo=$(_setup_git_repo)
-    # Add a tracked file in a subdirectory, then modify it
     mkdir -p "$repo/src"
     echo "code" > "$repo/src/main.rs"
     git -C "$repo" add src/main.rs
@@ -373,33 +398,69 @@ _git_annotate_awk='BEGIN {
     echo "changed" > "$repo/src/main.rs"
     cd "$repo"
     local result
-    result=$(printf '%s\n' "main.rs" | awk -v prefix="src/" "$_git_annotate_awk")
-    # main.rs is modified under src/, should get ● icon after prefix strip
-    local icon
-    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
-    [ "$icon" = "●" ]
+    result=$(printf '%s\n' "main.rs" | _run_annotate_git "src/")
+    local ind
+    ind=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    # ● is the modified icon
+    [[ "$ind" == *"●"* ]]
 }
 
-@test "git-annotate: non-git directory passes files through bare" {
+@test "annotate: non-git directory uses space placeholders" {
     cd "$BATS_TEST_TMPDIR"
     local result
-    result=$(printf '%s\n' "a.txt" "b.txt" | awk -v prefix="" "$_git_annotate_awk")
-    # No git status output → all files get empty prefix
-    [[ "$(sed -n '1p' <<< "$result")" == $'\t'"a.txt" ]]
-    [[ "$(sed -n '2p' <<< "$result")" == $'\t'"b.txt" ]]
+    result=$(printf '%s\n' "a.txt" "b.txt" | _run_annotate_git)
+    # No git status → space + space + tab + filename
+    local ind_a ind_b
+    ind_a=$(sed -n '1p' <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    ind_b=$(sed -n '2p' <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$ind_a" = "  " ]
+    [ "$ind_b" = "  " ]
 }
 
-@test "git-annotate: ./prefix files match git status" {
+@test "annotate: ./prefix files match git status" {
     local repo
     repo=$(_setup_git_repo)
     cd "$repo"
     local result
-    result=$(printf '%s\n' "./modified.txt" | awk -v prefix="" "$_git_annotate_awk")
-    # Should still match (awk strips ./ before lookup)
-    local icon
-    icon=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
-    [[ -n "$icon" ]]
-    [ "$icon" != "" ]
+    result=$(printf '%s\n' "./modified.txt" | _run_annotate_git)
+    local ind
+    ind=$(cut -f1 <<< "$result" | sed 's/\x1b\[[0-9;]*m//g')
+    # Should have a git icon (not just spaces)
+    [[ "$ind" =~ [^\ ] ]]
+}
+
+@test "annotate: bookmarked file gets ★ indicator" {
+    cd "$BATS_TEST_TMPDIR"
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    local bf="$BATS_TEST_TMPDIR/test-bookmarks"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "marked.txt" > "$bf"
+    local result
+    result=$(printf '%s\n' "marked.txt" "plain.txt" | \
+        awk -v bfile="$bf" -v pwd="$BATS_TEST_TMPDIR/proj" -v do_git=0 -v prefix="" "$_annotate_awk")
+    local marked_ind plain_ind
+    marked_ind=$(grep "marked.txt" <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    plain_ind=$(grep "plain.txt" <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$marked_ind" = "★" ]
+    [ "$plain_ind" = " " ]
+}
+
+@test "annotate: bookmark + git combines both indicators" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local bf="$BATS_TEST_TMPDIR/test-bookmarks"
+    printf '%s\t%s\n' "$repo" "modified.txt" > "$bf"
+    local result
+    result=$(printf '%s\n' "modified.txt" "clean.txt" | \
+        awk -v bfile="$bf" -v pwd="$repo" -v do_git=1 -v prefix="" "$_annotate_awk")
+    local mod_ind clean_ind
+    mod_ind=$(grep "modified.txt" <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    clean_ind=$(grep "clean.txt" <<< "$result" | cut -f1 | sed 's/\x1b\[[0-9;]*m//g')
+    # modified.txt: ★ + git icon (●)
+    [[ "$mod_ind" == *"★"* ]]
+    [[ "$mod_ind" == *"●"* ]]
+    # clean.txt: space + space (no bookmark, no git status)
+    [ "$clean_ind" = "  " ]
 }
 
 @test "FILE_TYPES: empty string produces no flags" {
