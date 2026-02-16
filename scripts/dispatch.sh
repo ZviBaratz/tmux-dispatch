@@ -2,12 +2,14 @@
 # =============================================================================
 # dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Four modes, switchable mid-session via fzf's become action:
+# Six modes, switchable mid-session via fzf's become action:
 #
-#   --mode=files       fd/find → fzf (normal filtering, bat preview)
-#   --mode=grep        fzf --disabled + change:reload:rg (live search)
-#   --mode=sessions    tmux session picker/creator
-#   --mode=session-new directory-based session creation
+#   --mode=files          fd/find → fzf (normal filtering, bat preview)
+#   --mode=grep           fzf --disabled + change:reload:rg (live search)
+#   --mode=sessions       tmux session picker/creator
+#   --mode=session-new    directory-based session creation
+#   --mode=rename         inline file rename (fzf query = new name)
+#   --mode=rename-session inline session rename (fzf query = new name)
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -15,7 +17,8 @@
 #   @ prefix   — Files → sessions (remainder becomes query)
 #   ⌫ on empty — Grep/sessions → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|sessions|session-new [--pane=ID] [--query=TEXT]
+# Usage: dispatch.sh --mode=files|grep|sessions|session-new|rename|rename-session
+#        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
 # =============================================================================
 
 set -euo pipefail
@@ -39,19 +42,23 @@ source "$SCRIPT_DIR/helpers.sh"
 MODE="files"
 PANE_ID=""
 QUERY=""
+FILE=""
+SESSION=""
 
 for arg in "$@"; do
     case "$arg" in
-        --mode=*)   MODE="${arg#--mode=}" ;;
-        --pane=*)   PANE_ID="${arg#--pane=}" ;;
-        --query=*)  QUERY="${arg#--query=}" ;;
+        --mode=*)    MODE="${arg#--mode=}" ;;
+        --pane=*)    PANE_ID="${arg#--pane=}" ;;
+        --query=*)   QUERY="${arg#--query=}" ;;
+        --file=*)    FILE="${arg#--file=}" ;;
+        --session=*) SESSION="${arg#--session=}" ;;
     esac
 done
 
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|sessions|session-new) ;;
+    files|grep|sessions|session-new|rename|rename-session) ;;
     *)
         echo "Unknown mode: $MODE (expected: files, grep, sessions, session-new)"
         exit 1
@@ -183,7 +190,7 @@ fi"
         --bind "start:unbind(focus)" \
         --bind "down:rebind(focus)+down" \
         --bind "up:rebind(focus)+up" \
-        --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-file {})+reload($file_cmd)" \
+        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={})" \
         --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files {+})+reload($file_cmd)" \
     ) || exit 0
 
@@ -242,7 +249,7 @@ run_grep_mode() {
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
         --border-label=' grep ' \
-        --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-file {1})+reload:$RG_CMD --line-number --no-heading --color=always --smart-case $RG_EXTRA_ARGS -- {q} || true" \
+        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
     ) || exit 0
 
@@ -359,7 +366,7 @@ run_session_mode() {
             --no-sort \
             --border-label=' sessions ' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
-            --bind "ctrl-r:execute('$SCRIPT_DIR/actions.sh' rename-session {1})+reload('$SCRIPT_DIR/actions.sh' list-sessions)" \
+            --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
     ) || exit 0
@@ -478,11 +485,107 @@ run_session_new_mode() {
     fi
 }
 
+# ─── Mode: rename ─────────────────────────────────────────────────────────
+
+run_rename_mode() {
+    [[ -z "$FILE" ]] && exit 1
+    if [[ ! -f "$FILE" ]]; then
+        tmux display-message "File not found: $FILE"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
+    local result
+    result=$(
+        echo "$FILE" | fzf \
+            "${base_opts[@]}" \
+            --disabled \
+            --print-query \
+            --query "$FILE" \
+            --prompt '→ ' \
+            --header 'enter confirm · esc cancel' \
+            --preview "'$SCRIPT_DIR/actions.sh' rename-preview '$FILE' {q}" \
+            --border-label=' rename ' \
+    ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+
+    local new_name
+    new_name=$(head -1 <<< "$result")
+
+    # Empty or unchanged → cancel
+    if [[ -z "$new_name" || "$new_name" == "$FILE" ]]; then
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    # Conflict check
+    if [[ -e "$new_name" ]]; then
+        tmux display-message "Already exists: $new_name"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    # Perform rename
+    local dir
+    dir=$(dirname "$new_name")
+    [[ -d "$dir" ]] || mkdir -p "$dir"
+    command mv "$FILE" "$new_name"
+
+    exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+}
+
+# ─── Mode: rename-session ────────────────────────────────────────────────────
+
+run_rename_session_mode() {
+    [[ -z "$SESSION" ]] && exit 1
+    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+        tmux display-message "Session not found: $SESSION"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+    fi
+
+    # Load shared visual options
+    local -a base_opts
+    mapfile -t base_opts < <(build_fzf_base_opts)
+
+    local result
+    result=$(
+        echo "$SESSION" | fzf \
+            "${base_opts[@]}" \
+            --disabled \
+            --print-query \
+            --query "$SESSION" \
+            --prompt '→ ' \
+            --header 'enter confirm · esc cancel' \
+            --preview "'$SCRIPT_DIR/actions.sh' rename-session-preview '$SESSION' {q}" \
+            --border-label=' rename session ' \
+    ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+
+    local new_name
+    new_name=$(head -1 <<< "$result")
+
+    # Empty or unchanged → cancel
+    if [[ -z "$new_name" || "$new_name" == "$SESSION" ]]; then
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+    fi
+
+    # Conflict check
+    if tmux has-session -t "$new_name" 2>/dev/null; then
+        tmux display-message "Session already exists: $new_name"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+    fi
+
+    tmux rename-session -t "$SESSION" "$new_name"
+
+    exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
+}
+
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files)       run_files_mode ;;
-    grep)        run_grep_mode ;;
-    sessions)    run_session_mode ;;
-    session-new) run_session_new_mode ;;
+    files)          run_files_mode ;;
+    grep)           run_grep_mode ;;
+    sessions)       run_session_mode ;;
+    session-new)    run_session_new_mode ;;
+    rename)         run_rename_mode ;;
+    rename-session) run_rename_session_mode ;;
 esac

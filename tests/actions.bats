@@ -259,6 +259,112 @@ MOCK
     [ "$first_field" = "work" ]
 }
 
+# ─── rename-preview ───────────────────────────────────────────────────────────
+
+@test "rename-preview: available name shows checkmark" {
+    local src="$BATS_TEST_TMPDIR/orig.txt"
+    echo "content" > "$src"
+
+    run "$ACTIONS" rename-preview "$src" "$BATS_TEST_TMPDIR/new.txt"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"available"* ]]
+}
+
+@test "rename-preview: conflicting name shows error" {
+    local src="$BATS_TEST_TMPDIR/orig.txt"
+    local dst="$BATS_TEST_TMPDIR/existing.txt"
+    echo "a" > "$src"
+    echo "b" > "$dst"
+
+    run "$ACTIONS" rename-preview "$src" "$dst"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already exists"* ]]
+}
+
+@test "rename-preview: unchanged name shows unchanged" {
+    local src="$BATS_TEST_TMPDIR/same.txt"
+    echo "content" > "$src"
+
+    run "$ACTIONS" rename-preview "$src" "$src"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"unchanged"* ]]
+}
+
+@test "rename-preview: empty name shows empty message" {
+    local src="$BATS_TEST_TMPDIR/file.txt"
+    echo "content" > "$src"
+
+    run "$ACTIONS" rename-preview "$src" ""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"empty"* ]]
+}
+
+@test "rename-preview: new parent dir shows will create" {
+    local src="$BATS_TEST_TMPDIR/file.txt"
+    echo "content" > "$src"
+
+    run "$ACTIONS" rename-preview "$src" "$BATS_TEST_TMPDIR/newdir/file.txt"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"available"* ]]
+    [[ "$output" == *"will create"* ]]
+}
+
+# ─── rename-session-preview ──────────────────────────────────────────────────
+
+@test "rename-session-preview: available name shows checkmark" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 1 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" rename-session-preview "old-sess" "new-sess"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"available"* ]]
+}
+
+@test "rename-session-preview: conflicting session shows error" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 0 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" rename-session-preview "old-sess" "existing-sess"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already exists"* ]]
+}
+
+@test "rename-session-preview: unchanged name shows unchanged" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    has-session) exit 0 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" rename-session-preview "same-sess" "same-sess"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"unchanged"* ]]
+}
+
+@test "rename-session-preview: empty name shows empty message" {
+    run "$ACTIONS" rename-session-preview "some-sess" ""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"empty"* ]]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {

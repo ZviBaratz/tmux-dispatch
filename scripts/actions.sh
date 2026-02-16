@@ -103,16 +103,69 @@ action_list_sessions() {
     done
 }
 
+# ─── rename-preview (for inline rename mode) ────────────────────────────────
+
+action_rename_preview() {
+    local original="$1"
+    local new_name="$2"
+
+    printf '\n'
+    printf '  \033[90m%s\033[0m\n' "$original"
+    printf '  ↓\n'
+    printf '  \033[1m%s\033[0m\n' "$new_name"
+    printf '\n'
+
+    if [[ -z "$new_name" ]]; then
+        printf '  \033[90m(empty name)\033[0m\n'
+    elif [[ "$new_name" == "$original" ]]; then
+        printf '  \033[90m(unchanged)\033[0m\n'
+    elif [[ -e "$new_name" ]]; then
+        printf '  \033[31m✗ already exists\033[0m\n'
+    else
+        printf '  \033[32m✓ available\033[0m\n'
+        local dir
+        dir=$(dirname "$new_name")
+        if [[ ! -d "$dir" ]]; then
+            printf '  \033[33m(will create %s)\033[0m\n' "$dir/"
+        fi
+    fi
+}
+
+# ─── rename-session-preview (for inline rename mode) ─────────────────────────
+
+action_rename_session_preview() {
+    local original="$1"
+    local new_name="$2"
+
+    printf '\n'
+    printf '  \033[90m%s\033[0m\n' "$original"
+    printf '  ↓\n'
+    printf '  \033[1m%s\033[0m\n' "$new_name"
+    printf '\n'
+
+    if [[ -z "$new_name" ]]; then
+        printf '  \033[90m(empty name)\033[0m\n'
+    elif [[ "$new_name" == "$original" ]]; then
+        printf '  \033[90m(unchanged)\033[0m\n'
+    elif tmux has-session -t "$new_name" 2>/dev/null; then
+        printf '  \033[31m✗ session already exists\033[0m\n'
+    else
+        printf '  \033[32m✓ available\033[0m\n'
+    fi
+}
+
 # ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 action="${1:-}"
 shift || true
 
 case "$action" in
-    rename-file)     action_rename_file "$@" ;;
-    delete-files)    action_delete_files "$@" ;;
-    rename-session)  action_rename_session "$@" ;;
-    list-sessions)   action_list_sessions ;;
+    rename-file)            action_rename_file "$@" ;;
+    delete-files)           action_delete_files "$@" ;;
+    rename-session)         action_rename_session "$@" ;;
+    rename-preview)         action_rename_preview "$@" ;;
+    rename-session-preview) action_rename_session_preview "$@" ;;
+    list-sessions)          action_list_sessions ;;
     *)
         echo "Unknown action: $action"
         echo "Usage: actions.sh <rename-file|delete-files|rename-session|list-sessions> [args...]"
