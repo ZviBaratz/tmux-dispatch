@@ -343,7 +343,6 @@ run_session_mode() {
             --query "$QUERY" \
             --prompt '@ ' \
             --delimiter=$'\t' \
-            --with-nth=2.. \
             --nth=1 \
             --accept-nth=1 \
             --ansi \

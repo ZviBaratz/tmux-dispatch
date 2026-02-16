@@ -99,7 +99,7 @@ action_list_sessions() {
         meta="\033[90m· ${wins}w · ${age}"
         [ "${attached:-0}" -gt 0 ] && meta="${meta} · attached"
         meta="${meta}\033[0m"
-        printf '%s\t  %s %b\n' "$name" "$name" "$meta"
+        printf '%s\t  %b\n' "$name" "$meta"
     done
 }
 
