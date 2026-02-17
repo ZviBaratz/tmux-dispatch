@@ -5,6 +5,8 @@ nav_order: 4
 ---
 # Directories
 
+![dirs demo](../assets/dirs.gif)
+
 Directory jump mode lets you quickly navigate to any directory. It uses zoxide's frecency-ranked directory list when available, falling back to fd or find. Selecting a directory sends `cd <path>` to your originating pane.
 
 **How to access:** Type `#` from files mode, or set a direct keybinding.

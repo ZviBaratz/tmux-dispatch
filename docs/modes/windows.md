@@ -5,6 +5,8 @@ nav_order: 6
 ---
 # Windows
 
+![windows demo](../assets/windows.gif)
+
 Window picker mode shows all windows for a specific session with pane content previews. It's accessed from session mode via `Ctrl+W` and provides a quick way to jump to a specific window.
 
 **How to access:** Press `Ctrl+W` in session mode with a session selected.

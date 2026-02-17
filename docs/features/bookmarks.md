@@ -6,6 +6,8 @@ nav_order: 2
 
 # Bookmarks & Frecency
 
+![bookmarks demo](../assets/bookmarks.gif)
+
 tmux-dispatch provides two complementary systems for surfacing the files you care about most: bookmarks for explicit pinning and frecency for automatic ranking based on usage patterns.
 
 ## Bookmarks

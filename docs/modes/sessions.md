@@ -5,6 +5,8 @@ nav_order: 5
 ---
 # Sessions
 
+![sessions demo](../assets/sessions.gif)
+
 Session mode is the hub for tmux session management. Switch between sessions, create new ones by typing a name, kill sessions, launch project-based sessions, browse windows, and rename -- all from the same popup.
 
 **How to access:** Press `Alt+w` directly, type `@` from files mode, or set a custom keybinding.

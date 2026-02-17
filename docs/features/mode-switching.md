@@ -6,6 +6,8 @@ nav_order: 1
 
 # Mode Switching
 
+![mode switching demo](../assets/mode-switching.gif)
+
 Mode switching is tmux-dispatch's core navigation concept, inspired by VS Code's command palette. Files mode is always "home" -- the starting point whenever you open the popup. From there, type a prefix character to switch to any other mode. The remainder of your typed text becomes the query in the new mode, so you can start searching the moment you arrive.
 
 This works via fzf's `become` action: when a prefix is detected in the `change:transform` binding, fzf replaces itself with a new `dispatch.sh` invocation in the target mode, preserving the query (minus the prefix character). The transition is seamless -- fzf terminates and restarts in the new mode within the same popup window.
