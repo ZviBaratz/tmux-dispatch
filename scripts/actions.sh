@@ -11,6 +11,7 @@
 #   rename-file   <filepath>       Rename a single file
 #   delete-files  <file>...        Delete one or more files (with confirmation)
 #   rename-session <session-name>  Rename a tmux session
+#   kill-session  <session-name>   Kill a tmux session (guards current)
 #   list-sessions                  Print session list for fzf reload
 # =============================================================================
 
@@ -193,6 +194,28 @@ action_bookmark_toggle() {
     fi
 }
 
+# ─── kill-session ─────────────────────────────────────────────────────────
+
+action_kill_session() {
+    local session="$1"
+    [[ -z "$session" ]] && return 0
+
+    # Refuse to kill the current session
+    local current
+    current=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+    if [[ "$session" == "$current" ]]; then
+        tmux display-message "Cannot kill current session"
+        return 0
+    fi
+
+    if tmux has-session -t "$session" 2>/dev/null; then
+        tmux kill-session -t "$session"
+        tmux display-message "Killed session: $session"
+    else
+        tmux display-message "Session not found: $session"
+    fi
+}
+
 # ─── git-toggle ──────────────────────────────────────────────────────────────
 
 action_git_toggle() {
@@ -225,6 +248,7 @@ case "$action" in
     rename-session-preview) action_rename_session_preview "$@" ;;
     list-sessions)          action_list_sessions ;;
     git-toggle)             action_git_toggle "$@" ;;
+    kill-session)           action_kill_session "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
     *)
         echo "Unknown action: $action"

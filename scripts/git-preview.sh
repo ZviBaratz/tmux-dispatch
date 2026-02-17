@@ -19,6 +19,9 @@ STATUS="${2:-}"
 # shellcheck disable=SC2001  # ANSI regex requires sed, not ${//}
 STATUS=$(sed 's/\x1b\[[0-9;]*m//g' <<< "$STATUS")
 
+# Git porcelain shows renamed files as "old -> new" — strip to new name
+FILE="${FILE##*-> }"
+
 [[ -f "$FILE" ]] || { echo "File not found: $FILE"; exit 0; }
 
 BAT_CMD=$(detect_bat)

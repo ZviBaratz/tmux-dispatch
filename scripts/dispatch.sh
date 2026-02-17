@@ -396,6 +396,7 @@ run_grep_mode() {
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
         --border-label=' grep ' \
+        --header 'enter open at line · ctrl-o pane · ctrl-r rename · ctrl-y copy · ⌫ files' \
         --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
         --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-grep '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {1} {2})" \
@@ -494,12 +495,15 @@ run_session_mode() {
     local -a base_opts
     mapfile -t base_opts < <(build_fzf_base_opts)
 
+    # Session list reload command (also used by ctrl-k kill binding)
+    local session_list_cmd="'$SCRIPT_DIR/actions.sh' list-sessions"
+
     local result
     result=$(
         echo "$session_list" |
         fzf --print-query \
             "${base_opts[@]}" \
-            --expect=ctrl-k,ctrl-y \
+            --expect=ctrl-y \
             --query "$QUERY" \
             --prompt '@ ' \
             --delimiter=$'\t' \
@@ -508,11 +512,13 @@ run_session_mode() {
             --ansi \
             --no-sort \
             --border-label=' sessions ' \
+            --header 'enter switch · ctrl-k kill · ctrl-r rename · ctrl-n new · ctrl-w windows · ⌫ files' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
             --bind "ctrl-w:become('$SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$PANE_ID' --session={1})" \
+            --bind "ctrl-k:execute('$SCRIPT_DIR/actions.sh' kill-session {1})+reload:$session_list_cmd" \
     ) || exit 0
 
     handle_session_result "$result"
@@ -540,19 +546,6 @@ handle_session_result() {
             # Copy session name to clipboard via tmux
             echo -n "$selected" | tmux load-buffer -w -
             tmux display-message "Copied: $selected"
-            ;;
-        ctrl-k)
-            # Kill session (refuse to kill current)
-            local current
-            current=$(tmux display-message -p '#{session_name}' 2>/dev/null)
-            if [[ "$selected" == "$current" ]]; then
-                tmux display-message "Cannot kill current session"
-            elif tmux has-session -t "$selected" 2>/dev/null; then
-                tmux kill-session -t "$selected"
-                tmux display-message "Killed session: $selected"
-            else
-                tmux display-message "Session not found: $selected"
-            fi
             ;;
         *)
             # Switch to session, or create if it doesn't exist
@@ -786,6 +779,7 @@ run_directory_mode() {
         --prompt '# ' \
         --preview "$dir_preview" \
         --border-label=' directories ' \
+        --header 'enter cd · ctrl-y copy · ⌫ files' \
         --bind "backward-eof:$become_files" \
     ) || exit 0
 
@@ -921,6 +915,7 @@ run_git_mode() {
         --preview "'$SCRIPT_DIR/git-preview.sh' {2..} {1}" \
         --preview-window 'right:60%:border-left' \
         --border-label=' git ' \
+        --header 'tab stage/unstage · enter open · ctrl-o pane · ctrl-y copy · ⌫ files' \
         --bind "tab:execute-silent('$SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
         --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {2..})" \
         --bind "backward-eof:$become_files" \
