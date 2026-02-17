@@ -22,8 +22,10 @@ Window picker mode shows all windows for a specific session with pane content pr
 | `Left` | Move left in grid (previous window) |
 | `Down` | Move down in grid (same column, next row) |
 | `Up` | Move up in grid (same column, previous row) |
+| `Ctrl+Y` | Copy window reference (`session:index`) to clipboard |
 | `Backspace` on empty | Return to sessions |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Features

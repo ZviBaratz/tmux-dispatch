@@ -66,7 +66,9 @@ teardown() {
 #!/usr/bin/env bash
 case "$1" in
     has-session)
-        if [ "$3" = "old-sess" ]; then exit 0; else exit 1; fi ;;
+        # Strip = prefix from exact-match session targeting
+        name="${3#=}"
+        if [ "$name" = "old-sess" ]; then exit 0; else exit 1; fi ;;
     rename-session) exit 0 ;;
     show-option) echo "" ;;
     *) echo "" ;;

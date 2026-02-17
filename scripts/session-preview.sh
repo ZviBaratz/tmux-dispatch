@@ -26,14 +26,14 @@ highlight_idx="${highlight_idx%%:*}"  # strip trailing colon from fzf {1} field
 cols=${FZF_PREVIEW_COLUMNS:-80}
 lines=${FZF_PREVIEW_LINES:-30}
 
-if ! tmux has-session -t "$session" 2>/dev/null; then
+if ! tmux has-session -t "=$session" 2>/dev/null; then
   echo "  New session: $session"
   exit 0
 fi
 
 # --- Gather session data ---
 
-win_data=$(tmux list-windows -t "$session" \
+win_data=$(tmux list-windows -t "=$session" \
   -F '#{window_index}|#{window_name}|#{?window_active,1,0}|#{window_panes}' 2>/dev/null)
 win_count=0
 [[ -n "$win_data" ]] && win_count=$(printf '%s\n' "$win_data" | wc -l)
@@ -83,7 +83,7 @@ while IFS='|' read -r idx name active pane_count; do
   win_index[i]="$idx"
 
   # Get active pane ID directly (tmux 1.9+)
-  pid=$(tmux display-message -t "${session}:${idx}" -p '#{pane_id}' 2>/dev/null)
+  pid=$(tmux display-message -t "=${session}:${idx}" -p '#{pane_id}' 2>/dev/null)
 
   # Capture with ANSI colors, strip trailing blanks, take bottom lines,
   # and format to exact width (ANSI-aware) — all in one perl call

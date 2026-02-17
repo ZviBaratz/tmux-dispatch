@@ -17,7 +17,7 @@ Bookmarks pin important files to the top of the file finder list. They persist a
 ### Usage
 
 - Press `Ctrl+B` in files mode to toggle a bookmark on the selected file
-- Bookmarked files show a yellow star indicator in the file list
+- Bookmarked files show a gold star indicator in the file list
 - Bookmarked files always appear at the top, before frecency-ranked and regular files
 
 ### How bookmarks work

@@ -19,6 +19,7 @@ Directory jump mode lets you quickly navigate to any directory. It uses zoxide's
 | `Ctrl+Y` | Copy directory path to clipboard |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Features

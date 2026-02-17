@@ -26,7 +26,7 @@
 - **Window picker** — Browse windows with pane content preview
 - **Mode switching** — Type `>` for grep, `@` for sessions, `!` for git, `#` for directories — backspace returns home
 - **In-place actions** — Rename (`Ctrl+R`), delete (`Ctrl+X`), bookmark (`Ctrl+B`), multi-select (`Tab`), clipboard (`Ctrl+Y`)
-- **Built-in guide** — First launch shows all keybindings and mode prefixes in the preview panel; start typing to dismiss
+- **Built-in guide** — Opening the popup shows all keybindings and mode prefixes in the preview panel; start typing to dismiss. Press `?` in any mode for context-sensitive help
 
 ## Quick Start
 

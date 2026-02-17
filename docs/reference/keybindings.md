@@ -77,6 +77,8 @@ Shows files with uncommitted changes. Status icons are colored by change type.
 | `Shift+Tab` | Toggle selection (multi-select) |
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path(s) to clipboard |
+| `Ctrl+R` | Rename file |
+| `Ctrl+X` | Delete file(s) (multi-select supported) |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
@@ -120,6 +122,7 @@ Browse and switch between windows in a session. Arrow keys navigate spatially wi
 | `Left` | Move left in grid (previous window) |
 | `Down` | Move down in grid (same column, next row) |
 | `Up` | Move up in grid (same column, previous row) |
+| `Ctrl+Y` | Copy window reference to clipboard |
 | `Backspace` on empty | Return to sessions |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |

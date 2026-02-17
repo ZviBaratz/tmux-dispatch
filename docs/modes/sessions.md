@@ -11,7 +11,7 @@ Session mode is the hub for tmux session management. Switch between sessions, cr
 
 **How to access:** Press `Alt+w` directly, type `@` from files mode, or set a custom keybinding.
 
-**Session list format:** Each session shows: `name · Nw · age [· attached]` where N is the window count, age is relative time since last activity (e.g., "5m", "2h"), and "attached" appears if a client is connected.
+**Session list format:** Each session shows: `name · Nw · age [· attached] [· current]` where N is the window count, age is relative time since last activity (e.g., "5m", "2h"), "attached" appears if a client is connected, and "current" (in green) marks the session you're in.
 
 ## Keybindings
 
@@ -25,6 +25,7 @@ Session mode is the hub for tmux session management. Switch between sessions, cr
 | `Ctrl+R` | Rename session inline |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Features

@@ -45,7 +45,7 @@ tmux source-file ~/.tmux.conf
 
 - **tmux 2.6+** (3.2+ recommended for popup support; older versions fall back to `split-window`)
 - **bash 4.0+** (macOS ships bash 3.2 -- install a newer version via Homebrew)
-- **fzf 0.38+** (0.49+ recommended for all features including dynamic labels)
+- **fzf 0.38+** (0.45+ for dynamic labels, 0.49+ for all features)
 - **perl** (used by session and window preview rendering)
 
 ### Optional (but recommended)
@@ -113,7 +113,7 @@ tmux new-session -s myproject -c ~/my-project
 
 ### 2. Launch the file finder
 
-Press `Alt+o`. The file finder popup appears with a cheat sheet in the preview panel showing all available keybindings and mode prefixes.
+Press `Alt+o`. The file finder popup appears with a cheat sheet in the preview panel showing all available keybindings and mode prefixes. Press `?` at any time in any mode to see context-sensitive help for the current mode.
 
 ### 3. Search and preview files
 

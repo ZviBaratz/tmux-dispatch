@@ -24,6 +24,7 @@ Type to filter files instantly. Bookmarked files show a gold star and appear fir
 | `Ctrl+X` | Delete file(s) with confirmation |
 | `Tab` / `Shift+Tab` | Toggle multi-selection |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ### Mode switching prefixes
@@ -45,7 +46,7 @@ See [Mode Switching](../features/mode-switching) for details on how prefix-based
 - **[Bookmarks](../features/bookmarks)** -- press `Ctrl+B` to bookmark a file. Bookmarked files display a gold star and are pinned to the top of the list. Bookmarks persist across sessions.
 - **[Frecency ranking](../features/bookmarks)** -- recently and frequently opened files float toward the top of the list, ranked by a decay-weighted score.
 - **Git status indicators** -- colored icons appear next to filenames with uncommitted changes: green `✚` (staged), red `●` (modified), purple `✹` (both staged and unstaged), yellow `?` (untracked). Disable with `@dispatch-git-indicators "off"`.
-- **Hidden file toggle** -- press `Ctrl+H` to toggle hidden (dotfile) visibility. Hidden files are shown by default; the toggle instantly reloads the file list.
+- **Hidden file toggle** -- press `Ctrl+H` to toggle hidden (dotfile) visibility. Hidden files are shown by default; the toggle resets each time the popup opens.
 - **File type filters** -- restrict results to specific extensions using `@dispatch-file-types`.
 - **Multi-select** -- use `Tab`/`Shift+Tab` to select multiple files, then `Enter` to open all sequentially or `Ctrl+Y` to copy all paths.
 - **Dual-action editing** -- `Enter` opens in the popup editor (runs inside the popup), while `Ctrl+O` sends the open command to your originating tmux pane (useful for GUI editors or keeping context).

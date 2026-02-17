@@ -33,8 +33,12 @@ This mode only works inside a git repository. If you open it outside a git worki
 | `Tab` | Stage/unstage file (icon updates in-place) |
 | `Ctrl+O` | Send editor open command to pane |
 | `Ctrl+Y` | Copy file path to clipboard |
+| `Shift+Tab` | Toggle selection (multi-select) |
+| `Ctrl+R` | Rename file |
+| `Ctrl+X` | Delete file(s) with confirmation |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Features

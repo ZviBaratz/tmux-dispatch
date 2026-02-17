@@ -25,8 +25,10 @@ Unlike files mode, grep mode runs fzf in `--disabled` mode: fzf does not filter 
 | `Ctrl+Y` | Copy `file:line` to clipboard |
 | `Ctrl+F` | Toggle between live search and fuzzy filter |
 | `Ctrl+R` | Rename the matched file |
+| `Ctrl+X` | Delete the matched file |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Features

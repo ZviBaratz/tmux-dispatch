@@ -144,12 +144,14 @@ HELP_FILES="$(printf '%b' '
   \033[1mFILES\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     open in editor
+  S-tab     multi-select
   ^O        send to pane
   ^Y        copy path
   ^B        toggle bookmark
   ^H        toggle hidden files
   ^R        rename file
   ^X        delete file
+  ^D/^U     scroll preview
 
   \033[1mMODE SWITCHING\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
@@ -181,6 +183,8 @@ HELP_GIT="$(printf '%b' '
   enter     open in editor
   ^O        send to pane
   ^Y        copy path
+  ^R        rename file
+  ^X        delete file
   ⌫ empty   back to files
 
   ^D/^U     scroll preview
@@ -216,6 +220,16 @@ HELP_WINDOWS="$(printf '%b' '
   ←→        move one
   ↑↓        skip two
   enter     switch window
+  ^Y        copy window ref
+  ⌫ empty   back to sessions
+
+  ^D/^U     scroll preview
+')"
+
+HELP_SESSION_NEW="$(printf '%b' '
+  \033[1mNEW SESSION\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     create session
   ⌫ empty   back to sessions
 
   ^D/^U     scroll preview
@@ -228,6 +242,7 @@ SQ_HELP_GIT=$(_sq_escape "$HELP_GIT")
 SQ_HELP_SESSIONS=$(_sq_escape "$HELP_SESSIONS")
 SQ_HELP_DIRS=$(_sq_escape "$HELP_DIRS")
 SQ_HELP_WINDOWS=$(_sq_escape "$HELP_WINDOWS")
+SQ_HELP_SESSION_NEW=$(_sq_escape "$HELP_SESSION_NEW")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -278,6 +293,8 @@ run_files_mode() {
         local ext_re
         # shellcheck disable=SC2001  # ERE char class needs sed, not ${//}
         ext_re=$(IFS='|'; exts_arr=(); for e in "${exts[@]}"; do e="${e## }"; e="${e%% }"; [[ -n "$e" ]] && exts_arr+=("$(sed 's/[][\\.^$*+?{}()|]/\\&/g' <<< "$e")"); done; echo "${exts_arr[*]}")
+        # ext_filter_str MUST start with "| " (pipe) or be empty — it's
+        # spliced into fzf reload strings as a pipeline stage after bash -c.
         ext_filter_str="| grep -E '\\.($ext_re)$'"
         _ext_filter() { grep -E "\\.(${ext_re})$" || true; }
     fi
@@ -687,14 +704,14 @@ handle_session_result() {
             ;;
         *)
             # Switch to existing session, or create with sanitized name
-            if ! tmux switch-client -t "$selected" 2>/dev/null; then
+            if ! tmux switch-client -t "=$selected" 2>/dev/null; then
                 # Sanitize: replace characters invalid in tmux session names
                 local sanitized
                 sanitized=$(printf '%s' "$selected" | sed 's/[^a-zA-Z0-9_-]/-/g')
                 sanitized="${sanitized#-}"
                 sanitized="${sanitized%-}"
                 [[ -z "$sanitized" ]] && exit 0
-                tmux new-session -d -s "$sanitized" && tmux switch-client -t "$sanitized"
+                tmux new-session -d -s "$sanitized" && tmux switch-client -t "=$sanitized"
             fi
             ;;
     esac
@@ -713,7 +730,6 @@ run_session_new_mode() {
     for dir in $session_dirs; do
         [[ -d "$dir" ]] && valid_dirs+=("$dir")
     done
-    unset IFS
 
     if [[ ${#valid_dirs[@]} -eq 0 ]]; then
         tmux display-message "No session dirs found — set @dispatch-session-dirs '/path/one:/path/two'"
@@ -742,11 +758,16 @@ run_session_new_mode() {
         preview_cmd="ls -laG {}"
     fi
 
+    local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
+
     local selected
     selected=$(_run_dir_cmd | sort | fzf \
         "${BASE_FZF_OPTS[@]}" \
-        --border-label=' new session · enter select ' \
+        --border-label=' new session · enter select · ⌫ sessions ' \
+        --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
+        --bind "backward-eof:$become_sessions" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_SESSION_NEW'" \
     ) || exit 0
 
     [[ -z "$selected" ]] && exit 0
@@ -760,11 +781,11 @@ run_session_new_mode() {
     session_name="${session_name#-}"
     session_name="${session_name%-}"
 
-    if tmux has-session -t "$session_name" 2>/dev/null; then
-        tmux switch-client -t "$session_name"
+    if tmux has-session -t "=$session_name" 2>/dev/null; then
+        tmux switch-client -t "=$session_name"
     else
         tmux new-session -d -s "$session_name" -c "$selected" && \
-            tmux switch-client -t "$session_name"
+            tmux switch-client -t "=$session_name"
     fi
 }
 
@@ -799,12 +820,15 @@ run_rename_mode() {
     fi
 
     # Path traversal guard — reject targets outside working directory
-    local resolved
+    # Resolve both sides: realpath resolves symlinks, so $PWD must also be
+    # resolved to avoid false rejections when the project dir is a symlink.
+    local resolved resolved_pwd
     resolved=$(realpath -m "$new_name" 2>/dev/null) || {
         tmux display-message "dispatch: invalid path: $new_name"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     }
-    if [[ "$resolved" != "$PWD"/* ]]; then
+    resolved_pwd=$(realpath "$PWD" 2>/dev/null) || resolved_pwd="$PWD"
+    if [[ "$resolved" != "$resolved_pwd"/* ]]; then
         tmux display-message "Cannot rename outside working directory"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
@@ -828,7 +852,7 @@ run_rename_mode() {
 
 run_rename_session_mode() {
     [[ -z "$SESSION" ]] && { _dispatch_error "no session selected for rename"; exit 1; }
-    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+    if ! tmux has-session -t "=$SESSION" 2>/dev/null; then
         tmux display-message "Session not found: $SESSION"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
     fi
@@ -855,12 +879,12 @@ run_rename_session_mode() {
     fi
 
     # Conflict check
-    if tmux has-session -t "$new_name" 2>/dev/null; then
+    if tmux has-session -t "=$new_name" 2>/dev/null; then
         tmux display-message "Session already exists: $new_name"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
     fi
 
-    tmux rename-session -t "$SESSION" "$new_name"
+    tmux rename-session -t "=$SESSION" "$new_name"
 
     exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
 }
@@ -953,13 +977,13 @@ run_windows_mode() {
         exit 1
     fi
 
-    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+    if ! tmux has-session -t "=$SESSION" 2>/dev/null; then
         tmux display-message "Session not found: $SESSION"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
     fi
 
     local win_list
-    win_list=$(tmux list-windows -t "$SESSION" \
+    win_list=$(tmux list-windows -t "=$SESSION" \
         -F '#{window_index}: #{window_name}  #{?window_active,*,}  (#{window_panes} panes)' 2>/dev/null)
 
     [[ -z "$win_list" ]] && { _dispatch_error "no windows found"; exit 0; }
@@ -972,8 +996,9 @@ run_windows_mode() {
         fzf \
             "${BASE_FZF_OPTS[@]}" \
             --no-cycle \
+            --expect=ctrl-y \
             --prompt "$SESSION windows  " \
-            --border-label ' windows · ←→ move · ↑↓ skip · enter switch · ⌫ sessions ' \
+            --border-label ' windows · ←→ move · ↑↓ skip · enter switch · ^y copy · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") '{1}'" \
             --bind "right:down" \
@@ -986,13 +1011,28 @@ run_windows_mode() {
 
     [[ -z "$result" ]] && exit 0
 
+    local key selected
+    key=$(head -1 <<< "$result")
+    selected=$(tail -1 <<< "$result")
+    [[ -z "$selected" ]] && exit 0
+
     # Extract window index (first field before colon)
     local win_idx
-    win_idx=$(awk -F: '{print $1}' <<< "$result")
+    win_idx=$(awk -F: '{print $1}' <<< "$selected")
     [[ "$win_idx" =~ ^[0-9]+$ ]] || exit 0
 
-    tmux select-window -t "$SESSION:$win_idx"
-    tmux switch-client -t "$SESSION"
+    case "$key" in
+        ctrl-y)
+            local win_name
+            win_name=$(awk -F: '{print $2}' <<< "$selected" | sed 's/^ *//;s/ *$//')
+            echo -n "$SESSION:$win_idx" | tmux load-buffer -w -
+            tmux display-message "Copied: $SESSION:$win_idx ($win_name)"
+            ;;
+        *)
+            tmux select-window -t "=$SESSION:$win_idx"
+            tmux switch-client -t "=$SESSION"
+            ;;
+    esac
 }
 
 # ─── Mode: git ────────────────────────────────────────────────────────────────
@@ -1038,10 +1078,12 @@ run_git_mode() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '{2..}' '{1}'" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' git · tab stage/unstage · S-tab select · enter open · ^o pane · ^y copy · ⌫ files ' \
+        --border-label ' git · tab stage · S-tab select · enter open · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{2..}')" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '{2..}')+reload:$git_status_cmd" \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GIT'" \
     ) || exit 0

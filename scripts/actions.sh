@@ -55,7 +55,7 @@ action_delete_files() {
     read -r ans
 
     [[ "$ans" == [yY] ]] || exit 0
-    command rm "${files[@]}"
+    command rm -- "${files[@]}"
     printf ' \033[32mDeleted.\033[0m\n'
     sleep 0.3
 }
@@ -64,7 +64,7 @@ action_delete_files() {
 
 action_rename_session() {
     local session="$1"
-    tmux has-session -t "$session" 2>/dev/null || {
+    tmux has-session -t "=$session" 2>/dev/null || {
         echo "Session not found: $session"
         read -r
         exit 1
@@ -76,13 +76,13 @@ action_rename_session() {
 
     [[ -z "$new_name" || "$new_name" == "$session" ]] && exit 0
 
-    if tmux has-session -t "$new_name" 2>/dev/null; then
+    if tmux has-session -t "=$new_name" 2>/dev/null; then
         printf '\n \033[31mSession already exists: %s\033[0m\n' "$new_name"
         read -r -p " Press Enter to cancel..."
         exit 1
     fi
 
-    tmux rename-session -t "$session" "$new_name"
+    tmux rename-session -t "=$session" "$new_name"
     printf ' \033[32mRenamed.\033[0m\n'
     sleep 0.3
 }
@@ -148,7 +148,7 @@ action_rename_session_preview() {
         printf '  \033[90m(empty name)\033[0m\n'
     elif [[ "$new_name" == "$original" ]]; then
         printf '  \033[90m(unchanged)\033[0m\n'
-    elif tmux has-session -t "$new_name" 2>/dev/null; then
+    elif tmux has-session -t "=$new_name" 2>/dev/null; then
         printf '  \033[31m✗ session already exists\033[0m\n'
     else
         printf '  \033[32m✓ available\033[0m\n'
@@ -183,8 +183,8 @@ action_kill_session() {
         return 0
     fi
 
-    if tmux has-session -t "$session" 2>/dev/null; then
-        tmux kill-session -t "$session"
+    if tmux has-session -t "=$session" 2>/dev/null; then
+        tmux kill-session -t "=$session"
         tmux display-message "Killed session: $session"
     else
         tmux display-message "Session not found: $session"
