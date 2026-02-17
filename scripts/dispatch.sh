@@ -184,13 +184,21 @@ run_files_mode() {
         _ext_filter() { grep -E "\\.(${ext_re})$" || true; }
     fi
 
+    # Two variants: with and without hidden files (toggled by Ctrl+H at runtime)
+    local file_cmd file_cmd_nohidden
     if [[ -n "$FD_CMD" ]]; then
         local strip_prefix=""
         "$FD_CMD" --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
         file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $strip_prefix$type_flags_str $FD_EXTRA_ARGS"
+        file_cmd_nohidden="$FD_CMD --type f --follow --exclude .git $strip_prefix$type_flags_str $FD_EXTRA_ARGS"
     else
         file_cmd="find . -type f -not -path '*/.git/*'${find_name_filter:+ $find_name_filter}"
+        file_cmd_nohidden="find . -type f -not -name '.*' -not -path '*/.git/*' -not -path '*/.*/*'${find_name_filter:+ $find_name_filter}"
     fi
+
+    # Hidden-toggle flag: when file exists, hidden files are shown (the default)
+    local hidden_flag
+    hidden_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-hidden-XXXXXX")
 
     _run_file_cmd() {
         if [[ -n "$FD_CMD" ]]; then
@@ -268,12 +276,12 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
+    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
 
     # Flag file: preview shows welcome on first run (flag exists), file preview after
     local welcome_flag
     welcome_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXX")
-    trap 'command rm -f "$welcome_flag"' EXIT
+    trap 'command rm -f "$welcome_flag" "$hidden_flag"' EXIT
 
     # Smart preview: when flag exists → welcome + delete flag; otherwise → file preview
     local sq_welcome
@@ -322,12 +330,18 @@ fi"
     local sq_git_prefix
     sq_git_prefix=$(_sq_escape "$git_prefix")
     local annotate_cmd="awk -v bfile='$sq_bf' -v pwd='$SQ_PWD' -v do_git=$do_git -v prefix='$sq_git_prefix' '${annotate_awk}'"
-    local file_list_cmd
+    local sq_hidden_flag
+    sq_hidden_flag=$(_sq_escape "$hidden_flag")
+    # file_list_cmd: conditional on hidden_flag — if flag exists, show hidden; otherwise hide them
+    local file_list_cmd file_list_cmd_hidden file_list_cmd_nohidden
     if [[ "$HISTORY_ENABLED" == "on" ]]; then
-        file_list_cmd="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     else
-        file_list_cmd="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     fi
+    file_list_cmd="if [ -f '$sq_hidden_flag' ]; then $file_list_cmd_hidden; else $file_list_cmd_nohidden; fi"
 
     local result
     result=$(
@@ -344,7 +358,7 @@ fi"
         --prompt '  ' \
         --preview "$smart_preview" \
         --preview-label="$initial_preview_label" \
-        --border-label ' enter open · ^o pane · ^y copy · ^b mark · ^r rename · ^x delete ' \
+        --border-label ' enter open · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
@@ -354,6 +368,7 @@ fi"
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_file)" \
         --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' $fzf_file)+reload:$file_list_cmd" \
+        --bind "ctrl-h:execute-silent(if [ -f '$sq_hidden_flag' ]; then command rm -f '$sq_hidden_flag'; else touch '$sq_hidden_flag'; fi)+reload:$file_list_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_files)" \
     ) || exit 0
 
