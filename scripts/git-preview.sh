@@ -19,8 +19,13 @@ STATUS="${2:-}"
 # shellcheck disable=SC2001  # ANSI regex requires sed, not ${//}
 STATUS=$(sed 's/\x1b\[[0-9;]*m//g' <<< "$STATUS")
 
-# Git porcelain shows renamed files as "old -> new" — strip to new name
-FILE="${FILE##*-> }"
+# Git porcelain shows renamed files as "old -> new" — strip to new name.
+# Only apply when the raw path doesn't exist but the stripped version does,
+# so filenames that legitimately contain " -> " are not mishandled.
+if [[ ! -f "$FILE" && "$FILE" == *" -> "* ]]; then
+    local_new="${FILE##*-> }"
+    [[ -f "$local_new" ]] && FILE="$local_new"
+fi
 
 [[ -f "$FILE" ]] || { echo "File not found: $FILE"; exit 0; }
 

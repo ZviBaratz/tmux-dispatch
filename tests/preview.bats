@@ -125,6 +125,19 @@ teardown() {
     [[ "$output" == *"File not found"* ]]
 }
 
+@test "git-preview: renamed file (old -> new) resolves to new name" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo6"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q
+    echo "content" > "new-name.txt"
+
+    # Simulate porcelain rename format: "old.txt -> new-name.txt"
+    run "$SCRIPT_DIR/git-preview.sh" "old.txt -> new-name.txt" "✚"
+    [[ "$status" -eq 0 ]]
+    # Should show file content (no diff for this simple case), not "File not found"
+    [[ "$output" != *"File not found"* ]]
+}
+
 # ─── session-preview.sh ─────────────────────────────────────────────────────
 
 @test "session-preview: nonexistent session shows 'New session' message" {
