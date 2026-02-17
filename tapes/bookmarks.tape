@@ -45,5 +45,5 @@ Hide
 Type "exit"
 Enter
 Sleep 300ms
-Type "tmux -L demo-vhs kill-server 2>/dev/null; rm -rf /tmp/demo-project"
+Type "tmux -L demo-vhs kill-server 2>/dev/null; rm -rf /tmp/demo-project /tmp/demo-dirs /tmp/demo-zoxide"
 Enter

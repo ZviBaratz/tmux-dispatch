@@ -12,7 +12,7 @@ TMUX_SOCKET="demo-vhs"
 
 # Clean previous demo state
 tmux -L "$TMUX_SOCKET" kill-server 2>/dev/null || true
-command rm -rf /tmp/demo-project
+command rm -rf /tmp/demo-project /tmp/demo-dirs /tmp/demo-zoxide
 
 # ─── Sample project ────────────────────────────────────────────────────────
 
@@ -120,10 +120,44 @@ history_file="$bookmark_dir/history"
     printf '%s\t%s\t%s\n' "/tmp/demo-project" "src/utils.sh" "$((now - 1800))"
 } > "$history_file"
 
+# ─── Zoxide (isolated database for dirs mode) ────────────────────────────
+
+export _ZO_DATA_DIR="/tmp/demo-zoxide"
+command rm -rf "$_ZO_DATA_DIR"
+mkdir -p "$_ZO_DATA_DIR"
+
+# Create fake directories so zoxide add accepts them
+fake_dirs=(
+    /tmp/demo-project
+    /tmp/demo-project/src
+    /tmp/demo-project/tests
+    /tmp/demo-project/docs
+    /tmp/demo-project/scripts
+    /tmp/demo-dirs/webapp-frontend
+    /tmp/demo-dirs/api-gateway
+    /tmp/demo-dirs/infra-terraform
+    /tmp/demo-dirs/shared-utils
+    /tmp/demo-dirs/data-pipeline
+    /tmp/demo-dirs/mobile-app
+)
+mkdir -p "${fake_dirs[@]}"
+
+# Seed zoxide with varying visit counts for realistic ranking
+for dir in "${fake_dirs[@]}"; do
+    zoxide add "$dir"
+done
+# Boost frequently visited dirs (zoxide ranks by frecency)
+for _ in 1 2 3 4 5; do zoxide add /tmp/demo-project; done
+for _ in 1 2 3; do zoxide add /tmp/demo-project/src; done
+for _ in 1 2; do zoxide add /tmp/demo-dirs/webapp-frontend; done
+
 # ─── tmux sessions ─────────────────────────────────────────────────────────
 
 # Primary demo session
 tmux -L "$TMUX_SOCKET" new-session -d -s demo -c /tmp/demo-project
+
+# Pass isolated zoxide database to tmux environment
+tmux -L "$TMUX_SOCKET" set-environment -g _ZO_DATA_DIR "$_ZO_DATA_DIR"
 
 # Load the dispatch plugin
 tmux -L "$TMUX_SOCKET" run-shell "$PLUGIN_DIR/dispatch.tmux"
