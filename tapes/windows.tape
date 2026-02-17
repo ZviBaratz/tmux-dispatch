@@ -23,14 +23,18 @@ Sleep 1.5s
 Down
 Sleep 1s
 Ctrl+w
-Sleep 2s
+Sleep 1.5s
 
-# Navigate windows
+# Navigate through windows — preview updates for each
+Down
+Sleep 1.5s
+Down
+Sleep 1.5s
 Down
 Sleep 1.5s
 
-# Close
-Escape
+# Select a window
+Enter
 Sleep 500ms
 
 Hide

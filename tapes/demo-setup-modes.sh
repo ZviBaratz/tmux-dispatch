@@ -132,11 +132,15 @@ tmux -L "$TMUX_SOCKET" run-shell "$PLUGIN_DIR/dispatch.tmux"
 tmux -L "$TMUX_SOCKET" set-option -g @dispatch-popup-editor "vim"
 tmux -L "$TMUX_SOCKET" set-option -g @dispatch-pane-editor "vim"
 
-# Second session with 2 windows (api-server)
+# Second session with 4 windows (api-server)
 tmux -L "$TMUX_SOCKET" new-session -d -s api-server -c /tmp
 tmux -L "$TMUX_SOCKET" send-keys -t api-server "echo 'API server running on :8080'" Enter
 tmux -L "$TMUX_SOCKET" new-window -t api-server -n logs
 tmux -L "$TMUX_SOCKET" send-keys -t api-server:logs "echo 'Watching logs...'" Enter
+tmux -L "$TMUX_SOCKET" new-window -t api-server -n tests
+tmux -L "$TMUX_SOCKET" send-keys -t api-server:tests "echo 'Running test suite — 42 passed, 0 failed'" Enter
+tmux -L "$TMUX_SOCKET" new-window -t api-server -n db
+tmux -L "$TMUX_SOCKET" send-keys -t api-server:db "echo 'PostgreSQL 16.2 — connected to api_dev'" Enter
 
 # Third session with 1 window (frontend)
 tmux -L "$TMUX_SOCKET" new-session -d -s frontend -c /tmp
