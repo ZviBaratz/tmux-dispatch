@@ -910,6 +910,7 @@ run_directory_mode() {
         --border-label ' dirs · enter cd · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "backward-eof:$become_files" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_DIRS'" \
     ) || exit 0
 
     handle_directory_result "$result"
@@ -978,6 +979,7 @@ run_windows_mode() {
             --bind "down:down+down" \
             --bind "up:up+up" \
             --bind "backward-eof:$become_sessions" \
+            --bind "?:preview:printf '%b' '$SQ_HELP_WINDOWS'" \
     ) || exit 0
 
     [[ -z "$result" ]] && exit 0
@@ -1039,6 +1041,7 @@ run_git_mode() {
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
         --bind "backward-eof:$become_files" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_GIT'" \
     ) || exit 0
 
     handle_git_result "$result"
