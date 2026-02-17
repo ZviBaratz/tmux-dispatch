@@ -186,6 +186,13 @@ teardown() {
     [ "$output" = "my-proj-test" ]
 }
 
+@test "session sanitization: no tr -c in dispatch.sh (UTF-8 safe)" {
+    # tr -c corrupts multi-byte UTF-8; sed handles it correctly
+    local tr_usage
+    tr_usage=$(grep -n 'tr -c' "$SCRIPT_DIR/dispatch.sh" || true)
+    [ -z "$tr_usage" ]
+}
+
 # ─── Result handler edge cases ──────────────────────────────────────────────
 
 @test "handle_file_result: empty files array exits 0" {

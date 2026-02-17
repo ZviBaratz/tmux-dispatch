@@ -592,7 +592,7 @@ handle_session_result() {
             if ! tmux switch-client -t "$selected" 2>/dev/null; then
                 # Sanitize: replace characters invalid in tmux session names
                 local sanitized
-                sanitized=$(printf '%s' "$selected" | tr -c 'a-zA-Z0-9_-' '-')
+                sanitized=$(printf '%s' "$selected" | sed 's/[^a-zA-Z0-9_-]/-/g')
                 sanitized="${sanitized#-}"
                 sanitized="${sanitized%-}"
                 [[ -z "$sanitized" ]] && exit 0
@@ -661,7 +661,7 @@ run_session_new_mode() {
     session_name=$(basename "$selected")
 
     # Sanitize: replace any character not in [a-zA-Z0-9_-] with a dash
-    session_name=$(printf '%s' "$session_name" | tr -c 'a-zA-Z0-9_-' '-')
+    session_name=$(printf '%s' "$session_name" | sed 's/[^a-zA-Z0-9_-]/-/g')
     # Trim leading/trailing dashes
     session_name="${session_name#-}"
     session_name="${session_name%-}"
