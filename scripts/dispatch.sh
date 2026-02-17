@@ -275,18 +275,16 @@ run_files_mode() {
     sq_welcome=$(_sq_escape "$welcome_flag")
     local smart_preview="if [ -f '$sq_welcome' ]; then command rm -f '$sq_welcome'; $welcome_preview; else $file_preview; fi"
 
-    local initial_border_label=" dispatch "
     local initial_preview_label=" guide "
     if [[ -n "$QUERY" ]]; then
         command rm -f "$welcome_flag"  # skip welcome when query is provided
-        initial_border_label=" files "
         initial_preview_label=" preview "
     fi
 
     # change:transform handles three concerns:
     # 1. > prefix → become grep mode
     # 2. @ prefix → become sessions mode
-    # 3. empty ↔ non-empty → toggle welcome/file preview and border label
+    # 3. empty ↔ non-empty → toggle welcome/file preview
     #
     # Uses execute-silent + refresh-preview to update the flag file and re-run
     # the smart preview, rather than change-preview which would replace the
@@ -301,9 +299,9 @@ elif [[ {q} == '!'* ]]; then
 elif [[ {q} == '#'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ -z {q} ]]; then
-  echo \"execute-silent(touch '$sq_welcome')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
+  echo \"execute-silent(touch '$sq_welcome')+refresh-preview+change-preview-label( guide )\"
 else
-  echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-border-label( files )+change-preview-label( preview )\"
+  echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-preview-label( preview )\"
 fi"
 
     # Load shared visual options
@@ -341,9 +339,10 @@ fi"
         --prompt '  ' \
         --preview "$smart_preview" \
         --preview-label="$initial_preview_label" \
-        --border-label="$initial_border_label" \
+        --border-label ' enter open · ^o pane · ^y copy · ^b mark · ^r rename · ^x delete ' \
+        --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
-        --bind "focus:change-border-label( files )+change-preview-label( preview )" \
+        --bind "focus:change-preview-label( preview )" \
         --bind "start:unbind(focus)" \
         --bind "down:rebind(focus)+down" \
         --bind "up:rebind(focus)+up" \
