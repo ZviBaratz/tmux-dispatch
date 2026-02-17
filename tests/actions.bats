@@ -520,6 +520,20 @@ MOCK
 
 # ─── unknown action ──────────────────────────────────────────────────────────
 
+# ─── Special characters edge cases ──────────────────────────────────────────
+
+@test "rename-file: handles filename with spaces" {
+    local src="$BATS_TEST_TMPDIR/my file.txt"
+    local dst="$BATS_TEST_TMPDIR/my renamed file.txt"
+    echo "content" > "$src"
+
+    run bash -c "echo \"$dst\" | \"$ACTIONS\" rename-file \"$src\""
+    [[ ! -f "$src" ]]
+    [[ -f "$dst" ]]
+}
+
+# ─── unknown action ──────────────────────────────────────────────────────────
+
 @test "unknown action exits with error" {
     run "$ACTIONS" bogus-action
     [ "$status" -eq 1 ]

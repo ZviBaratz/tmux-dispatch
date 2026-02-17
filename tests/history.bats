@@ -324,6 +324,22 @@ teardown() {
     [ "$output" = "" ]
 }
 
+# ─── Edge cases ──────────────────────────────────────────────────────────────
+
+@test "recent_files_for_pwd: handles malformed history lines gracefully" {
+    local hfile="$XDG_DATA_HOME/tmux-dispatch/history"
+    mkdir -p "$(dirname "$hfile")"
+    # Write malformed lines (missing fields, empty lines)
+    printf 'not-a-valid-line\n' > "$hfile"
+    printf '\n' >> "$hfile"
+    printf '%s\t%s\t%s\n' "$(date +%s)" "1" "$BATS_TEST_TMPDIR/valid.txt" >> "$hfile"
+
+    cd "$BATS_TEST_TMPDIR"
+    run recent_files_for_pwd 50
+    # Should not crash
+    [[ "$status" -eq 0 ]]
+}
+
 @test "frecency: old format lines (no timestamp) get low score" {
     local hf now
     hf=$(_dispatch_history_file)
