@@ -102,8 +102,10 @@ tmux_version_at_least() {
     [[ "$(printf '%s\n%s' "$target" "$current" | sort -V | head -n1)" == "$target" ]]
 }
 
-# Shared fzf visual options used by all dispatch modes
+# Shared fzf visual options used by all dispatch modes.
+# Pass "none" as $1 to skip the built-in color scheme (inherits terminal/FZF_DEFAULT_OPTS colors).
 build_fzf_base_opts() {
+    local theme="${1:-default}"
     local -a opts=(
         --height=100%
         --layout=reverse
@@ -114,14 +116,18 @@ build_fzf_base_opts() {
         --info=inline-right
         --no-separator
         --no-scrollbar
-        --color='bg+:#1e2030,fg+:#c8d3f5:bold,hl:#82aaff,hl+:#82aaff:bold'
-        --color='pointer:#82aaff,border:#2a2f4a,prompt:#82aaff,label:#65719e'
-        --color='info:#545a7e,separator:#2a2f4a,scrollbar:#2a2f4a'
-        --color='preview-border:#2a2f4a,preview-label:#65719e'
-        --color='header:#65719e,gutter:-1'
         --bind='ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
         --cycle
     )
+    if [[ "$theme" != "none" ]]; then
+        opts+=(
+            --color='bg+:#1e2030,fg+:#c8d3f5:bold,hl:#82aaff,hl+:#82aaff:bold'
+            --color='pointer:#82aaff,border:#2a2f4a,prompt:#82aaff,label:#65719e'
+            --color='info:#545a7e,separator:#2a2f4a,scrollbar:#2a2f4a'
+            --color='preview-border:#2a2f4a,preview-label:#65719e'
+            --color='header:#65719e,gutter:-1'
+        )
+    fi
     printf '%s\n' "${opts[@]}"
 }
 

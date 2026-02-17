@@ -91,6 +91,7 @@ RG_EXTRA_ARGS=$(get_tmux_option "@dispatch-rg-args" "")
 HISTORY_ENABLED=$(get_tmux_option "@dispatch-history" "on")
 FILE_TYPES=$(get_tmux_option "@dispatch-file-types" "")
 GIT_INDICATORS=$(get_tmux_option "@dispatch-git-indicators" "on")
+DISPATCH_THEME=$(get_tmux_option "@dispatch-theme" "default")
 
 # ─── Detect tools ────────────────────────────────────────────────────────────
 
@@ -319,7 +320,7 @@ fi"
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     # Reloadable file list command (bookmarks + frecency + files, deduped).
     # Used by fzf reload bindings (ctrl-x, ctrl-b).
@@ -416,7 +417,7 @@ run_grep_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(_run_initial_rg | fzf \
@@ -528,7 +529,7 @@ run_session_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     # Session list reload command (also used by ctrl-k kill binding)
     local session_list_cmd="'$SQ_SCRIPT_DIR/actions.sh' list-sessions"
@@ -641,7 +642,7 @@ run_session_new_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local selected
     selected=$(_run_dir_cmd | sort | fzf \
@@ -680,7 +681,7 @@ run_rename_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(
@@ -737,7 +738,7 @@ run_rename_session_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(
@@ -811,7 +812,7 @@ run_directory_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(_run_dir_cmd | fzf \
@@ -879,7 +880,7 @@ run_windows_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(
@@ -944,7 +945,7 @@ run_git_mode() {
 
     # Load shared visual options
     local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts)
+    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
     local result
     result=$(_run_git_status | fzf \
