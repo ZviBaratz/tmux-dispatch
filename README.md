@@ -95,6 +95,10 @@ Full documentation is available at **[zvibaratz.github.io/tmux-dispatch](https:/
 | [Directories](https://zvibaratz.github.io/tmux-dispatch/modes/dirs) | [Sessions](https://zvibaratz.github.io/tmux-dispatch/modes/sessions) | [Windows](https://zvibaratz.github.io/tmux-dispatch/modes/windows) |
 | [Configuration](https://zvibaratz.github.io/tmux-dispatch/reference/configuration) | [Keybindings](https://zvibaratz.github.io/tmux-dispatch/reference/keybindings) | [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) |
 
+## How is this different?
+
+Most tmux fuzzy-finder plugins provide a menu of separate tmux operations (sessions, windows, panes, commands). tmux-dispatch takes a different approach: a **unified command palette** inspired by VS Code, where you start in file finding and seamlessly switch between modes by typing a prefix character. One popup, one muscle memory, all operations.
+
 ## Similar Projects
 
 - [sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) — fzf-based tmux management (sessions, windows, panes, commands). Complementary to tmux-dispatch.

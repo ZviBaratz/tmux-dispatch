@@ -99,6 +99,8 @@ After installing, these keybindings work immediately with no configuration:
 
 All keybindings are prefix-free -- you don't need to press the tmux prefix first.
 
+> **Tip:** If `Alt` keybindings don't work in your terminal, see the [FAQ](faq#alt-keys-alto-alts-altw-dont-work) or use the prefix keybinding `prefix + e` instead.
+
 ## First Steps Tutorial
 
 ### 1. Open a tmux session in any project directory
