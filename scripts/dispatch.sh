@@ -108,6 +108,9 @@ SQ_POPUP_EDITOR=$(_sq_escape "$POPUP_EDITOR")
 SQ_PANE_ID=$(_sq_escape "$PANE_ID")
 SQ_HISTORY=$(_sq_escape "$HISTORY_ENABLED")
 
+# Shared become string used by grep, sessions, dirs, git to switch back to files
+BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')"
+
 # ─── Require fzf ────────────────────────────────────────────────────────────
 
 command -v fzf &>/dev/null || {
@@ -984,10 +987,6 @@ handle_git_result() {
             ;;
     esac
 }
-
-# ─── Shared become string (used by grep, sessions, dirs, git) ────────────────
-
-BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')"
 
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
