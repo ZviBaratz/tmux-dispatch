@@ -21,15 +21,15 @@ Sleep 500ms
 Alt+o
 Sleep 1s
 Type "#"
-Sleep 1.5s
+Sleep 1s
 
 # Filter directories
 Type@150ms "src"
-Sleep 1.5s
+Sleep 1s
 
 # Select to cd
 Enter
-Sleep 1s
+Sleep 500ms
 
 Hide
 Type "exit"
