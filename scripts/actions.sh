@@ -202,9 +202,11 @@ action_git_toggle() {
     local staged
     staged=$(git diff --cached --name-only -- "$file" 2>/dev/null)
     if [[ -n "$staged" ]]; then
-        git restore --staged -- "$file"
+        git restore --staged -- "$file" 2>/dev/null || \
+            tmux display-message "git toggle failed for: $file"
     else
-        git add -- "$file"
+        git add -- "$file" 2>/dev/null || \
+            tmux display-message "git toggle failed for: $file"
     fi
 }
 

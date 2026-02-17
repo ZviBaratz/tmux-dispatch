@@ -60,6 +60,11 @@ for arg in "$@"; do
     esac
 done
 
+# Validate pane ID format if provided (tmux pane IDs are %N)
+if [[ -n "$PANE_ID" && "$PANE_ID" != '#{pane_id}' && ! "$PANE_ID" =~ ^%[0-9]+$ ]]; then
+    PANE_ID=""  # Clear invalid pane ID, will fall back to tmux option
+fi
+
 # Resolve pane ID: prefer --pane arg, fall back to @dispatch-origin-pane option.
 # display-popup doesn't expand #{...} formats in the shell-command argument,
 # so the binding uses run-shell to stash the pane ID in a global option first.
@@ -345,9 +350,7 @@ fi"
 
 run_grep_mode() {
     if [[ -z "$RG_CMD" ]]; then
-        echo "ripgrep (rg) is required for content search."
-        echo "Install: apt install ripgrep  OR  brew install ripgrep  OR  mise use -g ripgrep@latest"
-        read -r -p "Press Enter to close..."
+        tmux display-message "ripgrep (rg) required for grep mode — install: brew/apt install ripgrep"
         exit 1
     fi
 
@@ -429,7 +432,7 @@ handle_file_result() {
                 done
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $quoted_files" Enter
             else
-                tmux display-message "No target pane available"
+                tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
             ;;
         *)
@@ -463,7 +466,7 @@ handle_grep_result() {
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR +$line_num $(printf '%q' "$file")" Enter
             else
-                tmux display-message "No target pane available"
+                tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
             ;;
         *)
@@ -572,9 +575,7 @@ run_session_new_mode() {
     unset IFS
 
     if [[ ${#valid_dirs[@]} -eq 0 ]]; then
-        echo "No valid session directories found."
-        echo "Configure with: set -g @dispatch-session-dirs '/path/one:/path/two'"
-        read -r -p "Press Enter to close..."
+        tmux display-message "No session dirs found — set @dispatch-session-dirs '/path/one:/path/two'"
         exit 1
     fi
 
@@ -616,9 +617,11 @@ run_session_new_mode() {
     local session_name
     session_name=$(basename "$selected")
 
-    # Sanitize session name (tmux doesn't allow dots or colons)
-    session_name="${session_name//./-}"
-    session_name="${session_name//:/-}"
+    # Sanitize: replace any character not in [a-zA-Z0-9_-] with a dash
+    session_name=$(printf '%s' "$session_name" | tr -c 'a-zA-Z0-9_-' '-')
+    # Trim leading/trailing dashes
+    session_name="${session_name#-}"
+    session_name="${session_name%-}"
 
     if tmux has-session -t "$session_name" 2>/dev/null; then
         tmux switch-client -t "$session_name"
@@ -801,7 +804,7 @@ handle_directory_result() {
             if [[ -n "$PANE_ID" ]]; then
                 tmux send-keys -t "$PANE_ID" "cd $(printf '%q' "$dir")" Enter
             else
-                tmux display-message "No target pane available"
+                tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
             ;;
     esac
@@ -866,8 +869,7 @@ run_git_mode() {
     QUERY="${QUERY#!}"
 
     if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-        echo "Not a git repository."
-        read -r -p "Press Enter to close..."
+        tmux display-message "Not a git repository"
         exit 1
     fi
 
@@ -940,7 +942,7 @@ handle_git_result() {
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
                 tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $(printf '%q' "$file")" Enter
             else
-                tmux display-message "No target pane available"
+                tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
             ;;
         *)

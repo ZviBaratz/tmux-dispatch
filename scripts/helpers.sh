@@ -161,8 +161,13 @@ _dispatch_history_trim() {
     local count
     count=$(wc -l < "$history_file" 2>/dev/null) || return 0
     if [[ "$count" -gt "$max_lines" ]]; then
-        local tmp="${history_file}.tmp.$$"
-        tail -n "$keep_lines" "$history_file" > "$tmp" && \mv "$tmp" "$history_file"
+        local tmp
+        tmp=$(mktemp "${history_file}.XXXXXX") || return 0
+        if tail -n "$keep_lines" "$history_file" > "$tmp"; then
+            \mv "$tmp" "$history_file"
+        else
+            \rm -f "$tmp"
+        fi
     fi
 }
 
@@ -219,8 +224,10 @@ toggle_bookmark() {
     bf=$(_dispatch_bookmark_file)
     local entry="$pwd_dir"$'\t'"$file_path"
     if grep -qxF "$entry" "$bf" 2>/dev/null; then
-        grep -vxF "$entry" "$bf" > "${bf}.tmp" || true
-        \mv "${bf}.tmp" "$bf"
+        local tmp
+        tmp=$(mktemp "${bf}.XXXXXX") || return 1
+        grep -vxF "$entry" "$bf" > "$tmp" || true
+        \mv "$tmp" "$bf"
         echo "removed"
     else
         printf '%s\n' "$entry" >> "$bf"

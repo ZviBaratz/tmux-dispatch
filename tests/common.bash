@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# =============================================================================
-# common.bash — Shared test fixtures for bats tests
-# =============================================================================
+# Shared test fixtures for bats tests
 
-# Stub tmux so helpers.sh sourcing succeeds in all test files.
 setup_tmux_stub() {
     export PATH="$BATS_TEST_TMPDIR:$PATH"
     printf '#!/usr/bin/env bash\necho ""\n' > "$BATS_TEST_TMPDIR/tmux"
@@ -14,7 +11,6 @@ teardown_tmux_stub() {
     \rm -f "$BATS_TEST_TMPDIR/tmux"
 }
 
-# Create a minimal git repo. Sets $repo to the path.
 setup_git_repo() {
     repo="$BATS_TEST_TMPDIR/repo"
     mkdir -p "$repo"
