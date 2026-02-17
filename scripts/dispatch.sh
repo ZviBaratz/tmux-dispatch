@@ -102,8 +102,15 @@ command -v fzf &>/dev/null || {
 }
 
 fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
-if [[ -n "$fzf_version" ]] && [[ "$(printf '%s\n%s' "0.45" "$fzf_version" | sort -V | head -n1)" != "0.45" ]]; then
-    echo "Warning: fzf 0.45+ recommended (found $fzf_version). Dynamic labels require 0.45+."
+if [[ -n "$fzf_version" ]]; then
+    _fzf_below() { [[ "$(printf '%s\n%s' "$1" "$fzf_version" | sort -V | head -n1)" != "$1" ]]; }
+    if _fzf_below "0.38"; then
+        echo "Error: fzf 0.38+ required for mode switching (found $fzf_version)."
+        echo "Install latest: https://github.com/junegunn/fzf#installation"
+    elif _fzf_below "0.45"; then
+        echo "Warning: fzf 0.45+ recommended (found $fzf_version). Dynamic labels require 0.45+."
+    fi
+    unset -f _fzf_below
 fi
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
