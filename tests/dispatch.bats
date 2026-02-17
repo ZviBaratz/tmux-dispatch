@@ -652,3 +652,41 @@ session-name	extra-info"
     [ "${lines[1]}" = "key=" ]
     [ "${lines[2]}" = "selected=" ]
 }
+
+# ─── Keybinding hint UX ────────────────────────────────────────────────────
+
+@test "hints: sub-modes use bottom border-label for keybinding hints" {
+    # grep, sessions, git, dirs, windows, rename, rename-session all use
+    # --border-label-pos with bottom positioning
+    run bash -c '
+        count=$(grep -c "border-label-pos.*bottom" "'"$SCRIPT_DIR"'/dispatch.sh")
+        echo "$count"
+    '
+    [ "$status" -eq 0 ]
+    # 7 modes: grep, sessions, git, dirs, windows, rename, rename-session
+    [[ "${lines[0]}" -ge 7 ]]
+}
+
+@test "hints: no ctrl- notation in any border-label hint" {
+    # All hints should use ^ notation, not ctrl-
+    run bash -c '
+        grep -- "--border-label " "'"$SCRIPT_DIR"'/dispatch.sh" | grep -c "ctrl-" || echo "0"
+    '
+    [[ "${lines[0]}" == "0" ]]
+}
+
+@test "hints: sub-mode prompts include mode name" {
+    # Each sub-mode prompt should contain its mode name for identification
+    run bash -c '
+        src="'"$SCRIPT_DIR"'/dispatch.sh"
+        ok=0
+        grep -q "prompt .grep" "$src" && ok=$((ok+1))
+        grep -q "prompt .sessions" "$src" && ok=$((ok+1))
+        grep -q "prompt .git" "$src" && ok=$((ok+1))
+        grep -q "prompt .dirs" "$src" && ok=$((ok+1))
+        grep -q "prompt .rename" "$src" && ok=$((ok+1))
+        echo "$ok"
+    '
+    # At least 5 sub-modes have named prompts
+    [[ "${lines[0]}" -ge 5 ]]
+}

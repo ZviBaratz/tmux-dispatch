@@ -22,7 +22,7 @@ bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.
 ```bash
 bats tests/
 ```
-Requires [bats-core](https://github.com/bats-core/bats-core). Five test files cover helpers (tool detection, version comparison), dispatch (arg parsing, mode switching, git annotations), actions (rename, delete, git toggle, edit), history (frecency, bookmarks), and previews.
+Requires [bats-core](https://github.com/bats-core/bats-core). Five test files cover helpers (tool detection, version comparison), dispatch (arg parsing, mode switching, security validation, transform/mapfile tests), actions (rename, delete, git toggle, session kill, edit), history (frecency, bookmarks), and previews.
 
 ### Manual testing
 Requires a running tmux session. Reload the plugin with:
@@ -37,9 +37,9 @@ Seven shell scripts, no build step:
 - **`dispatch.tmux`** — TPM entry point. Reads `@dispatch-*` tmux options and registers keybindings. Detects tmux version to choose between `display-popup` (3.2+) and `split-window` fallback.
 - **`scripts/helpers.sh`** — Sourced by all other scripts. Provides `get_tmux_option`, tool detection (`detect_fd`, `detect_bat`, `detect_rg`, `detect_zoxide`, `detect_popup_editor`, `detect_pane_editor`), file history/frecency, bookmarks, and fzf visual options. Handles Debian/Ubuntu renamed binaries (e.g., `fdfind`, `batcat`).
 - **`scripts/dispatch.sh`** — Main script with nine modes via `--mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session`. Uses fzf's `become` action to switch modes mid-session. Handles mode-specific fzf configuration, indicators (bookmarks ★, git status icons), and result actions.
-- **`scripts/actions.sh`** — Extracted action handlers called by fzf bindings: file edit, grep edit, delete, rename, bookmark toggle, git stage/unstage, session list/rename, and preview helpers.
+- **`scripts/actions.sh`** — Extracted action handlers called by fzf bindings: file edit, grep edit, delete, rename, bookmark toggle, git stage/unstage, session list/rename/kill, and preview helpers.
 - **`scripts/preview.sh`** — Preview command for grep mode. Shows file content with line highlighting via bat (or head fallback).
-- **`scripts/git-preview.sh`** — Preview command for git mode. Shows `git diff` for changed files.
+- **`scripts/git-preview.sh`** — Preview command for git mode. Shows `git diff` for changed files; handles renamed files (`old -> new` format).
 - **`scripts/session-preview.sh`** — Preview command for session and window modes. Shows window layout grid with pane content; accepts optional highlight parameter for window mode.
 
 ## Conventions

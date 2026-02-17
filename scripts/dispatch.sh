@@ -389,14 +389,14 @@ run_grep_mode() {
         --expect=ctrl-o,ctrl-y \
         --disabled \
         --query "$QUERY" \
-        --prompt '> ' \
+        --prompt 'grep > ' \
         --ansi \
         --delimiter ':' \
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label=' grep ' \
-        --header 'enter open at line · ctrl-o pane · ctrl-r rename · ctrl-y copy · ⌫ files' \
+        --border-label ' enter open · ^o pane · ^y copy · ^r rename · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
         --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
         --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-grep '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {1} {2})" \
@@ -505,14 +505,14 @@ run_session_mode() {
             "${base_opts[@]}" \
             --expect=ctrl-y \
             --query "$QUERY" \
-            --prompt '@ ' \
+            --prompt 'sessions @ ' \
             --delimiter=$'\t' \
             --nth=1 \
             --accept-nth=1 \
             --ansi \
             --no-sort \
-            --border-label=' sessions ' \
-            --header 'enter switch · ctrl-k kill · ctrl-r rename · ctrl-n new · ctrl-w windows · ⌫ files' \
+            --border-label ' enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
+            --border-label-pos 'center:bottom' \
             --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
             --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
@@ -647,10 +647,10 @@ run_rename_mode() {
             --disabled \
             --print-query \
             --query "$FILE" \
-            --prompt '→ ' \
-            --header 'enter confirm · esc cancel' \
+            --prompt 'rename → ' \
             --preview "'$SCRIPT_DIR/actions.sh' rename-preview $(printf '%q' "$FILE") {q}" \
-            --border-label=' rename ' \
+            --border-label ' enter confirm · esc cancel ' \
+            --border-label-pos 'center:bottom' \
     ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
 
     local new_name
@@ -704,10 +704,10 @@ run_rename_session_mode() {
             --disabled \
             --print-query \
             --query "$SESSION" \
-            --prompt '→ ' \
-            --header 'enter confirm · esc cancel' \
+            --prompt 'rename-session → ' \
             --preview "'$SCRIPT_DIR/actions.sh' rename-session-preview '$SESSION' {q}" \
-            --border-label=' rename session ' \
+            --border-label ' enter confirm · esc cancel ' \
+            --border-label-pos 'center:bottom' \
     ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
 
     local new_name
@@ -776,10 +776,10 @@ run_directory_mode() {
         "${base_opts[@]}" \
         --expect=ctrl-y \
         --query "$QUERY" \
-        --prompt '# ' \
+        --prompt 'dirs # ' \
         --preview "$dir_preview" \
-        --border-label=' directories ' \
-        --header 'enter cd · ctrl-y copy · ⌫ files' \
+        --border-label ' enter cd · ^y copy · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
         --bind "backward-eof:$become_files" \
     ) || exit 0
 
@@ -844,8 +844,9 @@ run_windows_mode() {
         fzf \
             "${base_opts[@]}" \
             --no-cycle \
-            --prompt '  ' \
-            --border-label=" $SESSION windows " \
+            --prompt "$SESSION windows  " \
+            --border-label ' enter switch · ⌫ sessions ' \
+            --border-label-pos 'center:bottom' \
             --preview "'$SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
             --bind "left:up" \
@@ -907,15 +908,15 @@ run_git_mode() {
         "${base_opts[@]}" \
         --expect=ctrl-o,ctrl-y \
         --query "$QUERY" \
-        --prompt '! ' \
+        --prompt 'git ! ' \
         --ansi \
         --delimiter=$'\t' \
         --nth=2.. \
         --tabstop=3 \
         --preview "'$SCRIPT_DIR/git-preview.sh' {2..} {1}" \
         --preview-window 'right:60%:border-left' \
-        --border-label=' git ' \
-        --header 'tab stage/unstage · enter open · ctrl-o pane · ctrl-y copy · ⌫ files' \
+        --border-label ' tab stage/unstage · enter open · ^o pane · ^y copy · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
         --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {2..})" \
         --bind "backward-eof:$become_files" \
