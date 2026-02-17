@@ -928,6 +928,7 @@ run_git_mode() {
     local result
     result=$(_run_git_status | fzf \
         "${base_opts[@]}" \
+        --multi \
         --expect=ctrl-o,ctrl-y \
         --query "$QUERY" \
         --prompt 'git ! ' \
@@ -937,10 +938,10 @@ run_git_mode() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' {2..} {1}" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' tab stage/unstage · enter open · ^o pane · ^y copy · ⌫ files ' \
+        --border-label ' tab stage/unstage · shift-tab select · enter open · ^o pane · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {2..})" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {+2..})" \
         --bind "backward-eof:$become_files" \
     ) || exit 0
 
@@ -949,25 +950,28 @@ run_git_mode() {
 
 handle_git_result() {
     local result="$1"
-    local key line file
+    local key
+    local -a files
 
     key=$(head -1 <<< "$result")
-    line=$(tail -1 <<< "$result")
-    [[ -z "$line" ]] && exit 0
-
-    # Extract file from tab-delimited format (icon\tfile)
-    file=$(cut -f2 <<< "$line")
-    [[ -z "$file" ]] && exit 0
+    # Extract file paths from tab-delimited lines (icon\tfile)
+    mapfile -t files < <(tail -n +2 <<< "$result" | cut -f2)
+    [[ ${#files[@]} -eq 0 ]] && exit 0
 
     case "$key" in
         ctrl-y)
-            echo -n "$file" | tmux load-buffer -w -
-            tmux display-message "Copied: $file"
+            printf '%s\n' "${files[@]}" | tmux load-buffer -w -
+            tmux display-message "Copied ${#files[@]} path(s)"
             ;;
         ctrl-o)
             if [[ -n "$PANE_ID" ]]; then
-                [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $(printf '%q' "$file")" Enter
+                local quoted_files=""
+                local f
+                for f in "${files[@]}"; do
+                    [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
+                    quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
+                done
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
