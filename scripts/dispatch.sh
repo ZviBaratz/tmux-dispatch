@@ -131,8 +131,10 @@ run_files_mode() {
     local find_name_filter=""
     local -a find_name_args=()
     if [[ -n "$FILE_TYPES" ]]; then
+        local -a exts
         IFS=',' read -ra exts <<< "$FILE_TYPES"
         local first=true
+        local ext
         for ext in "${exts[@]}"; do
             ext="${ext## }"; ext="${ext%% }"  # trim whitespace
             [[ -n "$ext" ]] || continue
@@ -420,6 +422,7 @@ handle_file_result() {
             # Send open command to the originating pane
             if [[ -n "$PANE_ID" ]]; then
                 local quoted_files=""
+                local f
                 for f in "${files[@]}"; do
                     [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
                     quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
@@ -562,6 +565,7 @@ run_session_new_mode() {
     # Collect valid session directories (colon-separated)
     local -a valid_dirs=()
     local IFS=':'
+    local dir
     for dir in $session_dirs; do
         [[ -d "$dir" ]] && valid_dirs+=("$dir")
     done
@@ -576,6 +580,7 @@ run_session_new_mode() {
 
     # List subdirectories from all configured dirs (avoids eval)
     _run_dir_cmd() {
+        local dir
         for dir in "${valid_dirs[@]}"; do
             if [[ -n "$FD_CMD" ]]; then
                 "$FD_CMD" --type d --max-depth 1 --min-depth 1 . "$dir"
