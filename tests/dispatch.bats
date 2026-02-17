@@ -690,3 +690,18 @@ session-name	extra-info"
     # At least 5 sub-modes have named prompts
     [[ "${lines[0]}" -ge 5 ]]
 }
+
+# ─── fzf placeholder quoting ─────────────────────────────────────────────
+
+@test "fzf bind strings: files mode quotes fzf placeholders" {
+    source "$SCRIPT_DIR/helpers.sh"
+    # Extract bind lines from run_files_mode
+    local body
+    body=$(sed -n '/^run_files_mode/,/^}/p' "$SCRIPT_DIR/dispatch.sh")
+    # Check --bind lines for unquoted $fzf_file / $fzf_files (not wrapped in 'quotes')
+    # These variables expand to {2..} and {+2..} — fzf placeholders that need quoting
+    # for filenames with spaces. We check the source uses '$fzf_file' not bare $fzf_file.
+    local unquoted_in_bind
+    unquoted_in_bind=$(echo "$body" | grep '\-\-bind' | grep -v 'preview' | grep -v "hidden" | grep -P "[^']\\\$fzf_file" | grep -Pv "'\\\$fzf_file'" || true)
+    [ -z "$unquoted_in_bind" ]
+}

@@ -271,9 +271,9 @@ run_files_mode() {
     # File preview command (bat or head fallback)
     local file_preview
     if [[ -n "$BAT_CMD" ]]; then
-        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 $fzf_file"
+        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 '$fzf_file'"
     else
-        file_preview="head -500 $fzf_file"
+        file_preview="head -500 '$fzf_file'"
     fi
 
     # Welcome cheat sheet shown when query is empty
@@ -366,11 +366,11 @@ fi"
         --bind "start:unbind(focus)" \
         --bind "down:rebind(focus)+down" \
         --bind "up:rebind(focus)+up" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_file)" \
-        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
-        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' $fzf_file)+reload:$file_list_cmd" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_file')" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_files')+reload:$file_list_cmd" \
+        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' '$fzf_file')+reload:$file_list_cmd" \
         --bind "ctrl-h:execute-silent(if [ -f '$sq_hidden_flag' ]; then command rm -f '$sq_hidden_flag'; else touch '$sq_hidden_flag'; fi)+reload:$file_list_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_files)" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '$fzf_files')" \
     ) || exit 0
 
     # Strip indicator prefix from fzf output (indicator\tfile → file).
