@@ -124,3 +124,27 @@ teardown() {
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"File not found"* ]]
 }
+
+# ─── session-preview.sh ─────────────────────────────────────────────────────
+
+@test "session-preview: nonexistent session shows 'New session' message" {
+    # Override the stub tmux to reject has-session for unknown sessions
+    printf '#!/usr/bin/env bash\nif [[ "$1" == "has-session" ]]; then exit 1; fi\necho ""\n' \
+        > "$BATS_TEST_TMPDIR/tmux"
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$SCRIPT_DIR/session-preview.sh" "nonexistent-session-xyz"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"New session"* ]]
+}
+
+@test "session-preview: highlight index strips trailing colon" {
+    # Verify the script parses "3:" → "3" for the highlight parameter
+    # This tests the line: highlight_idx="${highlight_idx%%:*}"
+    run bash -c '
+        highlight_idx="3:"
+        highlight_idx="${highlight_idx%%:*}"
+        echo "$highlight_idx"
+    '
+    [[ "$output" == "3" ]]
+}

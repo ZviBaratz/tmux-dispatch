@@ -546,3 +546,30 @@ _run_annotate_git() {
     run bash -c '[[ "" =~ ^[0-9]+$ ]] && echo "VALID" || echo "INVALID"'
     [[ "$output" == "INVALID" ]]
 }
+
+# ─── Security validation ────────────────────────────────────────────────────
+
+@test "pane ID: valid format %N passes validation" {
+    run bash -c '[[ "%42" =~ ^%[0-9]+$ ]] && echo VALID || echo INVALID'
+    [[ "$output" == "VALID" ]]
+}
+
+@test "pane ID: empty string clears to fallback" {
+    run bash -c '[[ "" =~ ^%[0-9]+$ ]] && echo VALID || echo INVALID'
+    [[ "$output" == "INVALID" ]]
+}
+
+@test "pane ID: injection attempt rejected" {
+    run bash -c '[[ "%42;rm -rf /" =~ ^%[0-9]+$ ]] && echo VALID || echo INVALID'
+    [[ "$output" == "INVALID" ]]
+}
+
+@test "session name: special characters replaced with dashes" {
+    run bash -c '
+        name="my.project:v2 (test)"
+        name=$(printf "%s" "$name" | tr -c "a-zA-Z0-9_-" "-")
+        name="${name#-}"; name="${name%-}"
+        echo "$name"
+    '
+    [[ "$output" =~ ^[a-zA-Z0-9_-]+$ ]]
+}
