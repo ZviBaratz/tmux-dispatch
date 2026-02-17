@@ -17,11 +17,9 @@ Show
 
 Sleep 500ms
 
-# Open session picker, navigate to api-server, then Ctrl+W for windows
+# Open session picker — api-server is first (alphabetical), press Ctrl+W
 Alt+w
 Sleep 1.5s
-Down
-Sleep 1s
 Ctrl+w
 Sleep 1.5s
 
