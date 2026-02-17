@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Note: no "set -euo pipefail" — this file is sourced by other scripts.
+# Strict mode is set by the sourcing scripts (dispatch.sh, actions.sh, etc.).
 # =============================================================================
 # helpers.sh — Shared utilities for tmux-dispatch
 # =============================================================================

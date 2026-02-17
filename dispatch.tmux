@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Note: no "set -euo pipefail" — TPM sources this file and strict mode
+# can interfere with other plugins or TPM's own error handling.
 # =============================================================================
 # dispatch.tmux — TPM entry point for tmux-dispatch
 # =============================================================================
