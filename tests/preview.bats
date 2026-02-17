@@ -64,3 +64,63 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"line"* ]]
 }
+
+# ─── git-preview.sh ──────────────────────────────────────────────────────────
+
+@test "git-preview: staged file (✚) shows staged diff" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo1"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q && git config user.email "t@t" && git config user.name "T"
+    echo "line1" > file.txt && git add file.txt && git commit -q -m "init"
+    echo "line2" >> file.txt && git add file.txt
+
+    run "$SCRIPT_DIR/git-preview.sh" "file.txt" "✚"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"line2"* ]]
+}
+
+@test "git-preview: unstaged file (●) shows unstaged diff" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo2"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q && git config user.email "t@t" && git config user.name "T"
+    echo "line1" > file.txt && git add file.txt && git commit -q -m "init"
+    echo "line2" >> file.txt
+
+    run "$SCRIPT_DIR/git-preview.sh" "file.txt" "●"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"line2"* ]]
+}
+
+@test "git-preview: untracked file (?) shows file content" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo3"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q && git config user.email "t@t" && git config user.name "T"
+    echo "hello world" > untracked.txt
+
+    run "$SCRIPT_DIR/git-preview.sh" "untracked.txt" "?"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"hello world"* ]]
+}
+
+@test "git-preview: ANSI-wrapped status icon is stripped correctly" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo4"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q && git config user.email "t@t" && git config user.name "T"
+    echo "line1" > file.txt && git add file.txt && git commit -q -m "init"
+    echo "line2" >> file.txt && git add file.txt
+
+    # fzf sends ANSI-wrapped icon: \033[32m✚\033[0m
+    run "$SCRIPT_DIR/git-preview.sh" "file.txt" $'\033[32m✚\033[0m'
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"line2"* ]]
+}
+
+@test "git-preview: file not found shows error message" {
+    local repo="$BATS_TEST_TMPDIR/gp_repo5"
+    mkdir -p "$repo" && cd "$repo"
+    git init -q
+
+    run "$SCRIPT_DIR/git-preview.sh" "nonexistent.txt" "?"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"File not found"* ]]
+}
