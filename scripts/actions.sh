@@ -90,13 +90,15 @@ action_rename_session() {
 # ─── list-sessions ────────────────────────────────────────────────────────────
 
 action_list_sessions() {
-    local now
+    local now current
     now=$(date +%s)
+    current=$(tmux display-message -p '#{session_name}' 2>/dev/null)
     tmux list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}' 2>/dev/null |
     while IFS='|' read -r name wins attached activity; do
         age=$(format_relative_time $((now - activity)))
         meta="\033[90m· ${wins}w · ${age}"
         [ "${attached:-0}" -gt 0 ] && meta="${meta} · attached"
+        [[ "$name" == "$current" ]] && meta="${meta} · \033[32mcurrent\033[90m"
         meta="${meta}\033[0m"
         printf '%s\t  %b\n' "$name" "$meta"
     done

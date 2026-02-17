@@ -801,6 +801,7 @@ run_directory_mode() {
         --expect=ctrl-y \
         --query "$QUERY" \
         --prompt 'dirs # ' \
+        --header "${PWD/#"$HOME"/~}" \
         --preview "$dir_preview" \
         --border-label ' enter cd · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
@@ -869,7 +870,7 @@ run_windows_mode() {
             "${base_opts[@]}" \
             --no-cycle \
             --prompt "$SESSION windows  " \
-            --border-label ' enter switch · ⌫ sessions ' \
+            --border-label ' ←→ move · ↑↓ skip · enter switch · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
