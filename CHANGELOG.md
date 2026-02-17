@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@dispatch-theme` option — set to `"none"` to disable built-in colors and inherit terminal theme
 - Session kill action (`Ctrl+K`) with current-session guard and list reload
 - Git rename preview for renamed files in git mode
+- `?` keybinding in all modes to show context-sensitive help in preview pane
+- Mode name prefix in border labels for better orientation
+- `Ctrl+X` (delete) in grep mode for cross-mode consistency
 
 ### Fixed
 - Single quotes in directory paths or editor paths no longer break fzf bind commands
@@ -29,9 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Git preview handles renamed files conditionally, avoiding false positives on filenames containing ` -> `
 - Pane ID validation rejects injection attempts
 - Rename mode rejects path traversal outside working directory
+- Quoted fzf placeholders to handle filenames with spaces in all modes
+- Session name sanitization uses `sed` instead of `tr` for UTF-8 safety
+- Path traversal guard in rename mode errors instead of falling back to raw path
+- Replaced sed-based tilde expansion with bash parameter expansion in dirs mode
+- Capped preview line number at 100,000 to prevent degenerate behavior
+- Standardized error messages using `_dispatch_error` helper
 
 ### Changed
 - Removed unused interactive `rename-file` action (superseded by inline rename mode)
+- Extracted query prefix stripping to shared `_strip_mode_prefix` function
+- Pre-computed `build_fzf_base_opts` once at startup instead of per-mode
+- Split `run_files_mode()` into composable sub-functions
 
 ## [1.0.0] - 2026-02-12
 

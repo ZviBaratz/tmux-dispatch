@@ -114,6 +114,33 @@ The session preview uses Unicode box-drawing characters (lines and corners like 
 
 Switch to a Unicode-capable monospace font such as JetBrains Mono, Fira Code, or any Nerd Font variant.
 
+### Slow file listing
+
+If the file finder takes a long time to appear in large repositories:
+
+**Limit search depth:**
+```tmux
+set -g @dispatch-fd-args "--max-depth 8"
+```
+
+**Exclude large directories:** fd respects `.gitignore` by default. For non-git directories, create a `.fdignore` file in your project root:
+```
+node_modules
+.cache
+dist
+vendor
+```
+
+**Disable git indicators** for very large repos:
+```tmux
+set -g @dispatch-git-indicators "off"
+```
+
+**Disable frecency** if the history file has grown large:
+```tmux
+set -g @dispatch-history "off"
+```
+
 ### Filenames with colons
 
 Grep mode parses ripgrep output in the `file:line:content` format using the colon as a delimiter. Files with `:` in the name (rare on Unix systems, impossible on Windows) will not be parsed correctly, causing the wrong file to open or the line number to be misinterpreted.

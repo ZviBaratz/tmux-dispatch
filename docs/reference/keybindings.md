@@ -10,6 +10,7 @@ tmux-dispatch provides keybindings at two levels: global tmux keybindings that o
 
 Some keybindings are universal across all modes:
 
+- **?** shows a context-sensitive help cheat sheet in the preview pane
 - **Ctrl+D / Ctrl+U** scrolls the preview pane down and up
 - **Escape** closes the popup
 
@@ -60,6 +61,7 @@ Live search mode powered by ripgrep. The query reloads search results on every k
 | `Ctrl+Y` | Copy `file:line` to clipboard |
 | `Ctrl+F` | Toggle between live search and fuzzy filter |
 | `Ctrl+R` | Rename file |
+| `Ctrl+X` | Delete file |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
