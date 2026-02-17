@@ -22,7 +22,7 @@ bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.
 ```bash
 bats tests/
 ```
-Requires [bats-core](https://github.com/bats-core/bats-core). Tests cover helpers.sh functions (tool detection, version comparison) using mocked externals.
+Requires [bats-core](https://github.com/bats-core/bats-core). Five test files cover helpers (tool detection, version comparison), dispatch (arg parsing, mode switching, git annotations), actions (rename, delete, git toggle, edit), history (frecency, bookmarks), and previews.
 
 ### Manual testing
 Requires a running tmux session. Reload the plugin with:
@@ -44,8 +44,9 @@ Seven shell scripts, no build step:
 
 ## Conventions
 
-- All scripts use `#!/usr/bin/env bash`; `dispatch.sh` and `preview.sh` use `set -euo pipefail` (`dispatch.tmux` omits it as a TPM entry point; `helpers.sh` omits it because it's sourced)
+- Requires bash 4.0+ (`dispatch.sh` and `session-preview.sh` enforce this with a version guard). macOS ships bash 3.2 — users need `brew install bash`.
+- All scripts use `#!/usr/bin/env bash`; all scripts except `dispatch.tmux` and `helpers.sh` use `set -euo pipefail` (`dispatch.tmux` omits it as a TPM entry point; `helpers.sh` omits it because it's sourced)
 - ShellCheck directives: `# shellcheck source=helpers.sh` before sourcing; `-e SC1091` suppresses sourcing warnings globally
 - All new scripts must be executable (`chmod +x`)
-- Graceful fallbacks: every optional tool (`fd`, `bat`, `rg`) has a fallback path — maintain this pattern
+- Graceful fallbacks: every optional tool (`fd`, `bat`, `rg`, `zoxide`) has a fallback path — maintain this pattern
 - tmux options use the `@dispatch-` prefix
