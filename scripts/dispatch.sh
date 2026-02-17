@@ -650,6 +650,14 @@ run_rename_mode() {
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
+    # Path traversal guard — reject targets outside working directory
+    local resolved
+    resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
+    if [[ "$resolved" != "$PWD"/* ]]; then
+        tmux display-message "Cannot rename outside working directory"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
     # Conflict check
     if [[ -e "$new_name" ]]; then
         tmux display-message "Already exists: $new_name"

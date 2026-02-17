@@ -479,3 +479,53 @@ _run_annotate_git() {
     '
     [ "$output" = "0" ]
 }
+
+# ─── Rename path validation ─────────────────────────────────────────────────
+
+@test "rename: rejects path traversal outside working directory" {
+    local workdir="$BATS_TEST_TMPDIR/project"
+    mkdir -p "$workdir"
+
+    run bash -c '
+        cd "'"$workdir"'"
+        new_name="../../etc/evil.txt"
+        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
+        if [[ "$resolved" != "$PWD"/* ]]; then
+            echo "BLOCKED"; exit 1
+        fi
+        echo "ALLOWED"
+    '
+    [[ "$output" == "BLOCKED" ]]
+}
+
+@test "rename: allows subdirectory rename within working directory" {
+    local workdir="$BATS_TEST_TMPDIR/project"
+    mkdir -p "$workdir"
+
+    run bash -c '
+        cd "'"$workdir"'"
+        new_name="subdir/renamed.txt"
+        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
+        if [[ "$resolved" != "$PWD"/* ]]; then
+            echo "BLOCKED"; exit 1
+        fi
+        echo "ALLOWED"
+    '
+    [[ "$output" == "ALLOWED" ]]
+}
+
+@test "rename: rejects absolute path outside working directory" {
+    local workdir="$BATS_TEST_TMPDIR/project"
+    mkdir -p "$workdir"
+
+    run bash -c '
+        cd "'"$workdir"'"
+        new_name="/tmp/elsewhere.txt"
+        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
+        if [[ "$resolved" != "$PWD"/* ]]; then
+            echo "BLOCKED"; exit 1
+        fi
+        echo "ALLOWED"
+    '
+    [[ "$output" == "BLOCKED" ]]
+}
