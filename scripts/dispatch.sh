@@ -817,9 +817,14 @@ run_windows_mode() {
         echo "$win_list" |
         fzf \
             "${base_opts[@]}" \
+            --no-cycle \
             --prompt '  ' \
             --border-label=" $SESSION windows " \
-            --preview "'$SCRIPT_DIR/window-preview.sh' '$SESSION' {1}" \
+            --preview "'$SCRIPT_DIR/session-preview.sh' '$SESSION' {1}" \
+            --bind "right:down" \
+            --bind "left:up" \
+            --bind "down:down+down" \
+            --bind "up:up+up" \
             --bind "backward-eof:$become_sessions" \
     ) || exit 0
 

@@ -24,8 +24,7 @@ Window picker mode shows all windows for a specific session with pane content pr
 
 ## Features
 
-- **Pane content preview** -- window-preview.sh captures the active pane's content with ANSI colors, strips trailing blank lines, and shows the bottom portion (where prompts and recent output live). Uses the same perl-based ANSI-aware width handling as session-preview.sh. See [Preview System](../features/previews) for details.
-- **Header info** -- shows session:index, window name, and pane count.
+- **Session grid preview with highlight** -- session-preview.sh renders the full session grid (same as session mode), but highlights the fzf-selected window with bright cyan borders. The tmux-active window retains its `*` marker and white borders; other windows use dim gray. See [Preview System](../features/previews) for details.
 - **Session+window switch** -- selecting a window switches both to the session and the specific window.
 
 ## Configuration

@@ -15,8 +15,7 @@ Every mode in tmux-dispatch includes a context-appropriate preview in the right 
 | _(inline bat/head)_ | Files | Syntax-highlighted file content or first 500 lines |
 | `preview.sh` | Grep | File content with the matching line highlighted |
 | `git-preview.sh` | Git | Diff appropriate to the file's status |
-| `session-preview.sh` | Sessions | 2-column grid of window boxes with pane content |
-| `window-preview.sh` | Windows | Single pane content snapshot |
+| `session-preview.sh` | Sessions, Windows | 2-column grid of window boxes with pane content (highlights selected window in window mode) |
 
 ## File Preview (Files Mode)
 
@@ -66,13 +65,13 @@ The grid automatically adapts to the available preview dimensions using the `FZF
 
 ## Window Preview
 
-`window-preview.sh` shows a single pane snapshot for the selected window:
+Window mode reuses `session-preview.sh` with an optional highlight parameter (the selected window index). This renders the same 2-column grid as session mode, but with three-state border coloring:
 
-- Captures the active pane for the selected window using `tmux capture-pane -e -J`
-- Uses the same perl-based ANSI-aware processing as the session preview for width calculation and truncation
-- Shows the bottom of the pane (where prompts and recent output live), not the top
-- Trailing blank lines are stripped before selecting the bottom portion
-- The header line shows `session:index window_name` and the pane count
+- **fzf-selected window**: bright cyan borders (`\033[1;36m`) — follows the cursor as you navigate
+- **tmux-active window**: bright white borders (`\033[1;37m`) — retains the `*` marker in its label
+- **Other windows**: dim gray borders (`\033[38;5;244m` / `\033[38;5;238m`)
+
+When called without a highlight parameter (session mode), the behavior is unchanged — only the tmux-active/inactive two-state logic applies.
 
 ## Directory Preview
 

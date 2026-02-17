@@ -5,7 +5,7 @@
 # Shows choose-tree-style thumbnail boxes for each window in a 2-column grid.
 # Each box has a bordered label and a snapshot from the active pane's bottom.
 #
-# Usage: session-preview.sh <session_name>
+# Usage: session-preview.sh <session_name> [highlight_window_index]
 # Environment: FZF_PREVIEW_LINES, FZF_PREVIEW_COLUMNS (set by fzf)
 # =============================================================================
 
@@ -21,6 +21,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/helpers.sh"
 
 session=$1
+highlight_idx="${2:-}"
+highlight_idx="${highlight_idx%%:*}"  # strip trailing colon from fzf {1} field
 cols=${FZF_PREVIEW_COLUMNS:-80}
 lines=${FZF_PREVIEW_LINES:-30}
 
@@ -51,7 +53,6 @@ printf "\033[1;36m ── %s ──\033[0m \033[38;5;244m%d windows%s\033[0m\n" 
 grid_cols=2
 [ "$win_count" -le 1 ] && grid_cols=1
 [ "$cols" -lt 50 ] && grid_cols=1
-
 grid_rows=$(( (win_count + grid_cols - 1) / grid_cols ))
 gap=2
 
@@ -69,6 +70,7 @@ inner_h=$((box_height - 2))  # minus top/bottom borders
 declare -a win_lines   # win_lines[i] = captured text (newline-separated)
 declare -a win_label
 declare -a win_is_active
+declare -a win_index   # win_index[i] = tmux window index (for highlight matching)
 
 i=0
 while IFS='|' read -r idx name active pane_count; do
@@ -78,6 +80,7 @@ while IFS='|' read -r idx name active pane_count; do
   [ "$pane_count" -gt 1 ] 2>/dev/null && lbl="${lbl} (${pane_count}p)"
   win_label[i]="$lbl"
   win_is_active[i]="$active"
+  win_index[i]="$idx"
 
   # Get active pane ID directly (tmux 1.9+)
   pid=$(tmux display-message -t "${session}:${idx}" -p '#{pane_id}' 2>/dev/null)
@@ -198,7 +201,9 @@ for ((row = 0; row < grid_rows; row++)); do
     [ "$fill_len" -lt 0 ] && fill_len=0
     fill=$(rep '─' "$fill_len")
 
-    if [ "${win_is_active[wi]}" = "1" ]; then
+    if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
+      printf '\033[1;36m┌─%s%s┐\033[0m' "$lbl" "$fill"
+    elif [ "${win_is_active[wi]}" = "1" ]; then
       printf '\033[1;37m┌─%s%s┐\033[0m' "$lbl" "$fill"
     else
       printf '\033[38;5;244m┌─%s%s┐\033[0m' "$lbl" "$fill"
@@ -216,7 +221,9 @@ for ((row = 0; row < grid_rows; row++)); do
       # Get pre-formatted line from flat array (already exact width + reset)
       content="${_line[wi * inner_h + li]}"
 
-      if [ "${win_is_active[wi]}" = "1" ]; then
+      if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
+        printf '\033[1;36m│\033[0m%s\033[1;36m│\033[0m' "$content"
+      elif [ "${win_is_active[wi]}" = "1" ]; then
         printf '\033[1;37m│\033[0m%s\033[1;37m│\033[0m' "$content"
       else
         printf '\033[38;5;238m│\033[0m%s\033[38;5;238m│\033[0m' "$content"
@@ -232,7 +239,9 @@ for ((row = 0; row < grid_rows; row++)); do
     [ "$col" -gt 0 ] && printf '%*s' "$gap" ""
 
     fill=$(rep '─' "$inner_w")
-    if [ "${win_is_active[wi]}" = "1" ]; then
+    if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
+      printf '\033[1;36m└%s┘\033[0m' "$fill"
+    elif [ "${win_is_active[wi]}" = "1" ]; then
       printf '\033[1;37m└%s┘\033[0m' "$fill"
     else
       printf '\033[38;5;244m└%s┘\033[0m' "$fill"

@@ -6,7 +6,7 @@ nav_order: 3
 
 # Architecture
 
-tmux-dispatch is built as a single-script-with-modes design: one main script (`dispatch.sh`) handles all modes via a `--mode` flag, and fzf's `become` action enables seamless mode switching without restarting the popup. There is no build step -- the plugin is eight shell scripts that are sourced or executed directly.
+tmux-dispatch is built as a single-script-with-modes design: one main script (`dispatch.sh`) handles all modes via a `--mode` flag, and fzf's `become` action enables seamless mode switching without restarting the popup. There is no build step -- the plugin is seven shell scripts that are sourced or executed directly.
 
 ## Mode tree
 
@@ -44,7 +44,7 @@ dispatch.sh --mode=session-new
 
 ## Script roles
 
-The plugin consists of eight scripts, each with a focused responsibility.
+The plugin consists of seven scripts, each with a focused responsibility.
 
 ### dispatch.tmux
 
@@ -88,11 +88,7 @@ Preview command for git status mode. Shows the diff for the selected file. Handl
 
 ### scripts/session-preview.sh
 
-Preview command for session mode. Renders a 2-column grid of windows belonging to the selected session. Each window cell shows a pane content snapshot captured via `tmux capture-pane`. Uses Perl for ANSI-aware width handling to properly truncate and pad content within the box-drawing grid.
-
-### scripts/window-preview.sh
-
-Preview command for the window picker (accessed via Ctrl+W in session mode). Captures and displays pane content for the selected window.
+Preview command for both session mode and window mode. Renders a 2-column grid of windows belonging to the selected session. Each window cell shows a pane content snapshot captured via `tmux capture-pane`. Uses Perl for ANSI-aware width handling to properly truncate and pad content within the box-drawing grid. Accepts an optional second argument (window index) to highlight the fzf-selected window with bright cyan borders in window mode.
 
 ## Design principles
 

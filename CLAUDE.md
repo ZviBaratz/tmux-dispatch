@@ -15,7 +15,7 @@ shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh
 
 ### Syntax check
 ```bash
-bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.sh && bash -n scripts/preview.sh && bash -n scripts/actions.sh && bash -n scripts/git-preview.sh && bash -n scripts/window-preview.sh && bash -n scripts/session-preview.sh
+bash -n dispatch.tmux && bash -n scripts/helpers.sh && bash -n scripts/dispatch.sh && bash -n scripts/preview.sh && bash -n scripts/actions.sh && bash -n scripts/git-preview.sh && bash -n scripts/session-preview.sh
 ```
 
 ### Unit tests
@@ -32,7 +32,7 @@ tmux source-file ~/.tmux.conf
 
 ## Architecture
 
-Eight shell scripts, no build step:
+Seven shell scripts, no build step:
 
 - **`dispatch.tmux`** — TPM entry point. Reads `@dispatch-*` tmux options and registers keybindings. Detects tmux version to choose between `display-popup` (3.2+) and `split-window` fallback.
 - **`scripts/helpers.sh`** — Sourced by all other scripts. Provides `get_tmux_option`, tool detection (`detect_fd`, `detect_bat`, `detect_rg`, `detect_zoxide`, `detect_popup_editor`, `detect_pane_editor`), file history/frecency, bookmarks, and fzf visual options. Handles Debian/Ubuntu renamed binaries (e.g., `fdfind`, `batcat`).
@@ -40,8 +40,7 @@ Eight shell scripts, no build step:
 - **`scripts/actions.sh`** — Extracted action handlers called by fzf bindings: file edit, grep edit, delete, rename, bookmark toggle, git stage/unstage, session list/rename, and preview helpers.
 - **`scripts/preview.sh`** — Preview command for grep mode. Shows file content with line highlighting via bat (or head fallback).
 - **`scripts/git-preview.sh`** — Preview command for git mode. Shows `git diff` for changed files.
-- **`scripts/session-preview.sh`** — Preview command for session mode. Shows window layout grid with pane content.
-- **`scripts/window-preview.sh`** — Preview command for window picker. Shows pane content for the selected window.
+- **`scripts/session-preview.sh`** — Preview command for session and window modes. Shows window layout grid with pane content; accepts optional highlight parameter for window mode.
 
 ## Conventions
 
