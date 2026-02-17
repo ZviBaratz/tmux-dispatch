@@ -244,6 +244,9 @@ dedup_lines() { awk '!seen[$0]++'; }
 # Used to safely embed paths in fzf bind strings: execute('cmd' '$escaped_path')
 _sq_escape() { printf '%s' "${1//\'/\'\\\'\'}"; }
 
+# Display error message to the user via tmux status line
+_dispatch_error() { tmux display-message "dispatch: $1"; }
+
 bookmarks_for_pwd() {
     local pwd_dir="$1"
     local bf

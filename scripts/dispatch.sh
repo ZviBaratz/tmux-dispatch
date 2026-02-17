@@ -526,7 +526,7 @@ run_session_mode() {
     local session_list
     session_list=$("$SCRIPT_DIR/actions.sh" list-sessions)
 
-    [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
+    [ -z "$session_list" ] && { _dispatch_error "no sessions found"; exit 0; }
 
     local become_files="$BECOME_FILES"
     local become_new="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$SQ_PANE_ID')"
@@ -677,7 +677,7 @@ run_session_new_mode() {
 # ─── Mode: rename ─────────────────────────────────────────────────────────
 
 run_rename_mode() {
-    [[ -z "$FILE" ]] && exit 1
+    [[ -z "$FILE" ]] && { _dispatch_error "no file selected for rename"; exit 1; }
     if [[ ! -f "$FILE" ]]; then
         tmux display-message "File not found: $FILE"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
@@ -737,7 +737,7 @@ run_rename_mode() {
 # ─── Mode: rename-session ────────────────────────────────────────────────────
 
 run_rename_session_mode() {
-    [[ -z "$SESSION" ]] && exit 1
+    [[ -z "$SESSION" ]] && { _dispatch_error "no session selected for rename"; exit 1; }
     if ! tmux has-session -t "$SESSION" 2>/dev/null; then
         tmux display-message "Session not found: $SESSION"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
@@ -869,7 +869,7 @@ handle_directory_result() {
 
 run_windows_mode() {
     if [[ -z "$SESSION" ]]; then
-        echo "No session specified for window picker."
+        _dispatch_error "no session specified for window picker"
         exit 1
     fi
 
@@ -882,7 +882,7 @@ run_windows_mode() {
     win_list=$(tmux list-windows -t "$SESSION" \
         -F '#{window_index}: #{window_name}  #{?window_active,*,}  (#{window_panes} panes)' 2>/dev/null)
 
-    [[ -z "$win_list" ]] && { echo "No windows found."; exit 0; }
+    [[ -z "$win_list" ]] && { _dispatch_error "no windows found"; exit 0; }
 
     local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
 

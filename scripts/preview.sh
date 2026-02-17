@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/helpers.sh"
 FILE="$1"
 LINE="${2:-1}"
 [[ "$LINE" =~ ^[0-9]+$ ]] || LINE=1
+(( LINE > 100000 )) && LINE=100000
 
 [[ -f "$FILE" ]] || { echo "File not found: $FILE"; exit 0; }
 
