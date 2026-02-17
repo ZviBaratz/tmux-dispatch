@@ -247,6 +247,28 @@ _sq_escape() { printf '%s' "${1//\'/\'\\\'\'}"; }
 # Display error message to the user via tmux status line
 _dispatch_error() { tmux display-message "dispatch: $1"; }
 
+# Resolve a path to absolute form, normalizing . and .. components.
+# Works even when path components don't yet exist (like GNU realpath -m).
+# Falls back to pure bash on macOS where realpath lacks -m.
+_resolve_path() {
+    local path="$1"
+    [[ "$path" != /* ]] && path="$PWD/$path"
+    # Try GNU realpath -m first (Linux, macOS with coreutils)
+    realpath -m "$path" 2>/dev/null && return 0
+    # Fallback: normalize . and .. components with pure bash
+    local -a parts=()
+    local seg
+    IFS='/' read -ra segments <<< "$path"
+    for seg in "${segments[@]}"; do
+        case "$seg" in
+            ''|'.') ;;
+            '..') parts=("${parts[@]:0:${#parts[@]}-1}") ;;
+            *) parts+=("$seg") ;;
+        esac
+    done
+    printf '/%s\n' "$(IFS='/'; echo "${parts[*]}")"
+}
+
 bookmarks_for_pwd() {
     local pwd_dir="$1"
     local bf

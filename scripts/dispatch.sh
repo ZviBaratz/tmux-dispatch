@@ -820,14 +820,11 @@ run_rename_mode() {
     fi
 
     # Path traversal guard — reject targets outside working directory
-    # Resolve both sides: realpath resolves symlinks, so $PWD must also be
-    # resolved to avoid false rejections when the project dir is a symlink.
+    # _resolve_path normalizes . and .. (cross-platform, no GNU realpath -m needed).
+    # Resolve both sides so symlinked project dirs don't cause false rejections.
     local resolved resolved_pwd
-    resolved=$(realpath -m "$new_name" 2>/dev/null) || {
-        tmux display-message "dispatch: invalid path: $new_name"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
-    }
-    resolved_pwd=$(realpath "$PWD" 2>/dev/null) || resolved_pwd="$PWD"
+    resolved=$(_resolve_path "$new_name")
+    resolved_pwd=$(_resolve_path "$PWD")
     if [[ "$resolved" != "$resolved_pwd"/* ]]; then
         tmux display-message "Cannot rename outside working directory"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"

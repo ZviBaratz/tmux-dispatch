@@ -494,10 +494,13 @@ _run_annotate_git() {
     mkdir -p "$workdir"
 
     run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
         cd "'"$workdir"'"
         new_name="../../etc/evil.txt"
-        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
-        if [[ "$resolved" != "$PWD"/* ]]; then
+        resolved=$(_resolve_path "$new_name")
+        resolved_pwd=$(_resolve_path "$PWD")
+        if [[ "$resolved" != "$resolved_pwd"/* ]]; then
             echo "BLOCKED"; exit 1
         fi
         echo "ALLOWED"
@@ -510,10 +513,13 @@ _run_annotate_git() {
     mkdir -p "$workdir"
 
     run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
         cd "'"$workdir"'"
         new_name="subdir/renamed.txt"
-        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
-        if [[ "$resolved" != "$PWD"/* ]]; then
+        resolved=$(_resolve_path "$new_name")
+        resolved_pwd=$(_resolve_path "$PWD")
+        if [[ "$resolved" != "$resolved_pwd"/* ]]; then
             echo "BLOCKED"; exit 1
         fi
         echo "ALLOWED"
@@ -522,7 +528,7 @@ _run_annotate_git() {
 }
 
 @test "rename: realpath failure does not fall back to raw path" {
-    # If realpath fails, dispatch should error, not use raw (potentially dangerous) path
+    # dispatch.sh should use _resolve_path, not raw realpath -m with fallback
     local fallback
     fallback=$(grep -n 'resolved="\$new_name"' "$SCRIPT_DIR/dispatch.sh" || true)
     [ -z "$fallback" ]
@@ -533,10 +539,13 @@ _run_annotate_git() {
     mkdir -p "$workdir"
 
     run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
         cd "'"$workdir"'"
         new_name="/tmp/elsewhere.txt"
-        resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
-        if [[ "$resolved" != "$PWD"/* ]]; then
+        resolved=$(_resolve_path "$new_name")
+        resolved_pwd=$(_resolve_path "$PWD")
+        if [[ "$resolved" != "$resolved_pwd"/* ]]; then
             echo "BLOCKED"; exit 1
         fi
         echo "ALLOWED"

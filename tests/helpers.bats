@@ -358,3 +358,29 @@ teardown() {
     result=$(sh -c "printf '%s' '$escaped'")
     [ "$result" = "$original" ]
 }
+
+# ─── _resolve_path ─────────────────────────────────────────────────────────
+
+@test "_resolve_path: resolves relative path to absolute" {
+    local result
+    result=$(_resolve_path "subdir/file.txt")
+    [[ "$result" == "$PWD/subdir/file.txt" ]]
+}
+
+@test "_resolve_path: normalizes parent traversal" {
+    local result
+    result=$(_resolve_path "/home/user/project/../other/file.txt")
+    [[ "$result" == "/home/user/other/file.txt" ]]
+}
+
+@test "_resolve_path: preserves absolute path without traversal" {
+    local result
+    result=$(_resolve_path "/tmp/some/path.txt")
+    [[ "$result" == "/tmp/some/path.txt" ]]
+}
+
+@test "_resolve_path: normalizes dot components" {
+    local result
+    result=$(_resolve_path "/home/./user/./file.txt")
+    [[ "$result" == "/home/user/file.txt" ]]
+}
