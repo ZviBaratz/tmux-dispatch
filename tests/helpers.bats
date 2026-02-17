@@ -306,3 +306,19 @@ teardown() {
     run detect_rg
     [ "$output" = "" ]
 }
+
+# ─── detect_zoxide ─────────────────────────────────────────────────────────
+
+@test "detect_zoxide: returns 'zoxide' when available" {
+    command() { [[ "$1" == "-v" && "$2" == "zoxide" ]] && return 0; }
+    export -f command
+    run detect_zoxide
+    [[ "$output" == "zoxide" ]]
+}
+
+@test "detect_zoxide: returns empty when not found" {
+    command() { return 1; }
+    export -f command
+    run detect_zoxide
+    [[ -z "$output" ]]
+}
