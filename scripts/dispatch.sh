@@ -638,7 +638,7 @@ run_rename_mode() {
             --query "$FILE" \
             --prompt '→ ' \
             --header 'enter confirm · esc cancel' \
-            --preview "'$SCRIPT_DIR/actions.sh' rename-preview '$FILE' {q}" \
+            --preview "'$SCRIPT_DIR/actions.sh' rename-preview $(printf '%q' "$FILE") {q}" \
             --border-label=' rename ' \
     ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
 
@@ -828,7 +828,7 @@ run_windows_mode() {
             --no-cycle \
             --prompt '  ' \
             --border-label=" $SESSION windows " \
-            --preview "'$SCRIPT_DIR/session-preview.sh' '$SESSION' {1}" \
+            --preview "'$SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
             --bind "left:up" \
             --bind "down:down+down" \
