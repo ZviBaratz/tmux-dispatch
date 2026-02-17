@@ -841,7 +841,7 @@ run_windows_mode() {
     # Extract window index (first field before colon)
     local win_idx
     win_idx=$(awk -F: '{print $1}' <<< "$result")
-    [[ -z "$win_idx" ]] && exit 0
+    [[ "$win_idx" =~ ^[0-9]+$ ]] || exit 0
 
     tmux select-window -t "$SESSION:$win_idx"
     tmux switch-client -t "$SESSION"

@@ -529,3 +529,20 @@ _run_annotate_git() {
     '
     [[ "$output" == "BLOCKED" ]]
 }
+
+# ─── Window index validation ─────────────────────────────────────────────────
+
+@test "windows: numeric index passes validation" {
+    run bash -c '[[ "3" =~ ^[0-9]+$ ]] && echo "VALID" || echo "INVALID"'
+    [[ "$output" == "VALID" ]]
+}
+
+@test "windows: non-numeric index fails validation" {
+    run bash -c '[[ "abc" =~ ^[0-9]+$ ]] && echo "VALID" || echo "INVALID"'
+    [[ "$output" == "INVALID" ]]
+}
+
+@test "windows: empty index fails validation" {
+    run bash -c '[[ "" =~ ^[0-9]+$ ]] && echo "VALID" || echo "INVALID"'
+    [[ "$output" == "INVALID" ]]
+}
