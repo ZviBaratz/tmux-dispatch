@@ -37,3 +37,4 @@ tmux-dispatch provides six modes, all accessible from a single popup:
 - [Configuration](reference/configuration) — All `@dispatch-*` options
 - [Troubleshooting](reference/troubleshooting) — Common issues and fixes
 - [Architecture](reference/architecture) — How the scripts fit together
+- [Changelog](https://github.com/ZviBaratz/tmux-dispatch/blob/main/CHANGELOG.md) — Full list of changes in each release

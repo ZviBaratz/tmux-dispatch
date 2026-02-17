@@ -124,7 +124,21 @@ Start typing to filter files -- the file list narrows instantly as you type. Nav
 - Press `Enter` to open the selected file in the popup editor (vim/nvim)
 - Press `Ctrl+O` to send the editor command to your originating pane (useful for GUI editors like VS Code)
 
-### 5. Try mode switching
+### 5. Bookmark a file
+
+Navigate to a file you use often and press `Ctrl+B` to bookmark it. Bookmarked files are marked with a star (★) and always appear at the top of the file list, regardless of search query. Press `Ctrl+B` again to remove the bookmark.
+
+### 6. Open in your pane (non-vim editors)
+
+Press `Ctrl+O` instead of `Enter` to send the editor command to your originating tmux pane rather than opening inside the popup. This is especially useful for GUI editors like VS Code -- configure it with:
+
+```tmux
+set -g @dispatch-pane-editor 'code'
+```
+
+See the [FAQ](faq#how-do-i-use-vs-code-or-another-non-vim-editor) for more details on editor configuration.
+
+### 7. Try mode switching
 
 From the file finder, type a prefix character to switch to a different mode. The remainder of your typed text becomes the query in the new mode:
 
@@ -133,7 +147,7 @@ From the file finder, type a prefix character to switch to a different mode. The
 - Type `!` to switch to git status and see changed files
 - Type `#` to switch to directories and jump to a different directory
 
-### 6. Return home
+### 8. Return home
 
 In any sub-mode, press backspace on an empty query to return to the file finder. This creates a natural navigation pattern: jump into a mode, do what you need, backspace to return.
 

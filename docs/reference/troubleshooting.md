@@ -8,6 +8,32 @@ nav_order: 4
 
 Common issues and their solutions.
 
+### Plugin not loading after install
+
+If nothing happens when you press `Alt+o` and the keybindings are not registered:
+
+1. **Run TPM install**: Press `prefix + I` (capital I) after adding the plugin line to `~/.tmux.conf`. TPM does not install plugins automatically when you edit the config file.
+
+2. **Reload tmux config**: After installing, reload with `tmux source-file ~/.tmux.conf` or restart tmux.
+
+3. **Check executable permissions**: All scripts must be executable. If you cloned manually, run:
+
+   ```bash
+   chmod +x ~/.tmux/plugins/tmux-dispatch/dispatch.tmux ~/.tmux/plugins/tmux-dispatch/scripts/*.sh
+   ```
+
+4. **Verify bash version**: tmux-dispatch requires bash 4.0+. Check with `bash --version`. On macOS, the default `/bin/bash` is 3.2 -- install a newer version with `brew install bash`.
+
+5. **Confirm the plugin line**: Ensure your `~/.tmux.conf` contains the plugin line **before** the TPM initialization line (`run '~/.tmux/plugins/tpm/tpm'`):
+
+   ```tmux
+   set -g @plugin 'ZviBaratz/tmux-dispatch'
+   # ... other plugins ...
+   run '~/.tmux/plugins/tpm/tpm'
+   ```
+
+6. **Check TPM itself**: Verify TPM is installed and working by pressing `prefix + I`. If TPM is not installed, follow the [TPM installation guide](https://github.com/tmux-plugins/tpm#installation).
+
 ### Alt keys not working
 
 Your terminal emulator must send Alt as Meta (Escape prefix). In iTerm2, go to Profiles, then Keys, then set Left Option key to Esc+. In Alacritty and Kitty this is the default behavior. In Windows Terminal, Alt keys work out of the box.

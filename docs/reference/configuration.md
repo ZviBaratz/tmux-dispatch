@@ -10,7 +10,7 @@ All tmux-dispatch options are set via tmux options in your `~/.tmux.conf`. Every
 
 ## Keybinding options
 
-Customize which keys open each mode, or set to `"none"` to disable a keybinding entirely.
+Customize which keys open each mode. Set any key option to `"none"` to disable that keybinding entirely -- the plugin will skip registering it, so there is no conflict with other plugins or tmux bindings.
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -27,11 +27,13 @@ Control the popup dimensions and which editors are used.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `@dispatch-popup-size` | `85%` | Width and height of the popup window (percentage of terminal) |
+| `@dispatch-popup-size` | `85%` | Width **and** height of the popup window (the same value is used for both dimensions) |
 | `@dispatch-popup-editor` | auto-detect | Editor used inside the popup. Auto-detection order: nvim, vim, vi |
 | `@dispatch-pane-editor` | auto-detect | Editor used for Ctrl+O send-to-pane. Uses `$EDITOR` if set, otherwise auto-detects (nvim, vim, vi) |
 
 The popup editor must be a terminal editor (vim, nvim, vi) since it runs inside the popup. The pane editor can be anything, including GUI editors like VS Code or Cursor.
+
+**Note on tilde expansion:** tmux option values are passed as literal strings. If you use `~` in a path (e.g., in `@dispatch-session-dirs`), be aware that tilde expansion depends on how the value is evaluated. Use `$HOME` instead of `~` for reliable path expansion in tmux options.
 
 ## Search tool options
 

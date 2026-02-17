@@ -99,6 +99,43 @@ See the [Architecture Reference](docs/reference/architecture.md) for how the scr
 - Manual testing requires a running tmux session
 - Reload plugin: `tmux source-file ~/.tmux.conf`
 
+### Writing a test
+
+Here is a minimal example showing the typical pattern -- mock `tmux` to isolate the function under test, then use `run` to capture output and status:
+
+```bash
+#!/usr/bin/env bats
+
+setup() {
+    SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/../scripts" && pwd)"
+    source "$SCRIPT_DIR/helpers.sh"
+}
+
+teardown() {
+    unset -f tmux 2>/dev/null || true
+}
+
+@test "get_tmux_option: returns configured value" {
+    # Mock tmux to return a known value
+    tmux() { echo "my-editor"; }
+    export -f tmux
+
+    run get_tmux_option "@dispatch-popup-editor" "default"
+    [ "$status" -eq 0 ]
+    [ "$output" = "my-editor" ]
+}
+
+@test "get_tmux_option: falls back to default when unset" {
+    tmux() { echo ""; }
+    export -f tmux
+
+    run get_tmux_option "@dispatch-popup-editor" "vim"
+    [ "$output" = "vim" ]
+}
+```
+
+Source `tests/common.bash` for shared fixtures like `setup_tmux_stub` (creates a tmux mock on PATH) and `setup_git_repo` (initializes a temporary git repository). See existing test files in `tests/` for more examples.
+
 ## Release Process
 
 Releases are automated via GitHub Actions:

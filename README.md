@@ -26,6 +26,7 @@
 - **Window picker** — Browse windows with pane content preview
 - **Mode switching** — Type `>` for grep, `@` for sessions, `!` for git, `#` for directories — backspace returns home
 - **In-place actions** — Rename (`Ctrl+R`), delete (`Ctrl+X`), bookmark (`Ctrl+B`), multi-select (`Tab`), clipboard (`Ctrl+Y`)
+- **Built-in guide** — First launch shows all keybindings and mode prefixes in the preview panel; start typing to dismiss
 
 ## Quick Start
 
@@ -97,7 +98,17 @@ Full documentation is available at **[zvibaratz.github.io/tmux-dispatch](https:/
 
 ## How is this different?
 
-Most tmux fuzzy-finder plugins provide a menu of separate tmux operations (sessions, windows, panes, commands). tmux-dispatch takes a different approach: a **unified command palette** inspired by VS Code, where you start in file finding and seamlessly switch between modes by typing a prefix character. One popup, one muscle memory, all operations.
+Most tmux fuzzy-finder plugins provide a menu of separate tmux operations (sessions, windows, panes, commands) where each action opens a new picker. tmux-dispatch takes a different approach:
+
+- **Unified popup** — Files, grep, git, directories, and sessions all live in a single popup. No closing and reopening for different tasks.
+- **No-close mode switching** — Type a prefix character (`>`, `@`, `!`, `#`) to switch modes instantly. Backspace on empty returns home. The popup stays open throughout.
+- **Frecency ranking** — Recently and frequently opened files appear first, so your most-used files are always within reach.
+- **Inline git staging** — Stage and unstage files with `Tab` directly in the git status view, with an inline diff preview. No need to drop to the command line.
+- **Bookmarks** — Pin important files with `Ctrl+B` so they always appear at the top of the file list.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full list of changes in each release.
 
 ## Similar Projects
 
