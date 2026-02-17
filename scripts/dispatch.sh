@@ -803,16 +803,17 @@ run_directory_mode() {
     }
 
     # Preview command — expand display ~ back to $HOME for tool access
-    # Escape $HOME for safe sed usage (backslashes and delimiters)
-    local home_escaped
-    home_escaped=$(printf '%s' "$HOME" | sed 's/[|\&/]/\\&/g')
+    # Uses bash parameter expansion instead of sed (avoids regex escaping issues with $HOME)
+    local sq_home
+    sq_home=$(_sq_escape "$HOME")
+    local tilde_expand="d={}; d=\${d/#\\~/'$sq_home'}"
     local dir_preview
     if command -v tree &>/dev/null; then
-        dir_preview="tree -C -L 2 \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
+        dir_preview="$tilde_expand; tree -C -L 2 \"\$d\""
     elif ls --color=always /dev/null 2>/dev/null; then
-        dir_preview="ls -la --color=always \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
+        dir_preview="$tilde_expand; ls -la --color=always \"\$d\""
     else
-        dir_preview="ls -laG \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
+        dir_preview="$tilde_expand; ls -laG \"\$d\""
     fi
 
     local become_files="$BECOME_FILES"
