@@ -8,7 +8,6 @@
 # Usage: actions.sh <action> [args...]
 #   edit-file     <editor> <pwd> <history> <file>...  Open files in editor
 #   edit-grep     <editor> <pwd> <history> <file> <line>  Open file at line
-#   rename-file   <filepath>       Rename a single file
 #   delete-files  <file>...        Delete one or more files (with confirmation)
 #   rename-session <session-name>  Rename a tmux session
 #   kill-session  <session-name>   Kill a tmux session (guards current)
@@ -42,32 +41,6 @@ action_edit_grep() {
     [[ "$line_num" =~ ^[0-9]+$ ]] || line_num=1
     [[ "$history_enabled" == "on" ]] && record_file_open "$pwd_dir" "$file"
     "$editor" "+$line_num" "$file"
-}
-
-# ─── rename-file ──────────────────────────────────────────────────────────────
-
-action_rename_file() {
-    local file="$1"
-    [[ -f "$file" ]] || { echo "File not found: $file"; read -r; exit 1; }
-
-    printf '\n \033[1mrename\033[0m \033[90m─────────────────────\033[0m\n'
-    printf ' %s  →\n\n' "$file"
-    read -e -r -i "$file" -p " New name: " new_name
-
-    [[ -z "$new_name" || "$new_name" == "$file" ]] && exit 0
-
-    if [[ -e "$new_name" ]]; then
-        printf '\n \033[31mAlready exists: %s\033[0m\n' "$new_name"
-        read -r -p " Press Enter to cancel..."
-        exit 1
-    fi
-
-    local dir
-    dir=$(dirname "$new_name")
-    [[ -d "$dir" ]] || mkdir -p "$dir"
-    command mv "$file" "$new_name"
-    printf ' \033[32mRenamed.\033[0m\n'
-    sleep 0.3
 }
 
 # ─── delete-files ─────────────────────────────────────────────────────────────
@@ -241,7 +214,6 @@ shift || true
 case "$action" in
     edit-file)              action_edit_file "$@" ;;
     edit-grep)              action_edit_grep "$@" ;;
-    rename-file)            action_rename_file "$@" ;;
     delete-files)           action_delete_files "$@" ;;
     rename-session)         action_rename_session "$@" ;;
     rename-preview)         action_rename_preview "$@" ;;

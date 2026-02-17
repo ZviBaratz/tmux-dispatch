@@ -20,68 +20,6 @@ teardown() {
     rm -f "$BATS_TEST_TMPDIR/tmux"
 }
 
-# ─── rename-file ──────────────────────────────────────────────────────────────
-
-@test "rename-file: successful rename" {
-    local src="$BATS_TEST_TMPDIR/old.txt"
-    local dst="$BATS_TEST_TMPDIR/new.txt"
-    echo "content" > "$src"
-
-    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
-    [ "$status" -eq 0 ]
-    [ ! -f "$src" ]
-    [ -f "$dst" ]
-    [ "$(cat "$dst")" = "content" ]
-}
-
-@test "rename-file: creates parent directories" {
-    local src="$BATS_TEST_TMPDIR/file.txt"
-    local dst="$BATS_TEST_TMPDIR/sub/dir/file.txt"
-    echo "content" > "$src"
-
-    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
-    [ "$status" -eq 0 ]
-    [ -f "$dst" ]
-}
-
-@test "rename-file: same name is a no-op" {
-    local src="$BATS_TEST_TMPDIR/same.txt"
-    echo "content" > "$src"
-
-    run bash -c "echo '$src' | '$ACTIONS' rename-file '$src'"
-    [ "$status" -eq 0 ]
-    [ -f "$src" ]
-}
-
-@test "rename-file: empty input is a no-op" {
-    local src="$BATS_TEST_TMPDIR/keep.txt"
-    echo "content" > "$src"
-
-    run bash -c "echo '' | '$ACTIONS' rename-file '$src'"
-    [ "$status" -eq 0 ]
-    [ -f "$src" ]
-}
-
-@test "rename-file: target exists fails with error" {
-    local src="$BATS_TEST_TMPDIR/a.txt"
-    local dst="$BATS_TEST_TMPDIR/b.txt"
-    echo "aaa" > "$src"
-    echo "bbb" > "$dst"
-
-    run bash -c "echo '$dst' | '$ACTIONS' rename-file '$src'"
-    [ "$status" -eq 1 ]
-    # Both files should still exist (no overwrite)
-    [ -f "$src" ]
-    [ -f "$dst" ]
-    [[ "$output" == *"Already exists"* ]]
-}
-
-@test "rename-file: missing file fails with error" {
-    run bash -c "echo '' | '$ACTIONS' rename-file '$BATS_TEST_TMPDIR/nonexistent.txt'"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"File not found"* ]]
-}
-
 # ─── delete-files ─────────────────────────────────────────────────────────────
 
 @test "delete-files: confirmed delete removes files" {
@@ -519,18 +457,6 @@ MOCK
 }
 
 # ─── unknown action ──────────────────────────────────────────────────────────
-
-# ─── Special characters edge cases ──────────────────────────────────────────
-
-@test "rename-file: handles filename with spaces" {
-    local src="$BATS_TEST_TMPDIR/my file.txt"
-    local dst="$BATS_TEST_TMPDIR/my renamed file.txt"
-    echo "content" > "$src"
-
-    run bash -c "echo \"$dst\" | \"$ACTIONS\" rename-file \"$src\""
-    [[ ! -f "$src" ]]
-    [[ -f "$dst" ]]
-}
 
 # ─── unknown action ──────────────────────────────────────────────────────────
 
