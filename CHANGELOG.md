@@ -8,8 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Keybinding hints in bottom border labels for grep, git, sessions, dirs, and windows modes
+- Keybinding hints in bottom border labels for all modes (files, grep, git, sessions, dirs, windows)
 - Mode names in prompts (`grep > `, `sessions @ `, `git ! `, `dirs # `)
+- Multi-select in git mode (`Shift+Tab`) for batch open/copy operations
+- Match count display in all modes (inline-right)
 - Session kill action (`Ctrl+K`) with current-session guard and list reload
 - Git rename preview for renamed files in git mode
 
@@ -17,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Single quotes in directory paths or editor paths no longer break fzf bind commands
 - Session names created from typed queries are now sanitized (matching project launcher behavior)
 - fzf version warnings now go to stderr instead of interfering with fzf input
+- File extension filter now escapes ERE metacharacters (e.g., `c++` extensions work correctly)
+- Git preview handles renamed files conditionally, avoiding false positives on filenames containing ` -> `
 - Pane ID validation rejects injection attempts
 - Rename mode rejects path traversal outside working directory
 
