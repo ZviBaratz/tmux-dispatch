@@ -120,10 +120,10 @@ fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
 if [[ -n "$fzf_version" ]]; then
     _fzf_below() { [[ "$(printf '%s\n%s' "$1" "$fzf_version" | sort -V | head -n1)" != "$1" ]]; }
     if _fzf_below "0.38"; then
-        echo "Error: fzf 0.38+ required for mode switching (found $fzf_version)."
-        echo "Install latest: https://github.com/junegunn/fzf#installation"
+        echo "Error: fzf 0.38+ required for mode switching (found $fzf_version)." >&2
+        echo "Install latest: https://github.com/junegunn/fzf#installation" >&2
     elif _fzf_below "0.45"; then
-        echo "Warning: fzf 0.45+ recommended (found $fzf_version). Dynamic labels require 0.45+."
+        echo "Warning: fzf 0.45+ recommended (found $fzf_version). Dynamic labels require 0.45+." >&2
     fi
     unset -f _fzf_below
 fi
@@ -564,9 +564,16 @@ handle_session_result() {
             tmux display-message "Copied: $selected"
             ;;
         *)
-            # Switch to session, or create if it doesn't exist
-            tmux switch-client -t "$selected" 2>/dev/null ||
-                { tmux new-session -d -s "$selected" && tmux switch-client -t "$selected"; }
+            # Switch to existing session, or create with sanitized name
+            if ! tmux switch-client -t "$selected" 2>/dev/null; then
+                # Sanitize: replace characters invalid in tmux session names
+                local sanitized
+                sanitized=$(printf '%s' "$selected" | tr -c 'a-zA-Z0-9_-' '-')
+                sanitized="${sanitized#-}"
+                sanitized="${sanitized%-}"
+                [[ -z "$sanitized" ]] && exit 0
+                tmux new-session -d -s "$sanitized" && tmux switch-client -t "$sanitized"
+            fi
             ;;
     esac
 }
