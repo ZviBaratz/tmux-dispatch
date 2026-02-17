@@ -391,7 +391,7 @@ run_grep_mode() {
     fi
 
     # Preview command: preview.sh handles bat-or-head fallback internally
-    local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' {1} {2}"
+    local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' '{1}' '{2}'"
 
     # Strip leading > from prefix-based switch
     QUERY="${QUERY#>}"
@@ -437,9 +437,9 @@ run_grep_mode() {
         --border-label ' enter open · ^o pane · ^y copy · ^f filter · ^r rename · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-f:transform:$grep_toggle" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file={1})" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{1}')" \
         --bind "backward-eof:$become_files_empty" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {1} {2})" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{1}' '{2}')" \
     ) || exit 0
 
     handle_grep_result "$result"
@@ -553,12 +553,12 @@ run_session_mode() {
             --no-sort \
             --border-label ' enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' {1}" \
-            --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session={1})" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' '{1}'" \
+            --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session='{1}')" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
-            --bind "ctrl-w:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$SQ_PANE_ID' --session={1})" \
-            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-session {1})+reload:$session_list_cmd" \
+            --bind "ctrl-w:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$SQ_PANE_ID' --session='{1}')" \
+            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-session '{1}')+reload:$session_list_cmd" \
     ) || exit 0
 
     handle_session_result "$result"
@@ -895,7 +895,7 @@ run_windows_mode() {
             --prompt "$SESSION windows  " \
             --border-label ' ←→ move · ↑↓ skip · enter switch · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") '{1}'" \
             --bind "right:down" \
             --bind "left:up" \
             --bind "down:down+down" \
@@ -962,12 +962,12 @@ run_git_mode() {
         --delimiter=$'\t' \
         --nth=2.. \
         --tabstop=3 \
-        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' {2..} {1}" \
+        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '{2..}' '{1}'" \
         --preview-window 'right:60%:border-left' \
         --border-label ' tab stage/unstage · shift-tab select · enter open · ^o pane · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
-        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {+2..})" \
+        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
         --bind "backward-eof:$become_files" \
     ) || exit 0
 

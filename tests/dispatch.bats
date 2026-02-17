@@ -693,6 +693,29 @@ session-name	extra-info"
 
 # ─── fzf placeholder quoting ─────────────────────────────────────────────
 
+@test "fzf bind strings: all modes quote fzf placeholders" {
+    source "$SCRIPT_DIR/helpers.sh"
+    # Scan all --bind and --preview lines in dispatch.sh for unquoted fzf field refs
+    # fzf fields: {1}, {2..}, {+2..}, {+1} etc. Should always be inside single quotes in bind/preview strings.
+    # Exclude: --preview-window (no substitution), change:transform (uses {q} not field refs),
+    # and lines that only use {q} (query, not field reference)
+    local unquoted
+    unquoted=$(grep -nE '\-\-(bind|preview) ' "$SCRIPT_DIR/dispatch.sh" \
+        | grep -v 'preview-window' \
+        | grep -v 'preview-label' \
+        | grep -v 'change:transform' \
+        | grep -v 'backward-eof' \
+        | grep -v 'ctrl-f:transform' \
+        | grep -v 'ctrl-h:' \
+        | grep -v 'start:' \
+        | grep -v 'focus:' \
+        | grep -v 'down:' \
+        | grep -v 'up:' \
+        | grep -P '(?<!['"'"'])\{[+]?[0-9]' \
+        || true)
+    [ -z "$unquoted" ]
+}
+
 @test "fzf bind strings: files mode quotes fzf placeholders" {
     source "$SCRIPT_DIR/helpers.sh"
     # Extract bind lines from run_files_mode
