@@ -36,6 +36,7 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
 | `Ctrl+B` | Toggle bookmark (starred indicator, pinned to top) |
+| `Ctrl+H` | Toggle hidden files |
 | `Ctrl+R` | Rename file |
 | `Ctrl+X` | Delete file(s) (multi-select supported) |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
@@ -57,6 +58,7 @@ Live search mode powered by ripgrep. The query reloads search results on every k
 | `Enter` | Edit file at matching line in popup |
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy `file:line` to clipboard |
+| `Ctrl+F` | Toggle between live search and fuzzy filter |
 | `Ctrl+R` | Rename file |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
@@ -68,10 +70,11 @@ Shows files with uncommitted changes. Status icons are colored by change type.
 
 | Key | Action |
 |-----|--------|
-| `Enter` | Edit file in popup |
+| `Enter` | Edit file(s) in popup |
 | `Tab` | Stage/unstage file |
+| `Shift+Tab` | Toggle selection (multi-select) |
 | `Ctrl+O` | Send editor open command to originating pane |
-| `Ctrl+Y` | Copy file path to clipboard |
+| `Ctrl+Y` | Copy file path(s) to clipboard |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
@@ -115,7 +118,6 @@ Browse and switch between windows in a session. Arrow keys navigate spatially wi
 | `Left` | Move left in grid (previous window) |
 | `Down` | Move down in grid (same column, next row) |
 | `Up` | Move up in grid (same column, previous row) |
-| `Ctrl+N` / `Ctrl+P` | Sequential navigation (one window at a time) |
 | `Backspace` on empty | Return to sessions |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |

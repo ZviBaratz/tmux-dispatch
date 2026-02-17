@@ -23,6 +23,7 @@ Unlike files mode, grep mode runs fzf in `--disabled` mode: fzf does not filter 
 | `Enter` | Edit file at matching line in popup |
 | `Ctrl+O` | Send editor open command with `+line` to pane |
 | `Ctrl+Y` | Copy `file:line` to clipboard |
+| `Ctrl+F` | Toggle between live search and fuzzy filter |
 | `Ctrl+R` | Rename the matched file |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
@@ -31,6 +32,7 @@ Unlike files mode, grep mode runs fzf in `--disabled` mode: fzf does not filter 
 ## Features
 
 - **Live reload** -- fzf runs in `--disabled` mode with a `change:reload` binding, so ripgrep re-executes on every keystroke. No need to press Enter to search.
+- **Filter toggle** -- press `Ctrl+F` to switch from live ripgrep search to fuzzy filtering on the current results. The prompt changes to `filter > ` to indicate filter mode. This is useful when you want to narrow down a large set of matches by filename or content. Press `Ctrl+F` again to return to live search.
 - **Line-highlighted preview** -- `preview.sh` passes the line number to bat's `--highlight-line`, visually marking the match in the preview pane. See [Preview System](../features/previews) for details.
 - **File + line references** -- `Ctrl+Y` copies the `file:line` format to the clipboard. `Ctrl+O` sends the editor open command with `+linenum` so your editor jumps directly to the match.
 - **Smart case** -- ripgrep uses `--smart-case` by default: searches are case-insensitive unless your query contains an uppercase letter.

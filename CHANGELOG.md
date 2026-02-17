@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mode names in prompts (`grep > `, `sessions @ `, `git ! `, `dirs # `)
 - Multi-select in git mode (`Shift+Tab`) for batch open/copy operations
 - Match count display in all modes (inline-right)
+- Toggle hidden files in file finder (`Ctrl+H`)
+- Grep filter mode (`Ctrl+F`) — switch between live ripgrep search and fuzzy filtering on results
+- Current session indicator (green "current" label) in session list
+- Current directory shown in header for dirs mode
+- Arrow key navigation hints in windows mode border
+- `@dispatch-theme` option — set to `"none"` to disable built-in colors and inherit terminal theme
 - Session kill action (`Ctrl+K`) with current-session guard and list reload
 - Git rename preview for renamed files in git mode
 

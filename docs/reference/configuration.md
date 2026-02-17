@@ -53,6 +53,12 @@ Enable or disable optional features.
 | `@dispatch-history` | `on` | Track recently opened files and rank them higher in file finder (frecency) |
 | `@dispatch-git-indicators` | `on` | Show colored status icons (modified/staged/untracked) next to files in file finder |
 
+## Appearance
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `@dispatch-theme` | `default` | Color theme. Set to `"none"` to disable built-in colors and inherit from terminal or `FZF_DEFAULT_OPTS` |
+
 ## File type filter
 
 Restrict the file finder to specific file extensions.
@@ -98,6 +104,9 @@ set -g @dispatch-rg-args "--glob '!*.min.js'"
 # Features
 set -g @dispatch-history "on"
 set -g @dispatch-git-indicators "on"
+
+# Appearance (set to "none" to use terminal colors)
+set -g @dispatch-theme "default"
 
 # File type filter
 set -g @dispatch-file-types "ts,tsx,js"
