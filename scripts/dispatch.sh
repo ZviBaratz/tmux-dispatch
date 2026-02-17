@@ -215,21 +215,27 @@ run_files_mode() {
     }
 
     # ─── File indicators (bookmarks + git status) ──────────────────────────────
-    # Always tab-delimited: indicators\tfilename.
-    # Indicator column: ★ for bookmarked, git icon for dirty files.
-    local fzf_file="{2..}" fzf_files="{+2..}"
-    local bf
-    bf=$(_dispatch_bookmark_file)
-    local git_active=false git_prefix=""
-    if [[ "$GIT_INDICATORS" == "on" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
-        git_active=true
-        git_prefix=$(git rev-parse --show-prefix 2>/dev/null)
-    fi
-    local do_git=0
-    $git_active && do_git=1
+    # Build the awk annotation script and define _annotate_files().
+    # Sets: fzf_file, fzf_files, annotate_awk, bf, do_git, git_prefix
+    # Defines: _annotate_files()
+    local fzf_file fzf_files bf do_git git_prefix annotate_awk
 
-    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
-    local annotate_awk='BEGIN {
+    _build_annotate_awk() {
+        # Always tab-delimited: indicators\tfilename.
+        # Indicator column: ★ for bookmarked, git icon for dirty files.
+        fzf_file="{2..}" fzf_files="{+2..}"
+        bf=$(_dispatch_bookmark_file)
+        local git_active=false
+        git_prefix=""
+        if [[ "$GIT_INDICATORS" == "on" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
+            git_active=true
+            git_prefix=$(git rev-parse --show-prefix 2>/dev/null)
+        fi
+        do_git=0
+        $git_active && do_git=1
+
+        # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+        annotate_awk='BEGIN {
         if (bfile != "") {
             while ((getline line < bfile) > 0) {
                 n = split(line, a, "\t")
@@ -268,9 +274,11 @@ run_files_mode() {
         printf "%s\t%s\n", ind, $0
     }'
 
-    _annotate_files() {
-        awk -v bfile="$bf" -v pwd="$PWD" -v do_git="$do_git" -v prefix="$git_prefix" "$annotate_awk"
+        _annotate_files() {
+            awk -v bfile="$bf" -v pwd="$PWD" -v do_git="$do_git" -v prefix="$git_prefix" "$annotate_awk"
+        }
     }
+    _build_annotate_awk
 
     # File preview command (bat or head fallback)
     local file_preview
@@ -322,27 +330,34 @@ else
   echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-preview-label( preview )\"
 fi"
 
-    # Reloadable file list command (bookmarks + frecency + files, deduped).
-    # Used by fzf reload bindings (ctrl-x, ctrl-b).
-    # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
-    # inner '...' passed to bash -c protects awk's $0 and function calls from sh.
-    local sq_bf
-    sq_bf=$(_sq_escape "$bf")
-    local sq_git_prefix
-    sq_git_prefix=$(_sq_escape "$git_prefix")
-    local annotate_cmd="awk -v bfile='$sq_bf' -v pwd='$SQ_PWD' -v do_git=$do_git -v prefix='$sq_git_prefix' '${annotate_awk}'"
-    local sq_hidden_flag
-    sq_hidden_flag=$(_sq_escape "$hidden_flag")
-    # file_list_cmd: conditional on hidden_flag — if flag exists, show hidden; otherwise hide them
-    local file_list_cmd file_list_cmd_hidden file_list_cmd_nohidden
-    if [[ "$HISTORY_ENABLED" == "on" ]]; then
-        file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
-        file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
-    else
-        file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
-        file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
-    fi
-    file_list_cmd="if [ -f '$sq_hidden_flag' ]; then $file_list_cmd_hidden; else $file_list_cmd_nohidden; fi"
+    # ─── Reload command construction ────────────────────────────────────────────
+    # Build the file list command used by fzf reload bindings.
+    # Sets: file_list_cmd, sq_hidden_flag (also used by ctrl-h binding)
+    local file_list_cmd sq_hidden_flag
+
+    _build_file_list_cmd() {
+        # Reloadable file list command (bookmarks + frecency + files, deduped).
+        # Used by fzf reload bindings (ctrl-x, ctrl-b).
+        # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
+        # inner '...' passed to bash -c protects awk's $0 and function calls from sh.
+        local sq_bf
+        sq_bf=$(_sq_escape "$bf")
+        local sq_git_prefix
+        sq_git_prefix=$(_sq_escape "$git_prefix")
+        local annotate_cmd="awk -v bfile='$sq_bf' -v pwd='$SQ_PWD' -v do_git=$do_git -v prefix='$sq_git_prefix' '${annotate_awk}'"
+        sq_hidden_flag=$(_sq_escape "$hidden_flag")
+        # file_list_cmd: conditional on hidden_flag — if flag exists, show hidden; otherwise hide them
+        local file_list_cmd_hidden file_list_cmd_nohidden
+        if [[ "$HISTORY_ENABLED" == "on" ]]; then
+            file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+            file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        else
+            file_list_cmd_hidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+            file_list_cmd_nohidden="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd_nohidden; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        fi
+        file_list_cmd="if [ -f '$sq_hidden_flag' ]; then $file_list_cmd_hidden; else $file_list_cmd_nohidden; fi"
+    }
+    _build_file_list_cmd
 
     local result
     result=$(
