@@ -64,19 +64,24 @@ This is particularly useful for grep mode, where the query triggers an immediate
 When files mode opens with no query (or when the query becomes empty), a welcome cheat sheet appears in the preview panel. It shows all available prefix characters and keybindings as a quick reference:
 
 ```
-  Type to search files
+  FILES
+  ─────────────────────────────
+  enter     open in editor
+  S-tab     multi-select
+  ^O        send to pane
+  ^Y        copy path
+  ^B        toggle bookmark
+  ^H        toggle hidden files
+  ^R        rename file
+  ^X        delete file
+  ^D/^U     scroll preview
 
-  >  grep code
-  @  switch sessions
-  !  git status
-  #  directories
-
-  enter  open in editor
-  ^O     send to pane
-  ^Y     copy path
-  ^B     toggle bookmark
-  ^R     rename file
-  ^X     delete file
+  MODE SWITCHING
+  ─────────────────────────────
+  >...      grep code
+  @...      switch sessions
+  !...      git status
+  #...      directories
 ```
 
 The cheat sheet disappears as soon as you start typing or navigate the file list. When the cheat sheet is visible, the border label reads "dispatch" and the preview label reads "guide". Once you start interacting, these change to "files" and "preview" respectively.

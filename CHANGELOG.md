@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-02-12
+## [1.0.0]
 
 ### Added
 
@@ -89,4 +89,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split `run_files_mode()` into composable sub-functions
 
 [Unreleased]: https://github.com/ZviBaratz/tmux-dispatch/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ZviBaratz/tmux-dispatch/releases/tag/v1.0.0
+[1.0.0]: https://github.com/ZviBaratz/tmux-dispatch/compare/b2fa1c5...HEAD

@@ -13,7 +13,7 @@ Set Padding 10
 # ─── Setup (hidden from recording) ───────────────────────────────────────────
 
 Hide
-Type "bash demo-setup.sh && tmux -L demo-vhs attach -t demo"
+Type "bash tapes/demo-setup-modes.sh && tmux -L demo-vhs attach -t demo"
 Enter
 Sleep 2s
 Type "clear"

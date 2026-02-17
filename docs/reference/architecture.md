@@ -19,6 +19,7 @@ dispatch.sh --mode=files  (home mode, prompt: "  ")
   |   +-- "@" prefix --> become(dispatch.sh --mode=sessions --query={q})
   |   +-- "!" prefix --> become(dispatch.sh --mode=git --query={q})
   |   +-- "#" prefix --> become(dispatch.sh --mode=dirs --query={q})
+  |   +-- Ctrl+R --> become(dispatch.sh --mode=rename)
   |
 dispatch.sh --mode=grep  (prompt: "> ")
   +-- fzf --disabled + change:reload:rg (live search)
@@ -37,9 +38,21 @@ dispatch.sh --mode=sessions  (prompt: "@ ")
   |   +-- backspace on empty --> become(dispatch.sh --mode=files)
   |   +-- Ctrl+N --> become(dispatch.sh --mode=session-new)
   |   +-- Ctrl+W --> become(dispatch.sh --mode=windows --session={1})
+  |   +-- Ctrl+R --> become(dispatch.sh --mode=rename-session)
+  |
+dispatch.sh --mode=windows
+  +-- tmux list-windows | fzf (2D grid navigation with arrow keys)
+  |   +-- backspace on empty --> become(dispatch.sh --mode=sessions)
   |
 dispatch.sh --mode=session-new
   +-- fd directories | fzf (project directory picker)
+  |   +-- backspace on empty --> become(dispatch.sh --mode=sessions)
+  |
+dispatch.sh --mode=rename
+  +-- fzf query as new filename (inline rename for selected files)
+  |
+dispatch.sh --mode=rename-session
+  +-- fzf query as new session name (inline rename for selected session)
 ```
 
 ## Script roles
