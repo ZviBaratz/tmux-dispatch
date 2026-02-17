@@ -7,6 +7,28 @@ on:
     branches: [main]
 
 jobs:
+  commit-lint:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|test|refactor|chore|ci|style|perf|revert)(\([a-z0-9-]+\))?!?: .+'
+          if echo "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "✓ PR title is valid: $PR_TITLE"
+          else
+            echo "✗ PR title does not follow conventional commits format."
+            echo ""
+            echo "  Expected: <type>[optional scope][!]: <description>"
+            echo "  Types:    feat, fix, docs, test, refactor, chore, ci, style, perf, revert"
+            echo "  Example:  feat(dispatch): add new grep mode"
+            echo ""
+            echo "  Got: $PR_TITLE"
+            exit 1
+          fi
+
   lint:
     runs-on: ${{ matrix.os }}
     strategy:

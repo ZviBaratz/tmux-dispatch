@@ -50,3 +50,4 @@ Seven shell scripts, no build step:
 - All new scripts must be executable (`chmod +x`)
 - Graceful fallbacks: every optional tool (`fd`, `bat`, `rg`, `zoxide`) has a fallback path — maintain this pattern
 - tmux options use the `@dispatch-` prefix
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), lowercase: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `style`, `perf`, `revert`. Optional scope matches script names (e.g., `fix(dispatch): ...`). Breaking changes use `!` suffix (e.g., `feat!: ...`)

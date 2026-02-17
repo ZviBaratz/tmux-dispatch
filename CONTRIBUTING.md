@@ -77,9 +77,57 @@ Tests use [bats-core](https://github.com/bats-core/bats-core). Shared fixtures a
    - New scripts must be executable (`chmod +x`)
    - Maintain graceful fallbacks for optional tools
    - tmux options use the `@dispatch-` prefix
-   - Conventional commits, lowercase (`feat: add feature`, `fix: resolve bug`)
+   - Conventional commits (see [Commit Messages](#commit-messages) below)
 3. Run all checks (see above)
 4. Open a pull request with a clear description
+
+## Commit Messages
+
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification. Since we squash-merge PRs, your **PR title** becomes the final commit message — make sure it conforms.
+
+### Format
+
+```
+<type>[optional scope][!]: <description>
+```
+
+### Types
+
+| Type | Purpose |
+|------|---------|
+| `feat` | New feature or capability |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `test` | Adding or updating tests |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `chore` | Maintenance (deps, config, tooling) |
+| `ci` | CI/CD changes |
+| `style` | Formatting, whitespace (no logic change) |
+| `perf` | Performance improvement |
+| `revert` | Revert a previous commit |
+
+### Scope
+
+Optional, in parentheses after the type. Use the script name without extension:
+
+`dispatch`, `helpers`, `actions`, `preview`, `git-preview`, `session-preview`
+
+### Breaking changes
+
+Append `!` after the type/scope: `feat!: remove legacy split-window mode`
+
+Or add a `BREAKING CHANGE:` footer in the commit body.
+
+### Examples
+
+```
+feat: move keybinding hints to bottom border, add mode names to prompts
+fix(dispatch): validate window index is numeric before tmux select-window
+docs: improve documentation for 1.0 release
+test: add session-preview and security validation tests
+refactor: remove dead action_rename_file code
+fix: escape single quotes in fzf bind strings
+```
 
 ## Adding a New Mode
 
