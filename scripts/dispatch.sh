@@ -144,7 +144,7 @@ run_files_mode() {
             ext="${ext## }"; ext="${ext%% }"  # trim whitespace
             [[ -n "$ext" ]] || continue
             type_flags+=(--extension "$ext")
-            type_flags_str+=" --extension $ext"
+            type_flags_str+=" --extension '$ext'"
             if $first; then
                 find_name_args+=("(" -name "*.${ext}")
                 find_name_filter="\\( -name '*.${ext}'"
@@ -171,7 +171,7 @@ run_files_mode() {
 
     if [[ -n "$FD_CMD" ]]; then
         local strip_prefix=""
-        $FD_CMD --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
+        "$FD_CMD" --help 2>&1 | grep -q -- '--strip-cwd-prefix' && strip_prefix="--strip-cwd-prefix"
         file_cmd="$FD_CMD --type f --hidden --follow --exclude .git $strip_prefix$type_flags_str $FD_EXTRA_ARGS"
     else
         file_cmd="find . -type f -not -path '*/.git/*'${find_name_filter:+ $find_name_filter}"
@@ -281,13 +281,13 @@ run_files_mode() {
     # stateful preview command with a static one.
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query={q})\"
 elif [[ {q} == '@'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query={q})\"
 elif [[ {q} == '!'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=git --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=git --pane='$PANE_ID' --query={q})\"
 elif [[ {q} == '#'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$PANE_ID' --query=\\\"\$FZF_QUERY\\\")\"
+  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$PANE_ID' --query={q})\"
 elif [[ -z {q} ]]; then
   echo \"execute-silent(touch '$welcome_flag')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
 else
@@ -361,7 +361,7 @@ run_grep_mode() {
     QUERY="${QUERY#>}"
 
     # Backspace-on-empty returns to files (home)
-    local become_files_empty="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+    local become_files_empty="$BECOME_FILES"
 
     # Live reload rg on every keystroke (fzf executes via sh -c — must be a string).
     # RG_EXTRA_ARGS is a trust boundary: set by the user via tmux options, not external input.
@@ -430,7 +430,7 @@ handle_file_result() {
                     [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
                     quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
                 done
-                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $quoted_files" Enter
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -464,7 +464,7 @@ handle_grep_result() {
             # Send open command to the originating pane (with line number)
             if [[ -n "$PANE_ID" ]]; then
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR +$line_num $(printf '%q' "$file")" Enter
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") +$line_num $(printf '%q' "$file")" Enter
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -487,7 +487,7 @@ run_session_mode() {
 
     [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
 
-    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+    local become_files="$BECOME_FILES"
     local become_new="become('$SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$PANE_ID')"
 
     # Load shared visual options
@@ -521,10 +521,13 @@ run_session_mode() {
 handle_session_result() {
     local result="$1"
     local query key selected
+    local -a result_lines
+    mapfile -t result_lines <<< "$result"
 
-    query=$(head -1 <<< "$result")
-    key=$(sed -n '2p' <<< "$result")
-    selected=$(tail -1 <<< "$result" | cut -f1)
+    query="${result_lines[0]}"
+    key="${result_lines[1]:-}"
+    selected="${result_lines[2]:-}"
+    selected="${selected%%	*}"  # strip tab-delimited suffix (tab literal)
 
     # If nothing selected by cursor, use the typed query as session name
     if [[ -z "$selected" || "$selected" == "$key" ]]; then
@@ -745,7 +748,10 @@ run_directory_mode() {
     # Directory listing command
     _run_dir_cmd() {
         if [[ -n "$ZOXIDE_CMD" ]]; then
-            zoxide query --list 2>/dev/null | sed "s|^$HOME|~|" || true
+            local dir
+            while IFS= read -r dir; do
+                printf '%s\n' "${dir/#"$HOME"/~}"
+            done < <(zoxide query --list 2>/dev/null) || true
         elif [[ -n "$FD_CMD" ]]; then
             "$FD_CMD" --type d --hidden --follow --exclude .git
         else
@@ -754,16 +760,19 @@ run_directory_mode() {
     }
 
     # Preview command — expand display ~ back to $HOME for tool access
+    # Escape $HOME for safe sed usage (backslashes and delimiters)
+    local home_escaped
+    home_escaped=$(printf '%s' "$HOME" | sed 's/[|\&/]/\\&/g')
     local dir_preview
     if command -v tree &>/dev/null; then
-        dir_preview="tree -C -L 2 \"\$(echo {} | sed \"s|^~|$HOME|\")\""
+        dir_preview="tree -C -L 2 \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
     elif ls --color=always /dev/null 2>/dev/null; then
-        dir_preview="ls -la --color=always \"\$(echo {} | sed \"s|^~|$HOME|\")\""
+        dir_preview="ls -la --color=always \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
     else
-        dir_preview="ls -laG \"\$(echo {} | sed \"s|^~|$HOME|\")\""
+        dir_preview="ls -laG \"\$(echo {} | sed \"s|^~|$home_escaped|\")\""
     fi
 
-    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+    local become_files="$BECOME_FILES"
 
     # Load shared visual options
     local -a base_opts
@@ -893,7 +902,7 @@ run_git_mode() {
     # fzf reload string — single quotes around $git_awk protect awk's $0 from sh
     local git_status_cmd="git status --porcelain 2>/dev/null | awk '${git_awk}'"
 
-    local become_files="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+    local become_files="$BECOME_FILES"
 
     # Load shared visual options
     local -a base_opts
@@ -940,7 +949,7 @@ handle_git_result() {
         ctrl-o)
             if [[ -n "$PANE_ID" ]]; then
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $(printf '%q' "$file")" Enter
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $(printf '%q' "$file")" Enter
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -950,6 +959,10 @@ handle_git_result() {
             ;;
     esac
 }
+
+# ─── Shared become string (used by grep, sessions, dirs, git) ────────────────
+
+BECOME_FILES="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
 
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 

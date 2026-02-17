@@ -143,11 +143,6 @@ detect_pane_editor() {
 
 # ─── File history ──────────────────────────────────────────────────────────
 
-# Portable reverse-file (tac on Linux, tail -r on macOS)
-_dispatch_tac() {
-    if command -v tac &>/dev/null; then tac "$@"; else tail -r "$@"; fi
-}
-
 # Returns history file path, creates dir if needed
 _dispatch_history_file() {
     local dir="${XDG_DATA_HOME:-$HOME/.local/share}/tmux-dispatch"
@@ -203,7 +198,7 @@ recent_files_for_pwd() {
     ' "$history_file" | sort -rn | while read -r _score file; do
         [[ -f "$pwd_dir/$file" ]] || continue
         printf '%s\n' "$file"
-        ((count++))
+        count=$((count + 1))
         [[ "$count" -ge "$max" ]] && break
     done
     return 0

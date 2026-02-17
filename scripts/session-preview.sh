@@ -41,7 +41,7 @@ win_count=0
 attached=$(tmux list-sessions -F '#{session_name}|#{session_attached}' 2>/dev/null |
   awk -F'|' -v s="$session" '$1==s{print $2}')
 att_str=""
-[ "${attached:-0}" -gt 0 ] && att_str=" · attached"
+[[ "${attached:-0}" -gt 0 ]] && att_str=" · attached"
 
 # --- Header ---
 
@@ -51,19 +51,19 @@ printf "\033[1;36m ── %s ──\033[0m \033[38;5;244m%d windows%s\033[0m\n" 
 # --- Grid layout ---
 
 grid_cols=2
-[ "$win_count" -le 1 ] && grid_cols=1
-[ "$cols" -lt 50 ] && grid_cols=1
+[[ "$win_count" -le 1 ]] && grid_cols=1
+[[ "$cols" -lt 50 ]] && grid_cols=1
 grid_rows=$(( (win_count + grid_cols - 1) / grid_cols ))
 gap=2
 
 box_width=$(( (cols - gap * (grid_cols - 1)) / grid_cols ))
 inner_w=$((box_width - 2))  # minus │ left + │ right
-[ "$inner_w" -lt 10 ] && inner_w=10
+[[ "$inner_w" -lt 10 ]] && inner_w=10
 
 avail_h=$((lines - 1))  # minus header
 box_height=$((avail_h / grid_rows))
 inner_h=$((box_height - 2))  # minus top/bottom borders
-[ "$inner_h" -lt 1 ] && inner_h=1
+[[ "$inner_h" -lt 1 ]] && inner_h=1
 
 # --- Capture all windows ---
 
@@ -76,8 +76,8 @@ i=0
 while IFS='|' read -r idx name active pane_count; do
   # Build label
   lbl="${idx}: ${name}"
-  [ "$active" = "1" ] && lbl="${lbl} *"
-  [ "$pane_count" -gt 1 ] 2>/dev/null && lbl="${lbl} (${pane_count}p)"
+  [[ "$active" == "1" ]] && lbl="${lbl} *"
+  [[ "$pane_count" -gt 1 ]] 2>/dev/null && lbl="${lbl} (${pane_count}p)"
   win_label[i]="$lbl"
   win_is_active[i]="$active"
   win_index[i]="$idx"
@@ -87,7 +87,7 @@ while IFS='|' read -r idx name active pane_count; do
 
   # Capture with ANSI colors, strip trailing blanks, take bottom lines,
   # and format to exact width (ANSI-aware) — all in one perl call
-  if [ -n "$pid" ]; then
+  if [[ -n "$pid" ]]; then
     win_lines[i]=$(tmux capture-pane -e -J -t "$pid" -p 2>/dev/null | \
       perl -CSD -e '
         use strict; use warnings;
@@ -188,22 +188,22 @@ for ((row = 0; row < grid_rows; row++)); do
   # ┌─ label ──────┐  ┌─ label ──────┐
   for ((col = 0; col < grid_cols; col++)); do
     wi=$((start + col))
-    [ "$wi" -ge "$win_count" ] && break
-    [ "$col" -gt 0 ] && printf '%*s' "$gap" ""
+    [[ "$wi" -ge "$win_count" ]] && break
+    [[ "$col" -gt 0 ]] && printf '%*s' "$gap" ""
 
     lbl=" ${win_label[wi]} "
     lbl_len=${#lbl}
-    if [ "$lbl_len" -gt "$((inner_w - 1))" ]; then
+    if [[ "$lbl_len" -gt "$((inner_w - 1))" ]]; then
       lbl="${lbl:0:$((inner_w - 3))}.."
       lbl_len=${#lbl}
     fi
     fill_len=$((inner_w - lbl_len - 1))
-    [ "$fill_len" -lt 0 ] && fill_len=0
+    [[ "$fill_len" -lt 0 ]] && fill_len=0
     fill=$(rep '─' "$fill_len")
 
     if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
       printf '\033[1;36m┌─%s%s┐\033[0m' "$lbl" "$fill"
-    elif [ "${win_is_active[wi]}" = "1" ]; then
+    elif [[ "${win_is_active[wi]}" == "1" ]]; then
       printf '\033[1;37m┌─%s%s┐\033[0m' "$lbl" "$fill"
     else
       printf '\033[38;5;244m┌─%s%s┐\033[0m' "$lbl" "$fill"
@@ -215,15 +215,15 @@ for ((row = 0; row < grid_rows; row++)); do
   for ((li = 0; li < inner_h; li++)); do
     for ((col = 0; col < grid_cols; col++)); do
       wi=$((start + col))
-      [ "$wi" -ge "$win_count" ] && break
-      [ "$col" -gt 0 ] && printf '%*s' "$gap" ""
+      [[ "$wi" -ge "$win_count" ]] && break
+      [[ "$col" -gt 0 ]] && printf '%*s' "$gap" ""
 
       # Get pre-formatted line from flat array (already exact width + reset)
       content="${_line[wi * inner_h + li]}"
 
       if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
         printf '\033[1;36m│\033[0m%s\033[1;36m│\033[0m' "$content"
-      elif [ "${win_is_active[wi]}" = "1" ]; then
+      elif [[ "${win_is_active[wi]}" == "1" ]]; then
         printf '\033[1;37m│\033[0m%s\033[1;37m│\033[0m' "$content"
       else
         printf '\033[38;5;238m│\033[0m%s\033[38;5;238m│\033[0m' "$content"
@@ -235,13 +235,13 @@ for ((row = 0; row < grid_rows; row++)); do
   # └──────────────┘  └──────────────┘
   for ((col = 0; col < grid_cols; col++)); do
     wi=$((start + col))
-    [ "$wi" -ge "$win_count" ] && break
-    [ "$col" -gt 0 ] && printf '%*s' "$gap" ""
+    [[ "$wi" -ge "$win_count" ]] && break
+    [[ "$col" -gt 0 ]] && printf '%*s' "$gap" ""
 
     fill=$(rep '─' "$inner_w")
     if [[ -n "$highlight_idx" && "${win_index[wi]}" == "$highlight_idx" ]]; then
       printf '\033[1;36m└%s┘\033[0m' "$fill"
-    elif [ "${win_is_active[wi]}" = "1" ]; then
+    elif [[ "${win_is_active[wi]}" == "1" ]]; then
       printf '\033[1;37m└%s┘\033[0m' "$fill"
     else
       printf '\033[38;5;244m└%s┘\033[0m' "$fill"

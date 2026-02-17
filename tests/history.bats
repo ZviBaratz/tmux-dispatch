@@ -17,17 +17,6 @@ teardown() {
     unset -f command tac tail 2>/dev/null || true
 }
 
-# ─── _dispatch_tac ─────────────────────────────────────────────────────────
-
-@test "_dispatch_tac: reverses file lines" {
-    printf 'a\nb\nc\n' > "$BATS_TEST_TMPDIR/input"
-    run _dispatch_tac "$BATS_TEST_TMPDIR/input"
-    [ "$status" -eq 0 ]
-    [ "${lines[0]}" = "c" ]
-    [ "${lines[1]}" = "b" ]
-    [ "${lines[2]}" = "a" ]
-}
-
 # ─── _dispatch_history_file ────────────────────────────────────────────────
 
 @test "_dispatch_history_file: respects XDG_DATA_HOME" {
@@ -130,6 +119,22 @@ teardown() {
 }
 
 # ─── recent_files_for_pwd ─────────────────────────────────────────────────
+
+@test "recent_files_for_pwd: succeeds on first file (count=0 regression)" {
+    # Regression: ((count++)) when count=0 returns exit code 1, which kills
+    # the pipeline under set -euo pipefail. The fix uses count=$((count + 1)).
+    local hf now
+    hf=$(_dispatch_history_file)
+    now=$(date +%s)
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/only.txt"
+    printf '%s\t%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "only.txt" "$now" >> "$hf"
+    # recent_files_for_pwd is already sourced; run it directly.
+    # The bug was ((0++)) returning exit 1 — count=$((count + 1)) fixes it.
+    run recent_files_for_pwd "$BATS_TEST_TMPDIR/proj" 50
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "only.txt" ]
+}
 
 @test "recent_files_for_pwd: filters by PWD" {
     local hf now

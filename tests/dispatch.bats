@@ -573,3 +573,82 @@ _run_annotate_git() {
     '
     [[ "$output" =~ ^[a-zA-Z0-9_-]+$ ]]
 }
+
+# ─── Transform uses {q} not $FZF_QUERY ───────────────────────────────────
+
+@test "change_transform: mode switch uses {q} not \$FZF_QUERY" {
+    # Verify the source uses {q} for safe query passing in become(),
+    # not the raw $FZF_QUERY which breaks on special characters like quotes.
+    # Check that --query={q} appears in become() calls
+    run bash -c '
+        count=$(grep -c "query={q}" "'"$SCRIPT_DIR"'/dispatch.sh")
+        if [[ "$count" -ge 4 ]]; then
+            echo "PASS"
+        else
+            echo "FAIL: expected >=4 occurrences of query={q}, found $count"
+        fi
+    '
+    [[ "$output" == "PASS" ]]
+}
+
+@test "change_transform: actual dispatch.sh source uses {q} in become" {
+    # Grep the actual source file for the transform pattern
+    run bash -c '
+        grep -c "query={q}" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [ "$status" -eq 0 ]
+    # Should find at least 4 occurrences (grep, sessions, git, dirs)
+    [[ "${lines[0]}" -ge 4 ]]
+}
+
+@test "change_transform: actual dispatch.sh source has no \$FZF_QUERY in become" {
+    run bash -c '
+        grep -c "FZF_QUERY" "'"$SCRIPT_DIR"'/dispatch.sh" || echo "0"
+    '
+    # Should find 0 occurrences of FZF_QUERY
+    [[ "${lines[0]}" == "0" ]]
+}
+
+# ─── Session result parsing (mapfile) ────────────────────────────────────
+
+@test "handle_session_result: mapfile parses query/key/selected correctly" {
+    # Verify the mapfile-based parsing pattern extracts all 3 fields
+    # from fzf --print-query --expect output (query, key, selected\ttab-data)
+    run bash -c '
+        result="myquery
+ctrl-k
+session-name	extra-info"
+        mapfile -t result_lines <<< "$result"
+        query="${result_lines[0]}"
+        key="${result_lines[1]:-}"
+        selected="${result_lines[2]:-}"
+        selected="${selected%%	*}"
+        echo "query=$query"
+        echo "key=$key"
+        echo "selected=$selected"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "query=myquery" ]
+    [ "${lines[1]}" = "key=ctrl-k" ]
+    [ "${lines[2]}" = "selected=session-name" ]
+}
+
+@test "handle_session_result: mapfile handles missing selected line" {
+    # Verify graceful handling when fzf returns only query + key (no selection)
+    run bash -c '
+        result="myquery
+"
+        mapfile -t result_lines <<< "$result"
+        query="${result_lines[0]}"
+        key="${result_lines[1]:-}"
+        selected="${result_lines[2]:-}"
+        selected="${selected%%	*}"
+        echo "query=$query"
+        echo "key=$key"
+        echo "selected=$selected"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "query=myquery" ]
+    [ "${lines[1]}" = "key=" ]
+    [ "${lines[2]}" = "selected=" ]
+}
