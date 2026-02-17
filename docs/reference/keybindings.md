@@ -103,3 +103,19 @@ Manage tmux sessions: switch between them, create new ones, or kill inactive ses
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
+
+## Windows
+
+Browse and switch between windows in a session. Arrow keys navigate spatially within the 2-column grid preview.
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Switch to selected window (and its session) |
+| `Right` | Move right in grid (next window) |
+| `Left` | Move left in grid (previous window) |
+| `Down` | Move down in grid (same column, next row) |
+| `Up` | Move up in grid (same column, previous row) |
+| `Ctrl+N` / `Ctrl+P` | Sequential navigation (one window at a time) |
+| `Backspace` on empty | Return to sessions |
+| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
+| `Escape` | Close popup |

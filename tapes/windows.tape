@@ -23,12 +23,14 @@ Sleep 1.5s
 Ctrl+w
 Sleep 1.5s
 
-# Navigate through windows — preview updates for each
-Down
+# 2D grid navigation: Right moves within row, Down jumps to next row
+Right
 Sleep 1.5s
 Down
 Sleep 1.5s
-Down
+Left
+Sleep 1.5s
+Up
 Sleep 1.5s
 
 # Select a window

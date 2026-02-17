@@ -18,12 +18,18 @@ Window picker mode shows all windows for a specific session with pane content pr
 | Key | Action |
 |-----|--------|
 | `Enter` | Switch to selected window (and its session) |
+| `Right` | Move right in grid (next window) |
+| `Left` | Move left in grid (previous window) |
+| `Down` | Move down in grid (same column, next row) |
+| `Up` | Move up in grid (same column, previous row) |
+| `Ctrl+N` / `Ctrl+P` | Sequential navigation (one window at a time) |
 | `Backspace` on empty | Return to sessions |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `Escape` | Close popup |
 
 ## Features
 
+- **2D grid navigation** -- the preview renders a 2-column grid, and the arrow keys navigate spatially within it. Right/Left move within a row, Down/Up jump between rows in the same column. Sequential navigation (`Ctrl+N`/`Ctrl+P`) is still available for stepping through windows one at a time.
 - **Session grid preview with highlight** -- session-preview.sh renders the full session grid (same as session mode), but highlights the fzf-selected window with bright cyan borders. The tmux-active window retains its `*` marker and white borders; other windows use dim gray. See [Preview System](../features/previews) for details.
 - **Session+window switch** -- selecting a window switches both to the session and the specific window.
 
