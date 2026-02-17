@@ -393,9 +393,6 @@ run_grep_mode() {
     # Preview command: preview.sh handles bat-or-head fallback internally
     local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' '{1}' '{2}'"
 
-    # Strip leading > from prefix-based switch
-    QUERY="${QUERY#>}"
-
     # Backspace-on-empty returns to files (home)
     local become_files_empty="$BECOME_FILES"
 
@@ -519,9 +516,6 @@ handle_grep_result() {
 # ─── Mode: sessions ─────────────────────────────────────────────────────────
 
 run_session_mode() {
-    # Strip leading @ from prefix-based switch
-    QUERY="${QUERY#@}"
-
     # Build session list via shared helper (also used by reload)
     local session_list
     session_list=$("$SCRIPT_DIR/actions.sh" list-sessions)
@@ -782,9 +776,6 @@ run_rename_session_mode() {
 # ─── Mode: dirs ───────────────────────────────────────────────────────────────
 
 run_directory_mode() {
-    # Strip leading # from prefix-based switch
-    QUERY="${QUERY#\#}"
-
     local ZOXIDE_CMD
     ZOXIDE_CMD=$(detect_zoxide)
 
@@ -921,9 +912,6 @@ run_windows_mode() {
 # ─── Mode: git ────────────────────────────────────────────────────────────────
 
 run_git_mode() {
-    # Strip leading ! from prefix-based switch
-    QUERY="${QUERY#!}"
-
     if ! git rev-parse --is-inside-work-tree &>/dev/null; then
         tmux display-message "Not a git repository"
         exit 1
@@ -1011,6 +999,17 @@ handle_git_result() {
             ;;
     esac
 }
+
+# Strip mode prefix character from query (used when switching via prefix typing)
+_strip_mode_prefix() {
+    case "$MODE" in
+        grep)     QUERY="${QUERY#>}" ;;
+        sessions) QUERY="${QUERY#@}" ;;
+        dirs)     QUERY="${QUERY#\#}" ;;
+        git)      QUERY="${QUERY#!}" ;;
+    esac
+}
+_strip_mode_prefix
 
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
