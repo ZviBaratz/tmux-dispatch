@@ -1,0 +1,13 @@
+title: tmux-dispatch
+description: A unified command palette for tmux
+url: https://zvibaratz.github.io
+baseurl: /tmux-dispatch
+remote_theme: just-the-docs/just-the-docs
+color_scheme: dark
+search_enabled: true
+aux_links:
+  "GitHub":
+    - "https://github.com/ZviBaratz/tmux-dispatch"
+footer_content: "tmux-dispatch is released under the MIT License."
+exclude:
+  - plans/
