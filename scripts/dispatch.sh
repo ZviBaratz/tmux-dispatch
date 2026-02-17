@@ -98,6 +98,16 @@ FD_CMD=$(detect_fd)
 BAT_CMD=$(detect_bat)
 RG_CMD=$(detect_rg)
 
+# ─── Escape values for fzf bind strings ──────────────────────────────────────
+# fzf execute()/become() commands run via $SHELL -c. Variables embedded in
+# single-quoted arguments need ' escaped as '\'' to prevent command breakage
+# when paths contain single quotes (e.g. /home/user/it's-a-project/).
+SQ_SCRIPT_DIR=$(_sq_escape "$SCRIPT_DIR")
+SQ_PWD=$(_sq_escape "$PWD")
+SQ_POPUP_EDITOR=$(_sq_escape "$POPUP_EDITOR")
+SQ_PANE_ID=$(_sq_escape "$PANE_ID")
+SQ_HISTORY=$(_sq_escape "$HISTORY_ENABLED")
+
 # ─── Require fzf ────────────────────────────────────────────────────────────
 
 command -v fzf &>/dev/null || {
@@ -261,7 +271,9 @@ run_files_mode() {
     trap 'command rm -f "$welcome_flag"' EXIT
 
     # Smart preview: when flag exists → welcome + delete flag; otherwise → file preview
-    local smart_preview="if [ -f '$welcome_flag' ]; then command rm -f '$welcome_flag'; $welcome_preview; else $file_preview; fi"
+    local sq_welcome
+    sq_welcome=$(_sq_escape "$welcome_flag")
+    local smart_preview="if [ -f '$sq_welcome' ]; then command rm -f '$sq_welcome'; $welcome_preview; else $file_preview; fi"
 
     local initial_border_label=" dispatch "
     local initial_preview_label=" guide "
@@ -281,17 +293,17 @@ run_files_mode() {
     # stateful preview command with a static one.
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '@'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '!'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=git --pane='$PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '#'* ]]; then
-  echo \"become('$SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ -z {q} ]]; then
-  echo \"execute-silent(touch '$welcome_flag')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
+  echo \"execute-silent(touch '$sq_welcome')+refresh-preview+change-border-label( dispatch )+change-preview-label( guide )\"
 else
-  echo \"execute-silent(command rm -f '$welcome_flag')+refresh-preview+change-border-label( files )+change-preview-label( preview )\"
+  echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-border-label( files )+change-preview-label( preview )\"
 fi"
 
     # Load shared visual options
@@ -302,12 +314,16 @@ fi"
     # Used by fzf reload bindings (ctrl-x, ctrl-b).
     # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
     # inner '...' passed to bash -c protects awk's $0 and function calls from sh.
-    local annotate_cmd="awk -v bfile='$bf' -v pwd='$PWD' -v do_git=$do_git -v prefix='$git_prefix' '${annotate_awk}'"
+    local sq_bf
+    sq_bf=$(_sq_escape "$bf")
+    local sq_git_prefix
+    sq_git_prefix=$(_sq_escape "$git_prefix")
+    local annotate_cmd="awk -v bfile='$sq_bf' -v pwd='$SQ_PWD' -v do_git=$do_git -v prefix='$sq_git_prefix' '${annotate_awk}'"
     local file_list_cmd
     if [[ "$HISTORY_ENABLED" == "on" ]]; then
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; recent_files_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; recent_files_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     else
-        file_list_cmd="bash -c 'source \"$SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
+        file_list_cmd="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; { bookmarks_for_pwd \"$SQ_PWD\"; $file_cmd; } | dedup_lines' $ext_filter_str | $annotate_cmd"
     fi
 
     local result
@@ -331,10 +347,10 @@ fi"
         --bind "start:unbind(focus)" \
         --bind "down:rebind(focus)+down" \
         --bind "up:rebind(focus)+up" \
-        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file=$fzf_file)" \
-        --bind "ctrl-x:execute('$SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
-        --bind "ctrl-b:execute-silent('$SCRIPT_DIR/actions.sh' bookmark-toggle '$PWD' $fzf_file)+reload:$file_list_cmd" \
-        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' $fzf_files)" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_file)" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
+        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' $fzf_file)+reload:$file_list_cmd" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_files)" \
     ) || exit 0
 
     # Strip indicator prefix from fzf output (indicator\tfile → file).
@@ -355,7 +371,7 @@ run_grep_mode() {
     fi
 
     # Preview command: preview.sh handles bat-or-head fallback internally
-    local preview_cmd="'$SCRIPT_DIR/preview.sh' {1} {2}"
+    local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' {1} {2}"
 
     # Strip leading > from prefix-based switch
     QUERY="${QUERY#>}"
@@ -397,9 +413,9 @@ run_grep_mode() {
         --preview-window 'right:60%:border-left:+{2}/2' \
         --border-label ' enter open · ^o pane · ^y copy · ^r rename · ⌫ files ' \
         --border-label-pos 'center:bottom' \
-        --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$PANE_ID' --file={1})" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
-        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-grep '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {1} {2})" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {1} {2})" \
     ) || exit 0
 
     handle_grep_result "$result"
@@ -489,14 +505,14 @@ run_session_mode() {
     [ -z "$session_list" ] && { echo "No sessions found."; exit 0; }
 
     local become_files="$BECOME_FILES"
-    local become_new="become('$SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$PANE_ID')"
+    local become_new="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$SQ_PANE_ID')"
 
     # Load shared visual options
     local -a base_opts
     mapfile -t base_opts < <(build_fzf_base_opts)
 
     # Session list reload command (also used by ctrl-k kill binding)
-    local session_list_cmd="'$SCRIPT_DIR/actions.sh' list-sessions"
+    local session_list_cmd="'$SQ_SCRIPT_DIR/actions.sh' list-sessions"
 
     local result
     result=$(
@@ -513,12 +529,12 @@ run_session_mode() {
             --no-sort \
             --border-label ' enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SCRIPT_DIR/session-preview.sh' {1}" \
-            --bind "ctrl-r:become('$SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$PANE_ID' --session={1})" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' {1}" \
+            --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
-            --bind "ctrl-w:become('$SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$PANE_ID' --session={1})" \
-            --bind "ctrl-k:execute('$SCRIPT_DIR/actions.sh' kill-session {1})+reload:$session_list_cmd" \
+            --bind "ctrl-w:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$SQ_PANE_ID' --session={1})" \
+            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-session {1})+reload:$session_list_cmd" \
     ) || exit 0
 
     handle_session_result "$result"
@@ -648,7 +664,7 @@ run_rename_mode() {
             --print-query \
             --query "$FILE" \
             --prompt 'rename → ' \
-            --preview "'$SCRIPT_DIR/actions.sh' rename-preview $(printf '%q' "$FILE") {q}" \
+            --preview "'$SQ_SCRIPT_DIR/actions.sh' rename-preview $(printf '%q' "$FILE") {q}" \
             --border-label ' enter confirm · esc cancel ' \
             --border-label-pos 'center:bottom' \
     ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
@@ -705,7 +721,7 @@ run_rename_session_mode() {
             --print-query \
             --query "$SESSION" \
             --prompt 'rename-session → ' \
-            --preview "'$SCRIPT_DIR/actions.sh' rename-session-preview '$SESSION' {q}" \
+            --preview "'$SQ_SCRIPT_DIR/actions.sh' rename-session-preview '$(_sq_escape "$SESSION")' {q}" \
             --border-label ' enter confirm · esc cancel ' \
             --border-label-pos 'center:bottom' \
     ) || exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
@@ -832,7 +848,7 @@ run_windows_mode() {
 
     [[ -z "$win_list" ]] && { echo "No windows found."; exit 0; }
 
-    local become_sessions="become('$SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$PANE_ID')"
+    local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
 
     # Load shared visual options
     local -a base_opts
@@ -847,7 +863,7 @@ run_windows_mode() {
             --prompt "$SESSION windows  " \
             --border-label ' enter switch · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
             --bind "left:up" \
             --bind "down:down+down" \
@@ -913,12 +929,12 @@ run_git_mode() {
         --delimiter=$'\t' \
         --nth=2.. \
         --tabstop=3 \
-        --preview "'$SCRIPT_DIR/git-preview.sh' {2..} {1}" \
+        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' {2..} {1}" \
         --preview-window 'right:60%:border-left' \
         --border-label ' tab stage/unstage · enter open · ^o pane · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
-        --bind "tab:execute-silent('$SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
-        --bind "enter:execute('$SCRIPT_DIR/actions.sh' edit-file '$POPUP_EDITOR' '$PWD' '$HISTORY_ENABLED' {2..})" \
+        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle {2..})+reload:$git_status_cmd" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {2..})" \
         --bind "backward-eof:$become_files" \
     ) || exit 0
 
@@ -958,7 +974,7 @@ handle_git_result() {
 
 # ─── Shared become string (used by grep, sessions, dirs, git) ────────────────
 
-BECOME_FILES="become('$SCRIPT_DIR/dispatch.sh' --mode=files --pane='$PANE_ID')"
+BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')"
 
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 

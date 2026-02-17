@@ -233,6 +233,11 @@ toggle_bookmark() {
 # Deduplicate stdin preserving order (safe to call inside bash -c strings)
 dedup_lines() { awk '!seen[$0]++'; }
 
+# Escape a value for safe embedding in single-quoted shell strings.
+# Replaces each ' with '\'' (end-quote, backslash-quote, start-quote).
+# Used to safely embed paths in fzf bind strings: execute('cmd' '$escaped_path')
+_sq_escape() { printf '%s' "${1//\'/\'\\\'\'}"; }
+
 bookmarks_for_pwd() {
     local pwd_dir="$1"
     local bf

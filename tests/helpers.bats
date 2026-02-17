@@ -322,3 +322,39 @@ teardown() {
     run detect_zoxide
     [[ -z "$output" ]]
 }
+
+# ─── _sq_escape ───────────────────────────────────────────────────────────────
+
+@test "_sq_escape: no-op for simple string" {
+    run _sq_escape "/home/user/projects"
+    [ "$output" = "/home/user/projects" ]
+}
+
+@test "_sq_escape: escapes single quote" {
+    run _sq_escape "it's"
+    [ "$output" = "it'\\''s" ]
+}
+
+@test "_sq_escape: escapes multiple single quotes" {
+    run _sq_escape "it's a 'test'"
+    [ "$output" = "it'\\''s a '\\''test'\\''" ]
+}
+
+@test "_sq_escape: preserves empty string" {
+    run _sq_escape ""
+    [ "$output" = "" ]
+}
+
+@test "_sq_escape: preserves double quotes and special chars" {
+    run _sq_escape '/path/to/"file" $var `cmd`'
+    [ "$output" = '/path/to/"file" $var `cmd`' ]
+}
+
+@test "_sq_escape: roundtrip through sh -c produces original value" {
+    local original="/home/user/it's here/project"
+    local escaped
+    escaped=$(_sq_escape "$original")
+    local result
+    result=$(sh -c "printf '%s' '$escaped'")
+    [ "$result" = "$original" ]
+}
