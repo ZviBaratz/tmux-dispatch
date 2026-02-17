@@ -173,8 +173,10 @@ run_files_mode() {
     local ext_filter_str=""
     _ext_filter() { cat; }  # no-op default
     if [[ -n "$FILE_TYPES" ]]; then
+        # Escape ERE metacharacters in extensions (e.g., c++ → c\+\+)
         local ext_re
-        ext_re=$(IFS='|'; exts_arr=(); for e in "${exts[@]}"; do e="${e## }"; e="${e%% }"; [[ -n "$e" ]] && exts_arr+=("$e"); done; echo "${exts_arr[*]}")
+        # shellcheck disable=SC2001  # ERE char class needs sed, not ${//}
+        ext_re=$(IFS='|'; exts_arr=(); for e in "${exts[@]}"; do e="${e## }"; e="${e%% }"; [[ -n "$e" ]] && exts_arr+=("$(sed 's/[][\\.^$*+?{}()|]/\\&/g' <<< "$e")"); done; echo "${exts_arr[*]}")
         ext_filter_str="| grep -E '\\.($ext_re)$'"
         _ext_filter() { grep -E "\\.(${ext_re})$" || true; }
     fi
