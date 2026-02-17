@@ -132,6 +132,10 @@ if [[ -n "$fzf_version" ]]; then
     unset -f _fzf_below
 fi
 
+# ─── Pre-compute shared fzf options ───────────────────────────────────────────
+declare -a BASE_FZF_OPTS
+mapfile -t BASE_FZF_OPTS < <(build_fzf_base_opts "$DISPATCH_THEME")
+
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
 run_files_mode() {
@@ -318,10 +322,6 @@ else
   echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-preview-label( preview )\"
 fi"
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     # Reloadable file list command (bookmarks + frecency + files, deduped).
     # Used by fzf reload bindings (ctrl-x, ctrl-b).
     # Quoting: outer "..." expands $SCRIPT_DIR/$PWD/$file_cmd at definition time;
@@ -351,7 +351,7 @@ fi"
         else
             { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++' | _ext_filter
         fi | _annotate_files | fzf \
-        "${base_opts[@]}" \
+        "${BASE_FZF_OPTS[@]}" \
         --ansi --delimiter=$'\t' --nth=2.. --tabstop=3 \
         --expect=ctrl-o,ctrl-y \
         --multi \
@@ -412,16 +412,12 @@ run_grep_mode() {
         fi
     }
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     # Ctrl+F toggle: switch between live rg search (--disabled) and fuzzy filter on results
     local grep_toggle="if [[ \$FZF_PROMPT == 'grep > ' ]]; then echo 'unbind(change)+enable-search+change-prompt(filter > )'; else echo 'change-prompt(grep > )+disable-search+rebind(change)+reload:$rg_reload'; fi"
 
     local result
     result=$(_run_initial_rg | fzf \
-        "${base_opts[@]}" \
+        "${BASE_FZF_OPTS[@]}" \
         --expect=ctrl-o,ctrl-y \
         --disabled \
         --query "$QUERY" \
@@ -525,10 +521,6 @@ run_session_mode() {
     local become_files="$BECOME_FILES"
     local become_new="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=session-new --pane='$SQ_PANE_ID')"
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     # Session list reload command (also used by ctrl-k kill binding)
     local session_list_cmd="'$SQ_SCRIPT_DIR/actions.sh' list-sessions"
 
@@ -536,7 +528,7 @@ run_session_mode() {
     result=$(
         echo "$session_list" |
         fzf --print-query \
-            "${base_opts[@]}" \
+            "${BASE_FZF_OPTS[@]}" \
             --expect=ctrl-y \
             --query "$QUERY" \
             --prompt 'sessions @ ' \
@@ -638,13 +630,9 @@ run_session_new_mode() {
         preview_cmd="ls -laG {}"
     fi
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local selected
     selected=$(_run_dir_cmd | sort | fzf \
-        "${base_opts[@]}" \
+        "${BASE_FZF_OPTS[@]}" \
         --border-label=' new session ' \
         --preview "$preview_cmd" \
     ) || exit 0
@@ -677,14 +665,10 @@ run_rename_mode() {
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local result
     result=$(
         echo "$FILE" | fzf \
-            "${base_opts[@]}" \
+            "${BASE_FZF_OPTS[@]}" \
             --disabled \
             --print-query \
             --query "$FILE" \
@@ -737,14 +721,10 @@ run_rename_session_mode() {
         exec "$SCRIPT_DIR/dispatch.sh" --mode=sessions --pane="$PANE_ID"
     fi
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local result
     result=$(
         echo "$SESSION" | fzf \
-            "${base_opts[@]}" \
+            "${BASE_FZF_OPTS[@]}" \
             --disabled \
             --print-query \
             --query "$SESSION" \
@@ -809,13 +789,9 @@ run_directory_mode() {
 
     local become_files="$BECOME_FILES"
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local result
     result=$(_run_dir_cmd | fzf \
-        "${base_opts[@]}" \
+        "${BASE_FZF_OPTS[@]}" \
         --expect=ctrl-y \
         --query "$QUERY" \
         --prompt 'dirs # ' \
@@ -877,15 +853,11 @@ run_windows_mode() {
 
     local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local result
     result=$(
         echo "$win_list" |
         fzf \
-            "${base_opts[@]}" \
+            "${BASE_FZF_OPTS[@]}" \
             --no-cycle \
             --prompt "$SESSION windows  " \
             --border-label ' ←→ move · ↑↓ skip · enter switch · ⌫ sessions ' \
@@ -939,13 +911,9 @@ run_git_mode() {
 
     local become_files="$BECOME_FILES"
 
-    # Load shared visual options
-    local -a base_opts
-    mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
-
     local result
     result=$(_run_git_status | fzf \
-        "${base_opts[@]}" \
+        "${BASE_FZF_OPTS[@]}" \
         --multi \
         --expect=ctrl-o,ctrl-y \
         --query "$QUERY" \
