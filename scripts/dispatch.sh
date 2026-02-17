@@ -419,6 +419,9 @@ run_grep_mode() {
     local -a base_opts
     mapfile -t base_opts < <(build_fzf_base_opts "$DISPATCH_THEME")
 
+    # Ctrl+F toggle: switch between live rg search (--disabled) and fuzzy filter on results
+    local grep_toggle="if [[ \$FZF_PROMPT == 'grep > ' ]]; then echo 'unbind(change)+enable-search+change-prompt(filter > )'; else echo 'change-prompt(grep > )+disable-search+rebind(change)+reload:$rg_reload'; fi"
+
     local result
     result=$(_run_initial_rg | fzf \
         "${base_opts[@]}" \
@@ -431,8 +434,9 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label ' enter open · ^o pane · ^y copy · ^r rename · ⌫ files ' \
+        --border-label ' enter open · ^o pane · ^y copy · ^f filter · ^r rename · ⌫ files ' \
         --border-label-pos 'center:bottom' \
+        --bind "ctrl-f:transform:$grep_toggle" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file={1})" \
         --bind "backward-eof:$become_files_empty" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {1} {2})" \
