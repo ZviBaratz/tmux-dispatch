@@ -111,7 +111,7 @@ build_fzf_base_opts() {
         --pointer='▏'
         --border=rounded
         --preview-window='right:60%:border-line'
-        --info=hidden
+        --info=inline-right
         --no-separator
         --no-scrollbar
         --color='bg+:#1e2030,fg+:#c8d3f5:bold,hl:#82aaff,hl+:#82aaff:bold'
