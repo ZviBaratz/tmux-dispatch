@@ -710,7 +710,10 @@ run_rename_mode() {
 
     # Path traversal guard — reject targets outside working directory
     local resolved
-    resolved=$(realpath -m "$new_name" 2>/dev/null) || resolved="$new_name"
+    resolved=$(realpath -m "$new_name" 2>/dev/null) || {
+        tmux display-message "dispatch: invalid path: $new_name"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    }
     if [[ "$resolved" != "$PWD"/* ]]; then
         tmux display-message "Cannot rename outside working directory"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"

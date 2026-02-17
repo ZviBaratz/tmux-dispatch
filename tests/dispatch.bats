@@ -521,6 +521,13 @@ _run_annotate_git() {
     [[ "$output" == "ALLOWED" ]]
 }
 
+@test "rename: realpath failure does not fall back to raw path" {
+    # If realpath fails, dispatch should error, not use raw (potentially dangerous) path
+    local fallback
+    fallback=$(grep -n 'resolved="\$new_name"' "$SCRIPT_DIR/dispatch.sh" || true)
+    [ -z "$fallback" ]
+}
+
 @test "rename: rejects absolute path outside working directory" {
     local workdir="$BATS_TEST_TMPDIR/project"
     mkdir -p "$workdir"
