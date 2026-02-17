@@ -167,6 +167,7 @@ HELP_GREP="$(printf '%b' '
   ^Y        copy file:line
   ^F        toggle filter / search
   ^R        rename file
+  ^X        delete file
   ⌫ empty   back to files
 
   ^D/^U     scroll preview
@@ -535,10 +536,11 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label ' grep · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ⌫ files ' \
+        --border-label ' grep · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-f:transform:$grep_toggle" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{1}')" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '{1}')+reload:$rg_reload" \
         --bind "backward-eof:$become_files_empty" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{1}' '{2}')" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GREP'" \
