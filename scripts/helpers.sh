@@ -294,3 +294,20 @@ bookmarks_for_pwd() {
         printf '%s\n' "$file"
     done < "$bf"
 }
+
+# Return all bookmarks as tilde-collapsed absolute paths, deduped, existence-checked.
+all_bookmarks() {
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    [[ -f "$bf" ]] || return 0
+    local -A seen=()
+    while IFS=$'\t' read -r dir file; do
+        local abs="$dir/$file"
+        [[ -f "$abs" ]] || continue
+        [[ -v "seen[$abs]" ]] && continue
+        seen[$abs]=1
+        # Tilde-collapse: replace $HOME prefix with ~
+        # Note: ~ must be quoted to prevent tilde expansion in replacement
+        printf '%s\n' "${abs/#$HOME/"~"}"
+    done < "$bf"
+}

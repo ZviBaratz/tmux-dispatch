@@ -345,6 +345,69 @@ teardown() {
     [[ "$status" -eq 0 ]]
 }
 
+# ─── all_bookmarks ───────────────────────────────────────────────────────
+
+@test "all_bookmarks: returns absolute paths from multiple directories" {
+    mkdir -p "$BATS_TEST_TMPDIR/projA" "$BATS_TEST_TMPDIR/projB"
+    touch "$BATS_TEST_TMPDIR/projA/a.txt" "$BATS_TEST_TMPDIR/projB/b.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/projA" "a.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/projB" "b.txt"
+    run all_bookmarks
+    [ "$status" -eq 0 ]
+    [ "${#lines[@]}" -eq 2 ]
+    # Paths should be absolute (start with /)
+    [[ "${lines[0]}" == /* || "${lines[0]}" == ~* ]]
+    [[ "${lines[1]}" == /* || "${lines[1]}" == ~* ]]
+}
+
+@test "all_bookmarks: skips deleted files" {
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/exists.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/proj" "exists.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/proj" "gone.txt"
+    run all_bookmarks
+    [ "${#lines[@]}" -eq 1 ]
+    [[ "${lines[0]}" == *"exists.txt" ]]
+}
+
+@test "all_bookmarks: empty when no bookmarks file" {
+    run all_bookmarks
+    [ "$status" -eq 0 ]
+    [ "$output" = "" ]
+}
+
+@test "all_bookmarks: deduplicates same absolute path" {
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/f.txt"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    # Two entries pointing to the same absolute file
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "f.txt" >> "$bf"
+    printf '%s\t%s\n' "$BATS_TEST_TMPDIR/proj" "f.txt" >> "$bf"
+    run all_bookmarks
+    [ "${#lines[@]}" -eq 1 ]
+}
+
+@test "all_bookmarks: tilde-collapses HOME paths" {
+    # Create a file under actual HOME
+    local testdir="$HOME/.dispatch-test-$$"
+    mkdir -p "$testdir"
+    touch "$testdir/test-file.txt"
+    toggle_bookmark "$testdir" "test-file.txt" >/dev/null
+    run all_bookmarks
+    # Should start with ~ not full HOME path
+    [[ "${lines[0]}" == "~/"* ]]
+    # Cleanup
+    \rm -rf "$testdir"
+    # Remove the bookmark entry
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    local tmp
+    tmp=$(mktemp "${bf}.XXXXXX")
+    grep -v "$testdir" "$bf" > "$tmp" || true
+    \mv "$tmp" "$bf"
+}
+
 @test "frecency: old format lines (no timestamp) get low score" {
     local hf now
     hf=$(_dispatch_history_file)
