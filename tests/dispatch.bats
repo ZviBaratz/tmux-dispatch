@@ -1068,3 +1068,29 @@ line3"
     '
     [ "$output" = "shell-cmd:ssh deploy.sh" ]
 }
+
+# ─── Scrollback/Commands prefix triggers ─────────────────────────────────
+
+@test "scrollback: \$ prefix triggers mode switch in transform pattern" {
+    run bash -c '
+        query="\$search term"
+        if [[ "$query" == "\$"* ]]; then
+            echo "scrollback"
+        else
+            echo "other"
+        fi
+    '
+    [ "$output" = "scrollback" ]
+}
+
+@test "commands: : prefix triggers mode switch in transform pattern" {
+    run bash -c '
+        query=":deploy"
+        if [[ "$query" == ":"* ]]; then
+            echo "commands"
+        else
+            echo "other"
+        fi
+    '
+    [ "$output" = "commands" ]
+}
