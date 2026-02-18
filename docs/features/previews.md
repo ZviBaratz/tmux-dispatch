@@ -6,9 +6,22 @@ nav_order: 3
 
 # Preview System
 
-Every mode in tmux-dispatch includes a context-appropriate preview in the right panel. Previews are powered by four specialized scripts, with graceful fallbacks when optional tools are missing. The preview panel occupies 60% of the popup width by default.
+Every mode shows a live preview so you can see file content, diffs, or session layouts without opening anything. The preview updates as you navigate the list — what you see is what you'll get.
+
+## What Each Mode Shows
+
+| Mode | Preview content |
+|------|----------------|
+| **Files** | Syntax-highlighted file content (via `bat`) or first 500 lines (via `head`) |
+| **Grep** | File content with the matching line highlighted and context around it |
+| **Git** | The appropriate diff for each file's status (staged, unstaged, or combined) |
+| **Directories** | Directory listing as a colorized tree (via `tree`) or `ls -la` |
+| **Sessions** | 2-column grid of bordered window boxes showing live pane content |
+| **Windows** | Same grid as sessions, with the selected window highlighted in cyan |
 
 ## Preview Scripts
+
+Under the hood, previews are powered by four specialized scripts with graceful fallbacks when optional tools are missing. The preview panel occupies 60% of the popup width by default.
 
 | Script | Mode(s) | What it shows |
 |--------|---------|---------------|

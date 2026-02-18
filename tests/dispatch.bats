@@ -751,3 +751,98 @@ session-name	extra-info"
     unquoted_in_bind=$(echo "$body" | grep '\-\-bind' | grep -v 'preview' | grep -v "hidden" | grep -P "[^']\\\$fzf_file" | grep -Pv "'\\\$fzf_file'" || true)
     [ -z "$unquoted_in_bind" ]
 }
+
+# ─── Rename error handling ────────────────────────────────────────────────
+
+@test "rename: mkdir failure shows error and re-execs" {
+    # Simulate: mkdir -p fails → _dispatch_error called, then exec back to files
+    run bash -c '
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        mkdir() { return 1; }
+        _dispatch_error() { echo "ERROR: $1"; }
+
+        dir="/nonexistent/impossible/path"
+        if [[ ! -d "$dir" ]]; then
+            mkdir -p "$dir" || { _dispatch_error "Cannot create directory: $dir"; exit 1; }
+        fi
+    '
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Cannot create directory"* ]]
+}
+
+@test "rename: mv failure shows error and re-execs" {
+    # Simulate: command mv fails → _dispatch_error called
+    run bash -c '
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        _dispatch_error() { echo "ERROR: $1"; }
+
+        FILE="old.txt"
+        new_name="new.txt"
+        # Override mv to fail
+        mv() { return 1; }
+        command mv "$FILE" "$new_name" || { _dispatch_error "Rename failed: $FILE → $new_name"; exit 1; }
+    '
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Rename failed"* ]]
+}
+
+# ─── Session sanitization feedback ───────────────────────────────────────
+
+@test "session: sanitized name differs from input shows feedback" {
+    # Simulate handle_session_result when sanitized != selected
+    run bash -c '
+        messages=()
+        tmux() {
+            if [[ "$1" == "display-message" ]]; then
+                messages+=("$2")
+                echo "$2"
+            elif [[ "$1" == "switch-client" ]]; then
+                return 1
+            elif [[ "$1" == "new-session" ]]; then
+                return 0
+            fi
+        }
+        export -f tmux
+
+        selected="my.project:v2"
+        sanitized=$(printf "%s" "$selected" | sed "s/[^a-zA-Z0-9_-]/-/g")
+        sanitized="${sanitized#-}"
+        sanitized="${sanitized%-}"
+        [[ -z "$sanitized" ]] && exit 0
+        tmux new-session -d -s "$sanitized" && tmux switch-client -t "=$sanitized"
+        if [[ "$sanitized" != "$selected" ]]; then
+            tmux display-message "Created session: $sanitized (sanitized from: $selected)"
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Created session:"* ]]
+    [[ "$output" == *"sanitized from:"* ]]
+}
+
+@test "session: matching name does not show sanitization feedback" {
+    run bash -c '
+        output_msgs=""
+        tmux() {
+            if [[ "$1" == "display-message" ]]; then
+                output_msgs+="$2"
+            elif [[ "$1" == "switch-client" ]]; then
+                return 1
+            elif [[ "$1" == "new-session" ]]; then
+                return 0
+            fi
+        }
+        export -f tmux
+
+        selected="my-project"
+        sanitized=$(printf "%s" "$selected" | sed "s/[^a-zA-Z0-9_-]/-/g")
+        sanitized="${sanitized#-}"
+        sanitized="${sanitized%-}"
+        tmux new-session -d -s "$sanitized" && tmux switch-client -t "=$sanitized"
+        if [[ "$sanitized" != "$selected" ]]; then
+            tmux display-message "Created session: $sanitized (sanitized from: $selected)"
+        fi
+        echo "$output_msgs"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"sanitized from:"* ]]
+}

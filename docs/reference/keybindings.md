@@ -8,11 +8,16 @@ nav_order: 1
 
 tmux-dispatch provides keybindings at two levels: global tmux keybindings that open the popup, and mode-specific keybindings that work inside the popup.
 
-Some keybindings are universal across all modes:
+## Universal keys (all modes)
 
-- **?** shows a context-sensitive help cheat sheet in the preview pane
-- **Ctrl+D / Ctrl+U** scrolls the preview pane down and up
-- **Escape** closes the popup
+These keybindings work in every mode:
+
+| Key | Action |
+|-----|--------|
+| `?` | Show context-sensitive help in preview pane |
+| `Escape` | Close popup |
+| `Ctrl+D` | Scroll preview half-page down |
+| `Ctrl+U` | Scroll preview half-page up |
 
 ## Global tmux keybindings
 
@@ -45,8 +50,6 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `@` prefix | Switch to sessions (remainder becomes query) |
 | `!` prefix | Switch to git status (remainder becomes query) |
 | `#` prefix | Switch to directories (remainder becomes query) |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
 
 Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode.
 
@@ -63,8 +66,6 @@ Live search mode powered by ripgrep. The query reloads search results on every k
 | `Ctrl+R` | Rename file |
 | `Ctrl+X` | Delete file |
 | `Backspace` on empty | Return to files (home) |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
 
 ## Git status
 
@@ -80,8 +81,6 @@ Shows files with uncommitted changes. Status icons are colored by change type.
 | `Ctrl+R` | Rename file |
 | `Ctrl+X` | Delete file(s) (multi-select supported) |
 | `Backspace` on empty | Return to files (home) |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
 
 ## Directories
 
@@ -92,8 +91,6 @@ Browse directories from zoxide history or filesystem. Selecting a directory send
 | `Enter` | Send `cd` command to originating pane |
 | `Ctrl+Y` | Copy directory path to clipboard |
 | `Backspace` on empty | Return to files (home) |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
 
 ## Sessions
 
@@ -108,8 +105,6 @@ Manage tmux sessions: switch between them, create new ones, or kill inactive ses
 | `Ctrl+Y` | Copy session name to clipboard |
 | `Ctrl+R` | Rename session |
 | `Backspace` on empty | Return to files (home) |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
 
 ## Windows
 
@@ -124,5 +119,15 @@ Browse and switch between windows in a session. Arrow keys navigate spatially wi
 | `Up` | Move up in grid (same column, previous row) |
 | `Ctrl+Y` | Copy window reference to clipboard |
 | `Backspace` on empty | Return to sessions |
-| `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
-| `Escape` | Close popup |
+
+## Quick Reference by Action
+
+| Action | Files | Grep | Git | Dirs | Sessions | Windows |
+|--------|-------|------|-----|------|----------|---------|
+| Open/switch | Enter | Enter | Enter | Enter | Enter | Enter |
+| Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — |
+| Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y |
+| Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — |
+| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — |
+| Bookmark | Ctrl+B | — | — | — | — | — |
+| Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace |

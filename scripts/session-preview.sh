@@ -23,6 +23,7 @@ source "$SCRIPT_DIR/helpers.sh"
 session=$1
 highlight_idx="${2:-}"
 highlight_idx="${highlight_idx%%:*}"  # strip trailing colon from fzf {1} field
+[[ "$highlight_idx" =~ ^[0-9]+$ ]] || highlight_idx=""
 cols=${FZF_PREVIEW_COLUMNS:-80}
 lines=${FZF_PREVIEW_LINES:-30}
 

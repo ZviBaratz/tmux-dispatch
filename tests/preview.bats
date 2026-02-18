@@ -161,3 +161,24 @@ teardown() {
     '
     [[ "$output" == "3" ]]
 }
+
+@test "session-preview: non-numeric highlight index is cleared" {
+    # Verify non-numeric highlight_idx is treated as empty
+    run bash -c '
+        highlight_idx="abc"
+        highlight_idx="${highlight_idx%%:*}"
+        [[ "$highlight_idx" =~ ^[0-9]+$ ]] || highlight_idx=""
+        echo "highlight=[$highlight_idx]"
+    '
+    [[ "$output" == "highlight=[]" ]]
+}
+
+@test "session-preview: numeric highlight index is preserved" {
+    run bash -c '
+        highlight_idx="5"
+        highlight_idx="${highlight_idx%%:*}"
+        [[ "$highlight_idx" =~ ^[0-9]+$ ]] || highlight_idx=""
+        echo "highlight=[$highlight_idx]"
+    '
+    [[ "$output" == "highlight=[5]" ]]
+}

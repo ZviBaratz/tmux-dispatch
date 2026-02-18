@@ -141,6 +141,43 @@ set -g @dispatch-git-indicators "off"
 set -g @dispatch-history "off"
 ```
 
+### Tools not found when launching tmux from a GUI app
+
+When you launch tmux from a GUI application (such as a desktop shortcut, login manager, or GUI terminal that doesn't source your shell profile), your shell's PATH may be minimal. Tools like `fd`, `bat`, and `rg` may not be found even though they work fine in a regular terminal.
+
+tmux-dispatch already checks common installation locations (Homebrew on macOS and Linux, mise, asdf, Nix, Cargo), but if your tools are installed elsewhere, add the path to tmux's environment in `~/.tmux.conf`:
+
+```tmux
+set-environment -g PATH "/your/custom/bin:$PATH"
+```
+
+See ["command not found" for fzf/fd/rg](#command-not-found-for-fzffdrg) above for more details.
+
+### Garbled characters in preview
+
+The session and window previews use Unicode box-drawing characters to render window grids. If these appear as garbled text, question marks, or replacement characters, your environment likely doesn't have UTF-8 encoding configured.
+
+**Solutions:**
+
+1. Set your locale to UTF-8:
+   ```bash
+   export LANG=en_US.UTF-8
+   export LC_ALL=en_US.UTF-8
+   ```
+   Add these to your shell profile (`~/.bashrc`, `~/.zshrc`) so they persist.
+
+2. Use a monospace font with Unicode support (JetBrains Mono, Fira Code, or any Nerd Font variant).
+
+3. Verify your terminal emulator's encoding is set to UTF-8.
+
+See also [Box-drawing characters garbled](#box-drawing-characters-garbled) for font-specific guidance. The same solutions apply to any garbled characters in preview output.
+
+### Old tmux without floating popups
+
+If you're running tmux older than 3.2, the plugin automatically falls back to `split-window` mode — opening a pane at the bottom of your terminal instead of a floating popup. This is expected behavior, not a bug. Everything works the same functionally; you just don't get the floating overlay.
+
+See [Popup not appearing](#popup-not-appearing) for details on upgrading tmux.
+
 ### Filenames with colons
 
 Grep mode parses ripgrep output in the `file:line:content` format using the colon as a delimiter. Files with `:` in the name (rare on Unix systems, impossible on Windows) will not be parsed correctly, causing the wrong file to open or the line number to be misinterpreted.

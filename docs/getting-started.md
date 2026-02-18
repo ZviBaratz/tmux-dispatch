@@ -142,10 +142,10 @@ See the [FAQ](faq#how-do-i-use-vs-code-or-another-non-vim-editor) for more detai
 
 From the file finder, type a prefix character to switch to a different mode. The remainder of your typed text becomes the query in the new mode:
 
-- Type `>` to switch to grep -- for example, `>useState` searches for "useState" across all files
-- Type `@` to switch to sessions -- for example, `@api` filters sessions containing "api"
-- Type `!` to switch to git status and see changed files
-- Type `#` to switch to directories and jump to a different directory
+- Need to find where a function is defined? Type `>` to switch to grep -- for example, `>useState` searches for "useState" across all files
+- Want to jump to another project? Type `@` to switch to sessions -- for example, `@api` filters sessions containing "api"
+- Curious what you've changed? Type `!` to switch to git status and see changed files
+- Need to work in a different directory? Type `#` to switch to directories and jump to a different directory
 
 ### 8. Return home
 
@@ -156,3 +156,21 @@ In any sub-mode, press backspace on an empty query to return to the file finder.
 - [Modes overview](modes/) -- detailed documentation for each mode (files, grep, git, directories, sessions, windows)
 - [Configuration](reference/configuration) -- customize keybindings, editors, popup size, and search tool options
 - [Keybindings Reference](reference/keybindings) -- the complete keybinding table for every mode
+
+### Common Customizations
+
+Here are some popular configuration tweaks to add to your `~/.tmux.conf`:
+
+```tmux
+# Make the popup bigger (default: 85%)
+set -g @dispatch-popup-size '95%'
+
+# Use VS Code for Ctrl+O (send-to-pane)
+set -g @dispatch-pane-editor 'code'
+
+# Disable frecency ranking (always show alphabetical order)
+set -g @dispatch-history 'off'
+
+# Limit fd search depth for large repos
+set -g @dispatch-fd-args '--max-depth 5'
+```

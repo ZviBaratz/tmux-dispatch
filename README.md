@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://github.com/ZviBaratz/tmux-dispatch/actions/workflows/ci.yml"><img src="https://github.com/ZviBaratz/tmux-dispatch/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/ZviBaratz/tmux-dispatch/releases"><img src="https://img.shields.io/github/v/release/ZviBaratz/tmux-dispatch.svg" alt="Release"></a>
   <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux" alt="tmux"></a>
 </p>
 
@@ -14,31 +15,35 @@
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
 </p>
 
+<p align="center"><i>Type <code>&gt;</code> to grep, <code>@</code> for sessions, <code>!</code> for git status — all without closing the popup</i></p>
+
 <!-- Re-record: vhs demo.tape (requires https://github.com/charmbracelet/vhs) -->
 
 ## Features
 
-- **File finder** — `fd`/`find` with `bat` preview, bookmarks (★), frecency ranking, git status indicators
-- **Live grep** — Ripgrep reloads on every keystroke with line-highlighted preview
-- **Git status** — Colored status icons, stage/unstage with `Tab`, inline diff preview
-- **Directory jump** — Browse zoxide history, `Enter` sends `cd` to your pane
-- **Session management** — Switch, create, kill sessions with window grid preview; launch projects with `Ctrl+N`
-- **Window picker** — Browse windows with pane content preview
-- **Mode switching** — Type `>` for grep, `@` for sessions, `!` for git, `#` for directories — backspace returns home
-- **In-place actions** — Rename (`Ctrl+R`), delete (`Ctrl+X`), bookmark (`Ctrl+B`), multi-select (`Tab`), clipboard (`Ctrl+Y`)
-- **Built-in guide** — Opening the popup shows all keybindings and mode prefixes in the preview panel; start typing to dismiss. Press `?` in any mode for context-sensitive help
+- **File finder** — Find any file instantly with `fd`/`find`, `bat` preview, bookmarks (★), frecency ranking, and git status indicators
+- **Live grep** — Search your entire project on every keystroke with ripgrep and line-highlighted preview
+- **Git status** — Stage and unstage without leaving the popup — colored status icons, `Tab` to toggle, inline diff preview
+- **Directory jump** — Jump to any recent directory with zoxide frecency — `Enter` sends `cd` to your pane
+- **Session management** — Switch, create, or kill sessions without memorizing tmux commands — window grid preview shows what's running
+- **Window picker** — See what's in each window before switching — pane content preview in a 2-column grid
+- **Mode switching** — Never close the popup: type `>` for grep, `@` for sessions, `!` for git, `#` for directories — backspace returns home
+- **In-place actions** — Rename, delete, bookmark, multi-select, and copy without leaving the popup
+- **Built-in guide** — Opening the popup shows all keybindings; press `?` in any mode for context-sensitive help
 
 ## Quick Start
 
-After installing, three keybindings are immediately available:
+Start with `Alt+o` to browse files, then explore other modes by typing prefix characters:
 
-| Key | Action |
-|-----|--------|
-| `Alt+o` | Find files in the current directory |
-| `Alt+s` | Live grep (search file contents) |
-| `Alt+w` | Switch or create tmux sessions |
+| Key | Action | Try it when... |
+|-----|--------|----------------|
+| `Alt+o` | Find files in the current directory | You want to quickly open or preview any file |
+| `Alt+s` | Live grep (search file contents) | You're looking for a specific string across your project |
+| `Alt+w` | Switch or create tmux sessions | You need to jump between projects or create a new workspace |
 
 Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories. Backspace on empty returns home to files — just like VSCode's command palette.
+
+**Tip:** Press `?` in any mode for context-sensitive help showing all available keybindings.
 
 ## Installation
 
@@ -66,24 +71,37 @@ run-shell ~/.tmux/plugins/tmux-dispatch/dispatch.tmux
 
 ### Dependencies
 
+**Required:**
 - **tmux** 2.6+ (3.2+ recommended for popup support)
-- **bash** 4.0+ (macOS users: install via `brew install bash` — the default `/bin/bash` is 3.2)
-- **fzf** 0.38+ (0.49+ recommended for all features; core file/grep works with older versions)
+- **bash** 4.0+ (macOS users: `brew install bash` — the default `/bin/bash` is 3.2)
+- **fzf** 0.38+ (0.49+ recommended for all features)
 - **perl** (required for session preview rendering)
-- **Optional:** `fd` (faster file finding), `bat` (syntax-highlighted preview), `rg` (required for grep mode), `zoxide` (frecency-ranked directories for `#` mode)
+
+**Strongly recommended** (enhances core features significantly):
+- **fd** — faster, smarter file finding with automatic `.gitignore` respect (fallback: `find`)
+- **bat** — syntax-highlighted file preview with line numbers (fallback: `head`)
+- **rg** (ripgrep) — **required** for grep mode; no fallback
+
+**Optional:**
+- **zoxide** — frecency-ranked directories for `#` mode
+
+> **Minimal install:** tmux + bash + fzf gets you file finding and session management. Add `rg` for grep, `fd`+`bat` for the best file experience.
 
 ```bash
+# Install everything at once:
 # macOS (Homebrew)
-brew install bash fzf fd bat ripgrep
+brew install bash fzf fd bat ripgrep zoxide
 
 # Ubuntu / Debian
 sudo apt install fzf fd-find bat ripgrep
+curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 
 # Arch Linux
-pacman -S fzf fd bat ripgrep
+pacman -S fzf fd bat ripgrep zoxide
 
 # Fedora
 sudo dnf install fzf fd-find bat ripgrep
+curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 ```
 
 ## Documentation

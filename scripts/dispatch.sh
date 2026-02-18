@@ -592,7 +592,7 @@ handle_file_result() {
                     [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
                     quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
                 done
-                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter || _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -626,7 +626,7 @@ handle_grep_result() {
             # Send open command to the originating pane (with line number)
             if [[ -n "$PANE_ID" ]]; then
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") +$line_num $(printf '%q' "$file")" Enter
+                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") +$line_num $(printf '%q' "$file")" Enter || _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -712,6 +712,9 @@ handle_session_result() {
                 sanitized="${sanitized%-}"
                 [[ -z "$sanitized" ]] && exit 0
                 tmux new-session -d -s "$sanitized" && tmux switch-client -t "=$sanitized"
+                if [[ "$sanitized" != "$selected" ]]; then
+                    tmux display-message "Created session: $sanitized (sanitized from: $selected)"
+                fi
             fi
             ;;
     esac
@@ -839,8 +842,10 @@ run_rename_mode() {
     # Perform rename
     local dir
     dir=$(dirname "$new_name")
-    [[ -d "$dir" ]] || mkdir -p "$dir"
-    command mv "$FILE" "$new_name"
+    if [[ ! -d "$dir" ]]; then
+        mkdir -p "$dir" || { _dispatch_error "Cannot create directory: $dir"; exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"; }
+    fi
+    command mv "$FILE" "$new_name" || { _dispatch_error "Rename failed: $FILE → $new_name"; exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"; }
 
     exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
 }
