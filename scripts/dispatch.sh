@@ -272,7 +272,6 @@ HELP_SCROLLBACK="$(printf '%b' '
   \033[38;5;244m─────────────────────────────\033[0m
   enter     copy to clipboard
   ^O        paste to pane
-  ^X        delete from history
   tab       select
   ⌫ empty   back to files
 
@@ -447,7 +446,7 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  \\033[1mLike Cmd+P — type to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n  \\033[38;5;103m\$\\033[0m  scrollback search\\n  \\033[38;5;103m:\\033[0m  custom commands\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
+    local welcome_preview="echo -e '\\n  \\033[1mType to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n  \\033[38;5;103m\$\\033[0m  scrollback search\\n  \\033[38;5;103m:\\033[0m  custom commands\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
 
     # Flag file: preview shows welcome on first run (flag exists), file preview after
     local welcome_flag
@@ -536,7 +535,7 @@ fi"
         --prompt '  ' \
         --preview "$smart_preview" \
         --preview-label="$initial_preview_label" \
-        --border-label ' files · ? help · enter open · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
+        --border-label ' files · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
@@ -1218,10 +1217,6 @@ run_scrollback_mode() {
     # quoting issues with {} on lines containing spaces or single quotes
     local preview_cmd="awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_scrollback_file'"
 
-    # HISTFILE for Ctrl+X deletion
-    local sq_histfile
-    sq_histfile=$(_sq_escape "${HISTFILE:-}")
-
     local result
     result=$(fzf < "$scrollback_file" \
         "${BASE_FZF_OPTS[@]}" \
@@ -1231,10 +1226,9 @@ run_scrollback_mode() {
         --prompt 'scrollback $ ' \
         --ansi \
         --no-sort \
-        --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · tab select · ⌫ files ' \
+        --border-label ' scrollback $ · ? help · enter copy · ^o paste · tab select · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
-        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history '{}')+reload(cat '$sq_scrollback_file')" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:printf '%b' '$SQ_HELP_SCROLLBACK'" \
     ) || exit 0
@@ -1301,24 +1295,20 @@ run_commands_mode() {
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
-    # Display labels (left of first |), preview shows command (right of first |)
-    local labels
-    labels=$(echo "$entries" | while IFS='|' read -r label _rest; do
-        label="${label#"${label%%[! ]*}"}"; label="${label%"${label##*[! ]}"}"
-        echo "$label"
-    done)
-
-    # Preview: show the command for the selected label (bat syntax highlighting if available)
-    local preview_cmd="grep -F '{}' '$sq_conf' | head -1 | sed 's/^[^|]*|[[:space:]]*//' "
+    # Preview: show the command part (fields after first |)
+    # Use {2..} (everything right of delimiter) to avoid grep + quoting issues
+    local preview_cmd="echo {2..} | sed 's/^ //'"
     if [[ -n "$BAT_CMD" ]]; then
         local sq_bat
         sq_bat=$(_sq_escape "$BAT_CMD")
-        preview_cmd+="| '$sq_bat' --color=always -l sh --style=plain"
+        preview_cmd="echo {2..} | sed 's/^ //' | '$sq_bat' --color=always -l sh --style=plain"
     fi
 
     local result
-    result=$(echo "$labels" | fzf \
+    result=$(echo "$entries" | fzf \
         "${BASE_FZF_OPTS[@]}" \
+        --delimiter '\|' \
+        --with-nth 1 \
         --query "$QUERY" \
         --prompt 'commands : ' \
         --no-sort \
@@ -1332,15 +1322,16 @@ run_commands_mode() {
 
     [[ -z "$result" ]] && exit 0
 
-    # Look up the command for the selected label (exact match to avoid substring collisions)
-    local selected_cmd
-    selected_cmd=$(awk -F'|' -v label="$result" '{l=$1; gsub(/^ +| +$/,"",l)} l==label{sub(/^[^|]*\|[[:space:]]*/,""); print; exit}' "$conf")
+    # Extract command: everything after first |, trimmed
+    local selected_cmd="${result#*|}"
+    selected_cmd="${selected_cmd# }"
     [[ -z "$selected_cmd" ]] && exit 0
 
-    # Execute: tmux command or shell command
-    # shellcheck disable=SC2086  # intentional word-splitting for tmux subcommand + args
+    # Execute: tmux command (via bash -c for proper quote parsing) or shell command (send to pane)
     if [[ "$selected_cmd" == "tmux: "* ]]; then
-        tmux ${selected_cmd#tmux: }
+        bash -c "tmux ${selected_cmd#tmux: }"
+    elif [[ -n "$PANE_ID" ]]; then
+        tmux send-keys -t "$PANE_ID" -- "$selected_cmd" Enter
     else
         bash -c "$selected_cmd"
     fi

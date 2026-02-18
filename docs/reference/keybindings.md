@@ -130,7 +130,6 @@ Search and copy text from your terminal's scrollback buffer.
 |-----|--------|
 | `Enter` | Copy selected line(s) to tmux buffer + system clipboard |
 | `Ctrl+O` | Paste selection into originating pane |
-| `Ctrl+X` | Delete line from shell history file |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `Backspace` on empty | Return to files (home) |
 
@@ -152,7 +151,7 @@ Run custom commands from your personal command palette.
 | Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — |
 | Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — |
 | Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — |
-| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | Ctrl+X | — |
+| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | — | — |
 | Bookmark | Ctrl+B | — | — | — | — | — | — | — |
 | Edit config | — | — | — | — | — | — | — | Ctrl+E |
 | Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace |

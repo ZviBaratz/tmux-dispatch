@@ -27,7 +27,7 @@
 - **Directory jump** — Jump to any recent directory with zoxide frecency — `Enter` sends `cd` to your pane
 - **Session management** — Switch, create, or kill sessions without memorizing tmux commands — window grid preview shows what's running
 - **Window picker** — See what's in each window before switching — pane content preview in a 2-column grid
-- **Scrollback search** — Search and copy from your terminal's output history — `Enter` copies, `Ctrl+O` pastes to pane, `Ctrl+X` removes from shell history
+- **Scrollback search** — Search and copy from your terminal's output history — `Enter` copies to clipboard, `Ctrl+O` pastes to pane
 - **Custom commands** — Define your own command palette in `commands.conf` — run shell scripts, tmux commands, or anything you want with a fuzzy search
 - **Mode switching** — Never close the popup: type `>` for grep, `@` for sessions, `!` for git, `#` for directories, `$` for scrollback, `:` for commands — backspace returns home
 - **In-place actions** — Rename, delete, bookmark, multi-select, and copy without leaving the popup

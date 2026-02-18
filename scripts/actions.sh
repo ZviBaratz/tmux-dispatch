@@ -208,18 +208,6 @@ action_git_toggle() {
     fi
 }
 
-# ─── delete-history ──────────────────────────────────────────────────────────
-
-action_delete_history() {
-    local line="$1"
-    local histfile="${HISTFILE:-}"
-    [[ -z "$histfile" || ! -f "$histfile" ]] && return 0
-    local tmp
-    tmp=$(mktemp "${histfile}.XXXXXX") || return 0
-    grep -vFx "$line" "$histfile" > "$tmp" || true
-    \mv "$tmp" "$histfile"
-}
-
 # ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 action="${1:-}"
@@ -236,7 +224,6 @@ case "$action" in
     git-toggle)             action_git_toggle "$@" ;;
     kill-session)           action_kill_session "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
-    delete-history)         action_delete_history "$@" ;;
     *)
         echo "Unknown action: $action"
         echo "Usage: actions.sh <action> [args...]"

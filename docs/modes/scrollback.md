@@ -19,7 +19,6 @@ This is useful for grabbing a command you ran earlier, copying a file path from 
 |-----|--------|
 | `Enter` | Copy selected line(s) to tmux buffer + system clipboard |
 | `Ctrl+O` | Paste selection into originating pane |
-| `Ctrl+X` | Delete line from shell history file |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `Backspace` on empty | Return to files (home) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
@@ -34,7 +33,6 @@ This is useful for grabbing a command you ran earlier, copying a file path from 
 - **Multi-select** -- use `Tab` and `Shift+Tab` to select multiple lines before copying or pasting. All selected lines are included in the copy/paste operation.
 - **Clipboard copy** -- `Enter` copies the selected line(s) to both the tmux paste buffer and the system clipboard.
 - **Pane paste** -- `Ctrl+O` sends the selected text directly to the originating pane, useful for re-running a command or pasting a path.
-- **History deletion** -- `Ctrl+X` removes the selected line from your shell history file, useful for cleaning up sensitive commands (passwords, tokens) that were accidentally entered.
 
 ## Configuration
 
@@ -47,5 +45,4 @@ This is useful for grabbing a command you ran earlier, copying a file path from 
 - The number of captured lines is configurable via `@dispatch-scrollback-lines`. Increase it if you frequently need to search further back, or decrease it for faster startup on slower machines.
 - From files mode, type `$error` to instantly search your scrollback for "error" -- the `$` switches to scrollback and `error` becomes the query.
 - Multi-select is especially useful for copying multiple related lines (e.g., a multi-line stack trace or a sequence of commands).
-- History deletion (`Ctrl+X`) modifies your shell history file on disk. This is permanent and cannot be undone.
 - Scrollback search captures text from the pane where you opened the popup, not all panes. If you need text from a different pane, switch to that pane first.

@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session picker/creator with window grid preview
 - Window picker with 2D grid navigation
 - Project launcher via `Ctrl+N` in session mode
-- Scrollback search mode (`$` prefix) with context preview, clipboard copy, pane paste, and shell history deletion
+- Scrollback search mode (`$` prefix) with context preview, clipboard copy, and pane paste
 - Custom user commands mode (`:` prefix) with configurable `commands.conf` file, tmux/shell command support, and inline config editing
 
 **Mode switching:**
