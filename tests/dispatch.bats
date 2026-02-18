@@ -975,7 +975,7 @@ BASH
     run bash -c '
         MODE="scrollback"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1105,7 +1105,7 @@ line3"
     run bash -c '
         MODE="commands"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1334,7 +1334,7 @@ line3"
 
 # ─── Help overlay completeness ────────────────────────────────────────────
 
-@test "help: all 10 HELP_* variables are defined in dispatch.sh" {
+@test "help: all 11 HELP_* variables are defined in dispatch.sh" {
     # Verify every mode has a corresponding help overlay string
     local expected=(
         HELP_FILES
@@ -1347,6 +1347,7 @@ line3"
         HELP_SCROLLBACK
         HELP_COMMANDS
         HELP_MARKS
+        HELP_URLS
     )
     local missing=()
     local var
@@ -1361,7 +1362,7 @@ line3"
     fi
 }
 
-@test "help: all 10 SQ_HELP_* escape variables are defined in dispatch.sh" {
+@test "help: all 11 SQ_HELP_* escape variables are defined in dispatch.sh" {
     # Verify every help string is also pre-escaped for fzf bind embedding
     local expected=(
         SQ_HELP_FILES
@@ -1374,6 +1375,7 @@ line3"
         SQ_HELP_SCROLLBACK
         SQ_HELP_COMMANDS
         SQ_HELP_MARKS
+        SQ_HELP_URLS
     )
     local missing=()
     local var
@@ -1444,7 +1446,7 @@ line3"
     run bash -c '
         MODE="resume"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1455,7 +1457,7 @@ line3"
     run bash -c '
         MODE="marks"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1490,4 +1492,175 @@ line3"
         grep -c "marks).*run_marks_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
     '
     [[ "${lines[0]}" -ge 1 ]]
+}
+
+# ─── URLs mode ────────────────────────────────────────────────────────────
+
+@test "urls: URL regex matches https URLs" {
+    # Use the exact same regex pattern as dispatch.sh (single-quoted, no bash -c wrapper)
+    local result
+    result=$(echo "Visit https://example.com/path?q=1#frag for info" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
+    [ "$result" = "https://example.com/path?q=1#frag" ]
+}
+
+@test "urls: URL regex matches http and ftp URLs" {
+    local result
+    result=$(printf "http://localhost:8080/api\nftp://files.example.com/pub\n" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
+    local -a lines
+    mapfile -t lines <<< "$result"
+    [ "${lines[0]}" = "http://localhost:8080/api" ]
+    [ "${lines[1]}" = "ftp://files.example.com/pub" ]
+}
+
+@test "urls: trailing punctuation stripped from URLs" {
+    run bash -c '
+        printf "https://example.com.\nhttps://x.com,\nhttps://y.com)\nhttps://z.com;\nhttps://w.com:\n" \
+            | sed "s/[.,;:!?)'"'"'\"'\'']*$//"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "https://example.com" ]
+    [ "${lines[1]}" = "https://x.com" ]
+    [ "${lines[2]}" = "https://y.com" ]
+    [ "${lines[3]}" = "https://z.com" ]
+    [ "${lines[4]}" = "https://w.com" ]
+}
+
+@test "urls: deduplication preserves first occurrence only" {
+    run bash -c '
+        printf "https://a.com\nhttps://b.com\nhttps://a.com\nhttps://c.com\nhttps://b.com\n" \
+            | awk "!seen[\$0]++"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "https://a.com" ]
+    [ "${lines[1]}" = "https://b.com" ]
+    [ "${lines[2]}" = "https://c.com" ]
+    [ "${#lines[@]}" -eq 3 ]
+}
+
+@test "urls: most-recent-first ordering via awk reverse" {
+    local result
+    result=$(printf "line1 https://first.com\nline2\nline3 https://last.com\n" \
+        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
+    local -a result_lines
+    mapfile -t result_lines <<< "$result"
+    [ "${result_lines[0]}" = "https://last.com" ]
+    [ "${result_lines[1]}" = "https://first.com" ]
+}
+
+@test "urls: & prefix triggers mode switch in transform pattern" {
+    run bash -c '
+        query="&github"
+        if [[ "$query" == "&"* ]]; then
+            echo "urls"
+        else
+            echo "other"
+        fi
+    '
+    [ "$output" = "urls" ]
+}
+
+@test "urls: & prefix present in dispatch.sh change_transform" {
+    run bash -c '
+        grep -c "mode=urls" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [ "$status" -eq 0 ]
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "urls: mode strips leading & from query" {
+    run bash -c '
+        QUERY="&github.com"
+        QUERY="${QUERY#&}"
+        echo "$QUERY"
+    '
+    [ "$output" = "github.com" ]
+}
+
+@test "dispatch: urls is a valid mode" {
+    run bash -c '
+        MODE="urls"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
+}
+
+@test "urls: dispatch.sh contains run_urls_mode function" {
+    run bash -c '
+        grep -c "run_urls_mode()" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "urls: dispatch case includes urls mode" {
+    run bash -c '
+        grep -c "urls).*run_urls_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "urls: HELP_URLS defined in dispatch.sh" {
+    run bash -c '
+        grep -c "HELP_URLS" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "urls: fzf args include --multi --no-sort and ctrl-o binding" {
+    run bash -c '
+        src="'"$SCRIPT_DIR"'/dispatch.sh"
+        ok=0
+        # Verify urls mode uses --multi, --no-sort, and ctrl-o execute-silent binding
+        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "\-\-multi" && ok=$((ok+1))
+        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "\-\-no-sort" && ok=$((ok+1))
+        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "ctrl-o:execute-silent" && ok=$((ok+1))
+        echo "$ok"
+    '
+    [[ "${lines[0]}" -ge 3 ]]
+}
+
+@test "urls: browser detection uses BROWSER then xdg-open then open" {
+    run bash -c '
+        src="'"$SCRIPT_DIR"'/actions.sh"
+        ok=0
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "BROWSER" && ok=$((ok+1))
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "xdg-open" && ok=$((ok+1))
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "open" && ok=$((ok+1))
+        echo "$ok"
+    '
+    [[ "${lines[0]}" -ge 3 ]]
+}
+
+@test "urls: empty URL list falls back to files mode" {
+    # Verify the empty state pattern: check -s url_file, show error, exec fallback
+    run bash -c '
+        src="'"$SCRIPT_DIR"'/dispatch.sh"
+        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "no URLs found" && echo "has-error"
+    '
+    [ "$output" = "has-error" ]
+}
+
+@test "urls: full extraction pipeline works end-to-end" {
+    local input="old line with https://old.com
+some text
+check https://example.com/path for info.
+visit https://example.com/path again
+more at https://new.com/page?q=1,"
+    local result
+    result=$(echo "$input" \
+        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | sed "s/[.,;:!?)'\"\`]*$//" \
+        | awk '!seen[$0]++')
+    local -a result_lines
+    mapfile -t result_lines <<< "$result"
+    [ "${result_lines[0]}" = "https://new.com/page?q=1" ]
+    [ "${result_lines[1]}" = "https://example.com/path" ]
+    [ "${result_lines[2]}" = "https://old.com" ]
+    [ "${#result_lines[@]}" -eq 3 ]
 }

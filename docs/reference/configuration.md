@@ -18,6 +18,7 @@ Customize which keys open each mode. Set any key option to `"none"` to disable t
 | `@dispatch-grep-key` | `M-s` | Prefix-free key to open live grep (Alt+s) |
 | `@dispatch-session-key` | `M-w` | Prefix-free key to open session picker (Alt+w) |
 | `@dispatch-git-key` | `none` | Prefix-free key to open git status (disabled by default; use `!` prefix instead) |
+| `@dispatch-url-key` | `none` | Prefix-free key to open URL extraction (disabled by default; use `&` prefix instead) |
 | `@dispatch-prefix-key` | `e` | Prefix key to open file finder (prefix+e) |
 | `@dispatch-session-prefix-key` | `none` | Prefix key to open session picker (disabled by default) |
 | `@dispatch-resume-key` | `none` | Prefix-free key to reopen last-used mode with last query (disabled by default) |
@@ -102,6 +103,7 @@ set -g @dispatch-find-key "M-o"
 set -g @dispatch-grep-key "M-s"
 set -g @dispatch-session-key "M-w"
 set -g @dispatch-git-key "none"
+set -g @dispatch-url-key "none"
 set -g @dispatch-prefix-key "e"
 set -g @dispatch-session-prefix-key "none"
 set -g @dispatch-resume-key "M-r"

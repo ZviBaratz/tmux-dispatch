@@ -208,6 +208,28 @@ action_git_toggle() {
     fi
 }
 
+# ─── open-url ────────────────────────────────────────────────────────────────
+
+action_open_url() {
+    local url="$1"
+    [[ -z "$url" ]] && return 0
+    local open_cmd=""
+    if [[ -n "${BROWSER:-}" ]]; then
+        open_cmd="$BROWSER"
+    elif command -v xdg-open &>/dev/null; then
+        open_cmd="xdg-open"
+    elif command -v open &>/dev/null; then
+        open_cmd="open"
+    fi
+    if [[ -n "$open_cmd" ]]; then
+        tmux run-shell -b "$open_cmd $(printf '%q' "$url") >/dev/null 2>&1"
+        tmux display-message "Opened: $url"
+    else
+        printf '%s' "$url" | tmux load-buffer -w -
+        tmux display-message "No browser found — copied URL"
+    fi
+}
+
 # ─── bookmark-remove ─────────────────────────────────────────────────────
 
 action_bookmark_remove() {
@@ -244,6 +266,7 @@ case "$action" in
     list-sessions)          action_list_sessions ;;
     git-toggle)             action_git_toggle "$@" ;;
     kill-session)           action_kill_session "$@" ;;
+    open-url)               action_open_url "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
     bookmark-remove)        action_bookmark_remove "$@" ;;
     *)

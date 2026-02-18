@@ -16,6 +16,7 @@
 #   --mode=scrollback     search tmux scrollback history
 #   --mode=commands        custom command palette
 #   --mode=marks          global bookmarks viewer
+#   --mode=urls           extract and open URLs from scrollback
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -25,9 +26,10 @@
 #   # prefix   — Files → directories (remainder becomes query)
 #   $ prefix   — Files → scrollback search (remainder becomes query)
 #   : prefix   — Files → custom commands (remainder becomes query)
+#   & prefix   — Files → URL extraction from scrollback
 #   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls
 #        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
 # =============================================================================
 
@@ -80,9 +82,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, resume)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, urls, resume)"
         exit 1
         ;;
 esac
@@ -192,6 +194,7 @@ HELP_FILES="$(printf '%b' '
   $...      scrollback search
   :...      custom commands
   ~...      files from home
+  &...      urls from scrollback
 ')"
 
 HELP_GREP="$(printf '%b' '
@@ -309,9 +312,21 @@ HELP_MARKS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
+HELP_URLS="$(printf '%b' '
+  \033[1mURLS\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     copy to clipboard
+  ^O        open in browser
+  tab       select
+  ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
+SQ_HELP_URLS=$(_sq_escape "$HELP_URLS")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -485,6 +500,8 @@ elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '~'* ]]; then
   echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')\"
+elif [[ {q} == '&'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=urls --pane='$SQ_PANE_ID' --query={q})\"
 fi"
 
     # ─── Reload command construction ────────────────────────────────────────────
@@ -1294,6 +1311,73 @@ handle_scrollback_result() {
     esac
 }
 
+# ─── Mode: urls ───────────────────────────────────────────────────────────────
+
+run_urls_mode() {
+    if [[ -z "$PANE_ID" ]]; then
+        _dispatch_error "urls requires a pane — use keybinding, not direct invocation"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    local become_files_empty="$BECOME_FILES"
+
+    # Capture scrollback, extract URLs, dedup (most recent first)
+    local scrollback_file url_file
+    scrollback_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-scrollback-XXXXXX")
+    url_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-urls-XXXXXX")
+    trap 'command rm -f "$scrollback_file" "$url_file"' EXIT
+
+    tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null > "$scrollback_file"
+
+    # Extract URLs: reverse scrollback (most recent first), grep URLs, strip trailing punctuation, dedup
+    awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' "$scrollback_file" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | sed "s/[.,;:!?)'\"\`]*$//" \
+        | awk '!seen[$0]++' > "$url_file"
+
+    if [[ ! -s "$url_file" ]]; then
+        _dispatch_error "no URLs found in scrollback"
+        command rm -f "$scrollback_file" "$url_file"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    local sq_scrollback_file
+    sq_scrollback_file=$(_sq_escape "$scrollback_file")
+
+    # Preview: show URL header + surrounding context with the URL highlighted
+    local preview_cmd="printf '\033[1;36m%s\033[0m\n\033[38;5;244m─────────────────────────────────────────\033[0m\n' {}; grep --color=always -F -B2 -A2 -- {} '$sq_scrollback_file' | head -20"
+
+    local result
+    result=$(fzf < "$url_file" \
+        "${BASE_FZF_OPTS[@]}" \
+        --multi \
+        --query "$QUERY" \
+        --prompt 'urls & ' \
+        --ansi \
+        --no-sort \
+        --border-label ' urls & · ? help · enter copy · ^o open · tab select · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
+        --preview "$preview_cmd" \
+        --bind "ctrl-o:execute-silent('$SQ_SCRIPT_DIR/actions.sh' open-url '{}')" \
+        --bind "backward-eof:$become_files_empty" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_URLS'" \
+    ) || exit 0
+
+    handle_urls_result "$result"
+}
+
+handle_urls_result() {
+    local result="$1"
+    local -a urls
+
+    mapfile -t urls <<< "$result"
+    [[ ${#urls[@]} -eq 0 ]] && exit 0
+
+    # Default: copy to clipboard
+    printf '%s\n' "${urls[@]}" | tmux load-buffer -w -
+    tmux display-message "Copied ${#urls[@]} URL(s)"
+}
+
 # Create default commands.conf with starter recipes
 _create_default_commands() {
     local conf="$1"
@@ -1472,6 +1556,7 @@ _strip_mode_prefix() {
         git)        QUERY="${QUERY#!}" ;;
         scrollback) QUERY="${QUERY#\$}" ;;
         commands)   QUERY="${QUERY#:}" ;;
+        urls)       QUERY="${QUERY#&}" ;;
     esac
 }
 _strip_mode_prefix
@@ -1495,4 +1580,5 @@ case "$MODE" in
     scrollback)     run_scrollback_mode ;;
     commands)       run_commands_mode ;;
     marks)          run_marks_mode ;;
+    urls)           run_urls_mode ;;
 esac
