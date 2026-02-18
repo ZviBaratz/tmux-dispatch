@@ -50,6 +50,8 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `@` prefix | Switch to sessions (remainder becomes query) |
 | `!` prefix | Switch to git status (remainder becomes query) |
 | `#` prefix | Switch to directories (remainder becomes query) |
+| `$` prefix | Switch to scrollback search (remainder becomes query) |
+| `:` prefix | Switch to custom commands (remainder becomes query) |
 
 Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode.
 
@@ -120,14 +122,37 @@ Browse and switch between windows in a session. Arrow keys navigate spatially wi
 | `Ctrl+Y` | Copy window reference to clipboard |
 | `Backspace` on empty | Return to sessions |
 
+## Scrollback
+
+Search and copy text from your terminal's scrollback buffer.
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Copy selected line(s) to tmux buffer + system clipboard |
+| `Ctrl+O` | Paste selection into originating pane |
+| `Ctrl+X` | Delete line from shell history file |
+| `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
+| `Backspace` on empty | Return to files (home) |
+
+## Commands
+
+Run custom commands from your personal command palette.
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Execute selected command |
+| `Ctrl+E` | Edit commands.conf in popup editor |
+| `Backspace` on empty | Return to files (home) |
+
 ## Quick Reference by Action
 
-| Action | Files | Grep | Git | Dirs | Sessions | Windows |
-|--------|-------|------|-----|------|----------|---------|
-| Open/switch | Enter | Enter | Enter | Enter | Enter | Enter |
-| Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — |
-| Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y |
-| Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — |
-| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — |
-| Bookmark | Ctrl+B | — | — | — | — | — |
-| Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace |
+| Action | Files | Grep | Git | Dirs | Sessions | Windows | Scrollback | Commands |
+|--------|-------|------|-----|------|----------|---------|------------|----------|
+| Open/switch | Enter | Enter | Enter | Enter | Enter | Enter | — | Enter |
+| Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — |
+| Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — |
+| Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — |
+| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | Ctrl+X | — |
+| Bookmark | Ctrl+B | — | — | — | — | — | — | — |
+| Edit config | — | — | — | — | — | — | — | Ctrl+E |
+| Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace |

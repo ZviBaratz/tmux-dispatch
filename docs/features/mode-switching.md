@@ -20,6 +20,8 @@ This works via fzf's `become` action: when a prefix is detected in the `change:t
 | `@` | Sessions | Type `@api` to filter sessions containing "api" |
 | `!` | Git Status | Type `!` to see changed files |
 | `#` | Directories | Type `#src` to filter directories containing "src" |
+| `$` | Scrollback Search | Type `$error` to search scrollback for "error" |
+| `:` | Custom Commands | Type `:deploy` to filter your command palette |
 
 Prefixes are only detected when typed as the first character in the query. If you're filtering files and your query starts with one of these characters, mode switching activates immediately.
 
@@ -39,13 +41,15 @@ The same mechanism works for all prefix characters -- each maps to a different `
 
 ## Backspace-to-Home
 
-All sub-modes (grep, git, dirs, sessions) use fzf's `backward-eof` binding. When backspace is pressed on an empty query, fzf executes `become(dispatch.sh --mode=files)` to return to the file finder.
+All sub-modes (grep, git, dirs, sessions, scrollback, commands) use fzf's `backward-eof` binding. When backspace is pressed on an empty query, fzf executes `become(dispatch.sh --mode=files)` to return to the file finder.
 
 This creates a natural navigation pattern:
 
 - **files** --> type `>query` --> **grep** (with query pre-filled)
 - **grep** --> backspace on empty --> **files**
 - **files** --> type `@` --> **sessions** --> `Ctrl+W` --> **windows** --> backspace --> **sessions** --> backspace --> **files**
+- **files** --> type `$error` --> **scrollback** (searching for "error") --> backspace on empty --> **files**
+- **files** --> type `:deploy` --> **commands** (filtered to "deploy") --> backspace on empty --> **files**
 
 You can always get back to files mode by clearing the query and pressing backspace. Alternatively, pressing `Escape` closes the popup entirely from any mode.
 
@@ -56,6 +60,8 @@ When you switch modes via prefix, the text you've already typed (minus the prefi
 - In files mode, type `>Hello` --> grep opens with query "Hello" and results already loaded
 - In files mode, type `@api` --> sessions opens with query "api" filtering the session list
 - In files mode, type `#src` --> directories opens with query "src" filtering directories
+- In files mode, type `$error` --> scrollback opens with query "error" filtering scrollback lines
+- In files mode, type `:deploy` --> commands opens with query "deploy" filtering the command list
 
 This is particularly useful for grep mode, where the query triggers an immediate ripgrep search. You can type `>functionName` in files mode and arrive in grep mode with matching results already visible.
 
@@ -82,6 +88,8 @@ When files mode opens with no query (or when the query becomes empty), a welcome
   @...      switch sessions
   !...      git status
   #...      directories
+  $...      scrollback search
+  :...      custom commands
 ```
 
 The cheat sheet disappears as soon as you start typing or navigate the file list. When the cheat sheet is visible, the border label reads "dispatch" and the preview label reads "guide". Once you start interacting, these change to "files" and "preview" respectively.
@@ -97,4 +105,6 @@ Each mode has a distinct prompt character so you always know where you are:
 | Git | `! ` |
 | Directories | `# ` |
 | Sessions | `@ ` |
+| Scrollback | `$ ` |
+| Commands | `: ` |
 | Windows | `  ` (two spaces) |

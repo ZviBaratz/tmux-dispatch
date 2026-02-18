@@ -20,6 +20,8 @@ Modes are the core concept in tmux-dispatch. Each mode gives you a different way
 | [Directories](dirs) | `#` | Jump to directories via zoxide frecency or `fd`/`find` fallback | You need to `cd` into a project directory or recent folder |
 | [Sessions](sessions) | `@` | Switch, create, rename, or kill tmux sessions with window grid preview | You want to jump between projects or spin up a new workspace |
 | [Windows](windows) | _(from sessions)_ | Browse windows within a session using 2D grid navigation with pane content preview | You want to see what's running in each window before switching |
+| [Scrollback Search](scrollback) | `$` | Search and copy from terminal scrollback with context preview | You want to grab a command, path, or output from your terminal history |
+| [Custom Commands](commands) | `:` | Run user-defined commands from a configurable palette | You have custom scripts, tmux commands, or workflows you run frequently |
 
 ## How Mode Switching Works
 
@@ -29,6 +31,8 @@ Mode switching uses prefix characters — special characters that, when typed as
 - Type `@` to switch to sessions — filter sessions by name (e.g., `@api` shows sessions containing "api")
 - Type `!` to switch to git status — see your uncommitted changes
 - Type `#` to switch to directories — jump to a recent or nearby directory
+- Type `$` to switch to scrollback search — find and copy text from your terminal history
+- Type `:` to switch to custom commands — run commands from your personal palette
 
 In any sub-mode, press **Backspace** on an empty query to return to the file finder. This works like VSCode's command palette — you never need to close and reopen the popup.
 

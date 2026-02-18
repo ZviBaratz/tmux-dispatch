@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session picker/creator with window grid preview
 - Window picker with 2D grid navigation
 - Project launcher via `Ctrl+N` in session mode
+- Scrollback search mode (`$` prefix) with context preview, clipboard copy, pane paste, and shell history deletion
+- Custom user commands mode (`:` prefix) with configurable `commands.conf` file, tmux/shell command support, and inline config editing
 
 **Mode switching:**
 - Mode switching via text prefixes: `>` for grep, `@` for sessions, `!` for git, `#` for dirs (requires fzf 0.38+)
+- `$` prefix for scrollback search, `:` prefix for custom commands
 - Backspace on empty query returns to file finder
 
 **Editing and actions:**
@@ -56,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Configuration:**
 - Configurable keybindings, popup size, and editor preferences
 - `@dispatch-theme` option — set to `"none"` to disable built-in colors and inherit terminal theme
+- `@dispatch-scrollback-lines` option — number of scrollback lines to capture (default: 10000)
+- `@dispatch-commands-file` option — custom commands config file path
+
+**Performance:**
+- Cached tool detection at plugin load — reduces popup open overhead by ~40-50ms
+- Batched tmux option reads — single subprocess instead of six
 
 **Compatibility:**
 - Graceful fallbacks for `fd`, `bat`, and `rg`

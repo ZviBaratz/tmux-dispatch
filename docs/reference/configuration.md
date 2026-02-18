@@ -69,6 +69,18 @@ Restrict the file finder to specific file extensions.
 
 When set, only files matching the listed extensions appear in the file finder, bookmarks, and frecency results.
 
+## Scrollback options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `@dispatch-scrollback-lines` | `10000` | Number of scrollback lines to capture from the originating pane |
+
+## Commands options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `@dispatch-commands-file` | `~/.config/tmux-dispatch/commands.conf` | Path to the custom commands configuration file |
+
 ## Session directories
 
 Configure which directories are scanned for the Ctrl+N project launcher in session mode.
@@ -110,6 +122,12 @@ set -g @dispatch-theme "default"
 
 # File type filter
 set -g @dispatch-file-types "ts,tsx,js"
+
+# Scrollback
+set -g @dispatch-scrollback-lines "10000"
+
+# Commands
+set -g @dispatch-commands-file "$HOME/.config/tmux-dispatch/commands.conf"
 
 # Session directories
 set -g @dispatch-session-dirs "$HOME/Projects:$HOME/work"
