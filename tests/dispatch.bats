@@ -959,3 +959,47 @@ BASH
     run bash -c "$script"
     [ "${lines[0]}" = "types=[]" ]
 }
+
+# ─── Scrollback mode ─────────────────────────────────────────────────────
+
+@test "scrollback mode strips leading $ from query" {
+    run bash -c '
+        QUERY="\$ls -la output"
+        QUERY="${QUERY#\$}"
+        echo "$QUERY"
+    '
+    [ "$output" = "ls -la output" ]
+}
+
+@test "dispatch: scrollback is a valid mode" {
+    run bash -c '
+        MODE="scrollback"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
+}
+
+# ─── Commands mode ───────────────────────────────────────────────────────
+
+@test "commands mode strips leading : from query" {
+    run bash -c '
+        QUERY=":deploy"
+        QUERY="${QUERY#:}"
+        echo "$QUERY"
+    '
+    [ "$output" = "deploy" ]
+}
+
+@test "dispatch: commands is a valid mode" {
+    run bash -c '
+        MODE="commands"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
+}

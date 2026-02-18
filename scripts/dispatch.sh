@@ -2,7 +2,7 @@
 # =============================================================================
 # dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Ten modes, switchable mid-session via fzf's become action:
+# Twelve modes, switchable mid-session via fzf's become action:
 #
 #   --mode=files          fd/find → fzf (normal filtering, bat preview)
 #   --mode=grep           fzf --disabled + change:reload:rg (live search)
@@ -13,6 +13,8 @@
 #   --mode=windows        tmux window picker for a session
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
+#   --mode=scrollback     search tmux scrollback history (stub)
+#   --mode=commands        custom command palette (stub)
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -20,9 +22,11 @@
 #   @ prefix   — Files → sessions (remainder becomes query)
 #   ! prefix   — Files → git status (remainder becomes query)
 #   # prefix   — Files → directories (remainder becomes query)
+#   $ prefix   — Files → scrollback search (remainder becomes query)
+#   : prefix   — Files → custom commands (remainder becomes query)
 #   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands
 #        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
 # =============================================================================
 
@@ -75,9 +79,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands)"
         exit 1
         ;;
 esac
@@ -173,6 +177,8 @@ HELP_FILES="$(printf '%b' '
   @...      switch sessions
   !...      git status
   #...      directories
+  $...      scrollback search
+  :...      custom commands
 ')"
 
 HELP_GREP="$(printf '%b' '
@@ -257,6 +263,33 @@ SQ_HELP_SESSIONS=$(_sq_escape "$HELP_SESSIONS")
 SQ_HELP_DIRS=$(_sq_escape "$HELP_DIRS")
 SQ_HELP_WINDOWS=$(_sq_escape "$HELP_WINDOWS")
 SQ_HELP_SESSION_NEW=$(_sq_escape "$HELP_SESSION_NEW")
+
+HELP_SCROLLBACK="$(printf '%b' '
+  \033[1mSCROLLBACK\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     copy to clipboard
+  ^O        paste to pane
+  ^X        delete from history
+  S-tab     multi-select
+  ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
+HELP_COMMANDS="$(printf '%b' '
+  \033[1mCOMMANDS\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     run command
+  ^E        edit commands.conf
+  ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
+# shellcheck disable=SC2034  # used when scrollback/commands modes are fully implemented
+SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
+# shellcheck disable=SC2034  # used when scrollback/commands modes are fully implemented
+SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -413,7 +446,7 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  \\033[1mLike Cmd+P — type to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
+    local welcome_preview="echo -e '\\n  \\033[1mLike Cmd+P — type to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n  \\033[38;5;103m\$\\033[0m  scrollback search\\n  \\033[38;5;103m:\\033[0m  custom commands\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
 
     # Flag file: preview shows welcome on first run (flag exists), file preview after
     local welcome_flag
@@ -448,6 +481,10 @@ elif [[ {q} == '!'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '#'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID' --query={q})\"
+elif [[ {q} == '\$'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID' --query={q})\"
+elif [[ {q} == ':'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ -z {q} ]]; then
   echo \"execute-silent(touch '$sq_welcome')+refresh-preview+change-preview-label( guide )\"
 else
@@ -1149,13 +1186,25 @@ handle_git_result() {
     esac
 }
 
+run_scrollback_mode() {
+    _dispatch_error "scrollback mode: not yet implemented"
+    exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+}
+
+run_commands_mode() {
+    _dispatch_error "commands mode: not yet implemented"
+    exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+}
+
 # Strip mode prefix character from query (used when switching via prefix typing)
 _strip_mode_prefix() {
     case "$MODE" in
-        grep)     QUERY="${QUERY#>}" ;;
-        sessions) QUERY="${QUERY#@}" ;;
-        dirs)     QUERY="${QUERY#\#}" ;;
-        git)      QUERY="${QUERY#!}" ;;
+        grep)       QUERY="${QUERY#>}" ;;
+        sessions)   QUERY="${QUERY#@}" ;;
+        dirs)       QUERY="${QUERY#\#}" ;;
+        git)        QUERY="${QUERY#!}" ;;
+        scrollback) QUERY="${QUERY#\$}" ;;
+        commands)   QUERY="${QUERY#:}" ;;
     esac
 }
 _strip_mode_prefix
@@ -1172,4 +1221,6 @@ case "$MODE" in
     windows)        run_windows_mode ;;
     rename)         run_rename_mode ;;
     rename-session) run_rename_session_mode ;;
+    scrollback)     run_scrollback_mode ;;
+    commands)       run_commands_mode ;;
 esac
