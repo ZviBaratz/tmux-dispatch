@@ -47,6 +47,22 @@ Sleep 1s
 Type "!"
 Sleep 1.5s
 
+# Backspace to return home
+Backspace
+Sleep 1s
+
+# Switch to scrollback with $
+Type "$"
+Sleep 1.5s
+
+# Backspace to return home
+Backspace
+Sleep 1s
+
+# Switch to commands with :
+Type ":"
+Sleep 1.5s
+
 # Close
 Escape
 Sleep 500ms

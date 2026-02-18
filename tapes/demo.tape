@@ -16,6 +16,13 @@ Hide
 Type "bash tapes/demo-setup-modes.sh && tmux -L demo-vhs attach -t demo"
 Enter
 Sleep 2s
+# Generate scrollback content for later scrollback demo
+Type "echo 'deploy complete — v1.2.0'"
+Enter
+Sleep 300ms
+Type "git log --oneline"
+Enter
+Sleep 300ms
 Type "clear"
 Enter
 Sleep 500ms
@@ -96,6 +103,15 @@ Sleep 1s
 Alt+o
 Sleep 500ms
 Type@150ms ">Hello"
+Sleep 2s
+Escape
+Sleep 1s
+
+# ─── 8. Scrollback search — "$" prefix searches tmux pane history ──────────
+
+Alt+o
+Sleep 500ms
+Type@150ms "$deploy"
 Sleep 2s
 Escape
 Sleep 1s
