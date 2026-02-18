@@ -1252,6 +1252,60 @@ line3"
     [ "$output" = "dir_exists" ]
 }
 
+# ─── Tool-missing hints ──────────────────────────────────────────────────
+
+@test "tool hints: both missing shows fd and bat tips joined by separator" {
+    run bash -c '
+        FD_CMD="" BAT_CMD=""
+        header=""
+        [[ -z "$FD_CMD" ]] && header="tip: install fd for faster search with .gitignore support"
+        [[ -z "$BAT_CMD" ]] && header="${header:+$header  ·  }tip: install bat for syntax-highlighted preview"
+        echo "$header"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"install fd"* ]]
+    [[ "$output" == *"install bat"* ]]
+    [[ "$output" == *"  ·  "* ]]
+}
+
+@test "tool hints: only bat missing shows bat tip only" {
+    run bash -c '
+        FD_CMD="fd" BAT_CMD=""
+        header=""
+        [[ -z "$FD_CMD" ]] && header="tip: install fd for faster search with .gitignore support"
+        [[ -z "$BAT_CMD" ]] && header="${header:+$header  ·  }tip: install bat for syntax-highlighted preview"
+        echo "$header"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"install fd"* ]]
+    [[ "$output" == *"install bat"* ]]
+}
+
+@test "tool hints: only fd missing shows fd tip only" {
+    run bash -c '
+        FD_CMD="" BAT_CMD="bat"
+        header=""
+        [[ -z "$FD_CMD" ]] && header="tip: install fd for faster search with .gitignore support"
+        [[ -z "$BAT_CMD" ]] && header="${header:+$header  ·  }tip: install bat for syntax-highlighted preview"
+        echo "$header"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"install fd"* ]]
+    [[ "$output" != *"install bat"* ]]
+}
+
+@test "tool hints: both present produces empty header" {
+    run bash -c '
+        FD_CMD="fd" BAT_CMD="bat"
+        header=""
+        [[ -z "$FD_CMD" ]] && header="tip: install fd for faster search with .gitignore support"
+        [[ -z "$BAT_CMD" ]] && header="${header:+$header  ·  }tip: install bat for syntax-highlighted preview"
+        echo "$header"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "" ]
+}
+
 # ─── Doctor script ────────────────────────────────────────────────────────
 
 @test "doctor.sh: exists and is executable" {

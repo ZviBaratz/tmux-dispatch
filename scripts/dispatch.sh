@@ -492,6 +492,13 @@ fi"
     }
     _build_file_list_cmd
 
+    # Tool-missing hints: show tips when optional tools are absent
+    local header=""
+    [[ -z "$FD_CMD" ]] && header="tip: install fd for faster search with .gitignore support"
+    [[ -z "$BAT_CMD" ]] && header="${header:+$header  ·  }tip: install bat for syntax-highlighted preview"
+    local -a header_args=()
+    [[ -n "$header" ]] && header_args=(--header "$header")
+
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
@@ -500,6 +507,7 @@ fi"
             { bookmarks_for_pwd "$PWD"; _run_file_cmd; } | awk '!seen[$0]++' | _ext_filter
         fi | _annotate_files | fzf \
         "${BASE_FZF_OPTS[@]}" \
+        "${header_args[@]}" \
         --ansi --delimiter=$'\t' --nth=2.. --tabstop=3 \
         --expect=ctrl-o,ctrl-y \
         --multi \
