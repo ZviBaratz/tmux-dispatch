@@ -484,7 +484,7 @@ fi"
         --prompt '  ' \
         --preview "$smart_preview" \
         --preview-label="$initial_preview_label" \
-        --border-label ' files · enter open · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
+        --border-label ' files · ? help · enter open · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
@@ -553,7 +553,7 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label ' grep · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ^x delete · ⌫ files ' \
+        --border-label ' grep > · ? help · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-f:transform:$grep_toggle" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{1}')" \
@@ -665,7 +665,7 @@ run_session_mode() {
             --accept-nth=1 \
             --ansi \
             --no-sort \
-            --border-label ' sessions · enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
+            --border-label ' sessions @ · ? help · enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' '{1}'" \
             --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session='{1}')" \
@@ -766,7 +766,7 @@ run_session_new_mode() {
     local selected
     selected=$(_run_dir_cmd | sort | fzf \
         "${BASE_FZF_OPTS[@]}" \
-        --border-label=' new session · enter select · ⌫ sessions ' \
+        --border-label=' new session · ? help · enter select · ⌫ sessions ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "backward-eof:$become_sessions" \
@@ -935,7 +935,7 @@ run_directory_mode() {
         --prompt 'dirs # ' \
         --header "${PWD/#"$HOME"/~}" \
         --preview "$dir_preview" \
-        --border-label ' dirs · enter cd · ^y copy · ⌫ files ' \
+        --border-label ' dirs # · ? help · enter cd · ^y copy · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_DIRS'" \
@@ -1000,7 +1000,7 @@ run_windows_mode() {
             --no-cycle \
             --expect=ctrl-y \
             --prompt "$SESSION windows  " \
-            --border-label ' windows · ←→ move · ↑↓ skip · enter switch · ^y copy · ⌫ sessions ' \
+            --border-label ' windows · ? help · ←→ move · ↑↓ skip · enter switch · ^y copy · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") '{1}'" \
             --bind "right:down" \
@@ -1080,7 +1080,7 @@ run_git_mode() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '{2..}' '{1}'" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' git · tab stage · S-tab select · enter open · ^r rename · ^x delete · ⌫ files ' \
+        --border-label ' git ! · ? help · tab stage · S-tab select · enter open · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
