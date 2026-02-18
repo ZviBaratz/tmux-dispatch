@@ -445,33 +445,9 @@ run_files_mode() {
         file_preview="head -500 '$fzf_file'"
     fi
 
-    # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  \\033[1mType to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n  \\033[38;5;103m\$\\033[0m  scrollback search\\n  \\033[38;5;103m:\\033[0m  custom commands\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
+    trap 'command rm -f "$hidden_flag"' EXIT
 
-    # Flag file: preview shows welcome on first run (flag exists), file preview after
-    local welcome_flag
-    welcome_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXX")
-    trap 'command rm -f "$welcome_flag" "$hidden_flag"' EXIT
-
-    # Smart preview: when flag exists → welcome + delete flag; otherwise → file preview
-    local sq_welcome
-    sq_welcome=$(_sq_escape "$welcome_flag")
-    local smart_preview="if [ -f '$sq_welcome' ]; then command rm -f '$sq_welcome'; $welcome_preview; else $file_preview; fi"
-
-    local initial_preview_label=" guide "
-    if [[ -n "$QUERY" ]]; then
-        command rm -f "$welcome_flag"  # skip welcome when query is provided
-        initial_preview_label=" preview "
-    fi
-
-    # change:transform handles three concerns:
-    # 1. > prefix → become grep mode
-    # 2. @ prefix → become sessions mode
-    # 3. empty ↔ non-empty → toggle welcome/file preview
-    #
-    # Uses execute-silent + refresh-preview to update the flag file and re-run
-    # the smart preview, rather than change-preview which would replace the
-    # stateful preview command with a static one.
+    # change:transform: prefix detection → become mode switch
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$SQ_PANE_ID' --query={q})\"
@@ -485,10 +461,6 @@ elif [[ {q} == '\$'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
-elif [[ -z {q} ]]; then
-  echo \"execute-silent(touch '$sq_welcome')+refresh-preview+change-preview-label( guide )\"
-else
-  echo \"execute-silent(command rm -f '$sq_welcome')+refresh-preview+change-preview-label( preview )\"
 fi"
 
     # ─── Reload command construction ────────────────────────────────────────────
@@ -533,15 +505,12 @@ fi"
         --multi \
         --query "$QUERY" \
         --prompt '  ' \
-        --preview "$smart_preview" \
-        --preview-label="$initial_preview_label" \
+        --preview "$file_preview" \
+        --preview-label=" preview " \
         --border-label ' files · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
-        --bind "start:unbind(focus)" \
-        --bind "down:rebind(focus)+down" \
-        --bind "up:rebind(focus)+up" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_file')" \
         --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_files')+reload:$file_list_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' '$fzf_file')+reload:$file_list_cmd" \
