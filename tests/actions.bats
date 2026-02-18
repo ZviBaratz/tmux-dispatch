@@ -587,6 +587,96 @@ MOCK
     [[ "$output" == *"Copied"* ]]
 }
 
+@test "smart-open: diff type opens file at line 1" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open diff "src/main.rs" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"+1"* ]]
+    [[ "$output" == *"src/main.rs"* ]]
+}
+
+@test "smart-open: file type opens file at line 1" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open file "README.md" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"+1"* ]]
+    [[ "$output" == *"README.md"* ]]
+}
+
+@test "smart-open: hash in git repo sends git show to pane" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    # Mock git to report inside work tree and valid object
+    cat > "$BATS_TEST_TMPDIR/git" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$1" == "rev-parse" ]]; then echo true; exit 0; fi
+if [[ "$1" == "cat-file" ]]; then echo commit; exit 0; fi
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/git"
+
+    run "$ACTIONS" smart-open hash "abc1234def" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"git show abc1234def"* ]]
+}
+
+@test "smart-open: hash outside git repo copies to clipboard" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    # Mock git to report NOT inside work tree
+    cat > "$BATS_TEST_TMPDIR/git" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/git"
+
+    run "$ACTIONS" smart-open hash "abc1234def" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"display-message"* ]]
+    [[ "$output" == *"Copied"* ]]
+}
+
+@test "smart-open: uuid type copies to clipboard" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open uuid "550e8400-e29b-41d4-a716-446655440000" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"display-message"* ]]
+    [[ "$output" == *"Copied"* ]]
+}
+
 @test "smart-open: empty token is a no-op" {
     run "$ACTIONS" smart-open url "" "%1" "vim"
     [ "$status" -eq 0 ]

@@ -328,7 +328,8 @@ HELP_EXTRACT="$(printf '%b' '
   tab       select
   ⌫ empty   back to files
 
-  \033[38;5;244mtypes: url path hash ip\033[0m
+  \033[36murl\033[0m \033[33mpath\033[0m \033[35mhash\033[0m \033[32mip\033[0m \033[34muuid\033[0m \033[31mdiff\033[0m \033[33mfile\033[0m
+  ^F        filter by type
   ^D/^U     scroll preview
 ')"
 
@@ -1252,12 +1253,14 @@ run_scrollback_mode() {
     local become_files_empty="$BECOME_FILES"
 
     # Capture raw scrollback from originating pane
-    local raw_file lines_file tokens_file view_flag
+    local raw_file lines_file tokens_file view_flag filter_file
     raw_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-raw-XXXXXX")
     lines_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-lines-XXXXXX")
     tokens_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-tokens-XXXXXX")
     view_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-view-XXXXXX")
-    trap 'command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag"' EXIT
+    filter_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-filter-XXXXXX")
+    printf 'all' > "$filter_file"
+    trap 'command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag" "$filter_file"' EXIT
 
     tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null > "$raw_file"
 
@@ -1287,20 +1290,37 @@ run_scrollback_mode() {
         command rm -f "$view_flag"
     fi
 
-    local sq_lines_file sq_tokens_file sq_view_flag sq_raw_file
+    local sq_lines_file sq_tokens_file sq_view_flag sq_raw_file sq_filter_file
     sq_lines_file=$(_sq_escape "$lines_file")
     sq_tokens_file=$(_sq_escape "$tokens_file")
     sq_view_flag=$(_sq_escape "$view_flag")
     sq_raw_file=$(_sq_escape "$raw_file")
+    sq_filter_file=$(_sq_escape "$filter_file")
 
     # Preview command: branches on view flag
     # Lines view: show surrounding context (5 lines) around selected line
-    # Tokens view: show token type header + grep context in raw scrollback
+    # Tokens view: type-aware preview (git show for hashes, bat for files, grep context for rest)
+    local sq_bat=""
+    [[ -n "$BAT_CMD" ]] && sq_bat=$(_sq_escape "$BAT_CMD")
+
     local preview_cmd="if [ -f '$sq_view_flag' ]; then \
 token=\$(printf '%s' '{}' | cut -f2); \
-ttype=\$(printf '%s' '{}' | cut -f1); \
+ttype=\$(printf '%s' '{}' | cut -f1 | sed 's/\\x1b\\[[0-9;]*m//g'); \
 printf '\\033[1;36m%s\\033[0m  \\033[38;5;244m(%s)\\033[0m\\n\\033[38;5;244m─────────────────────────────────────────\\033[0m\\n' \"\$token\" \"\$ttype\"; \
+if [ \"\$ttype\" = hash ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git cat-file -t \"\$token\" >/dev/null 2>&1; then \
+git show --stat --format='%h %s%n%an  %ci' \"\$token\" 2>/dev/null | head -40; \
+elif [ \"\$ttype\" = path ] || [ \"\$ttype\" = diff ] || [ \"\$ttype\" = file ]; then \
+file=\"\${token%%:*}\"; line=\"\${token#*:}\"; line=\"\${line%%:*}\"; \
+case \"\$line\" in *[!0-9]*) line=1;; esac; \
+[ -z \"\$line\" ] && line=1; \
+if [ -f \"\$file\" ]; then \
+${sq_bat:+"'$sq_bat' --color=always --highlight-line \"\$line\" --style=numbers --line-range=:\$((\$line+50)) \"\$file\" 2>/dev/null ||"} head -50 \"\$file\"; \
+else \
 grep --color=always -F -B2 -A2 -- \"\$token\" '$sq_raw_file' 2>/dev/null | head -30; \
+fi; \
+else \
+grep --color=always -F -B2 -A2 -- \"\$token\" '$sq_raw_file' 2>/dev/null | head -30; \
+fi; \
 else \
 awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_lines_file'; \
 fi"
@@ -1314,15 +1334,35 @@ fi"
     # fzf's --bind parser, which interprets single quotes during transform: parsing.
     # Since the outer definition is double-quoted, variables are expanded inline.
     local lines_label_inner=" scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files "
-    local tokens_label_inner=" extract \$ · ? help · ^t lines · enter copy · ^o open · tab select · ⌫ files "
+    local tokens_label_inner=" extract \$ · ? help · ^t lines · ^f filter · enter copy · ^o open · tab select · ⌫ files "
     local lines_label="'$lines_label_inner'"
     local tokens_label="'$tokens_label_inner'"
     local toggle_cmd="if [ -f '$sq_view_flag' ]; then \
 command rm -f '$sq_view_flag'; \
+printf all > '$sq_filter_file'; \
 echo 'reload(cat $sq_lines_file)+change-prompt(scrollback \$ )+change-border-label($lines_label_inner)'; \
 else \
 touch '$sq_view_flag'; \
+printf all > '$sq_filter_file'; \
 echo 'reload(cat $sq_tokens_file)+change-prompt(extract \$ )+change-border-label($tokens_label_inner)'; \
+fi"
+
+    # Ctrl+F filter: cycle through token types (only active in tokens view)
+    # Uses grep with ESC-byte anchor to match type label in first field reliably.
+    # Token lines are \033[XXmTYPE\033[0m\tVALUE — grepping for "mTYPE\033" is unique
+    # because token values never contain ESC bytes (ANSI stripped during extraction).
+    local esc=$'\033'
+    local filter_cmd="if [ ! -f '$sq_view_flag' ]; then exit 0; fi; \
+cur=\$(cat '$sq_filter_file'); \
+case \"\$cur\" in \
+all) next=url;; url) next=path;; path) next=hash;; hash) next=ip;; \
+ip) next=uuid;; uuid) next=diff;; diff) next=file;; file) next=all;; \
+*) next=all;; esac; \
+printf '%s' \"\$next\" > '$sq_filter_file'; \
+if [ \"\$next\" = all ]; then \
+echo 'reload(cat $sq_tokens_file)+change-prompt(extract \$ )+change-border-label($tokens_label_inner)'; \
+else \
+echo \"reload(grep m\$next${esc} $sq_tokens_file; true)+change-prompt(extract \\\$ \$next >)+change-border-label($tokens_label_inner)\"; \
 fi"
 
     # Determine initial state
@@ -1351,6 +1391,7 @@ fi"
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-t:transform:$toggle_cmd" \
+        --bind "ctrl-f:transform:$filter_cmd" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:$help_cmd" \
     ) || exit 0
@@ -1376,6 +1417,8 @@ handle_scrollback_result() {
                 local item
                 for item in "${items[@]}"; do
                     local ttype="${item%%	*}"
+                    # Strip ANSI color codes from type field
+                    ttype=$(printf '%s' "$ttype" | sed 's/\x1b\[[0-9;]*m//g')
                     local token="${item#*	}"
                     "$SCRIPT_DIR/actions.sh" smart-open "$ttype" "$token" "$PANE_ID" "$PANE_EDITOR"
                 done
@@ -1595,21 +1638,47 @@ _extract_tokens() {
     sed 's/\x1b\[[0-9;]*m//g' "$file" \
         | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$reversed"
     {
-        # URLs (existing proven regex)
+        # URLs — balanced-paren logic for Wikipedia-style URLs like Bash_(Unix_shell)
         grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' "$reversed" \
-            | sed "s/[.,;:!?)'\"\`]*$//" \
-            | awk '{print "url\t" $0}' || true
-        # File paths with line numbers (require extension before :linenum)
+            | while IFS= read -r url; do
+                # Balance parentheses: strip trailing ) only if unmatched
+                opens="${url//[^(]/}"; closes="${url//[^)]/}"
+                while [[ ${#closes} -gt ${#opens} && "$url" == *')' ]]; do
+                    url="${url%)}"; closes="${closes%)}"
+                done
+                # Strip remaining trailing punctuation
+                while [[ "$url" =~ [.,\;:!\?\"\'~\`]$ ]]; do
+                    url="${url%?}"
+                done
+                printf '%s\n' "$url"
+            done \
+            | awk '{print "\033[36murl\033[0m\t" $0}' || true
+        # File paths with line numbers — validate file exists on disk
         grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' "$reversed" \
             | grep -v '^//' \
-            | awk '{print "path\t" $0}' || true
+            | while IFS= read -r match; do
+                [[ -f "${match%%:*}" ]] && printf '\033[33mpath\033[0m\t%s\n' "$match"
+            done || true
+        # Bare file paths — only if file actually exists (eliminates false positives)
+        grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' "$reversed" \
+            | grep -v '^//' | sort -u \
+            | while IFS= read -r match; do
+                [[ -f "$match" ]] && printf '\033[33mfile\033[0m\t%s\n' "$match"
+            done || true
         # Git commit hashes (7-40 hex chars, word-bounded, exclude all-digit)
         grep -oEw '[0-9a-f]{7,40}' "$reversed" \
             | grep -v '^[0-9]*$' \
-            | awk '{print "hash\t" $0}' || true
+            | awk '{print "\033[35mhash\033[0m\t" $0}' || true
         # IPv4 addresses with optional port
         grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]{1,5})?' "$reversed" \
-            | awk '{print "ip\t" $0}' || true
+            | awk '{print "\033[32mip\033[0m\t" $0}' || true
+        # UUIDs (8-4-4-4-12 hex format — common in AWS, Docker, K8s, DB keys)
+        grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$reversed" \
+            | awk '{print "\033[34muuid\033[0m\t" $0}' || true
+        # Diff paths (--- a/file and +++ b/file from git diff output)
+        grep -oE '[-+]{3} [ab]/[^ ]+' "$reversed" \
+            | sed 's/^[-+]* [ab]\///' \
+            | awk '{print "\033[31mdiff\033[0m\t" $0}' || true
     } | awk '!seen[$0]++'
     command rm -f "$reversed"
 }

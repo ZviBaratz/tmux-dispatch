@@ -237,7 +237,7 @@ action_smart_open() {
     [[ -z "$token" ]] && return 0
     case "$type" in
         url)  action_open_url "$token" ;;
-        path)
+        path|diff|file)
             local file="${token%%:*}"
             local line_num="${token#*:}"; line_num="${line_num%%:*}"
             [[ "$line_num" =~ ^[0-9]+$ ]] || line_num=1
@@ -247,6 +247,21 @@ action_smart_open() {
             else
                 printf '%s' "$token" | tmux load-buffer -w -
                 tmux display-message "No editor target — copied: $token"
+            fi
+            ;;
+        hash)
+            if git rev-parse --is-inside-work-tree &>/dev/null \
+               && git cat-file -t "$token" &>/dev/null; then
+                if [[ -n "$pane_id" ]]; then
+                    tmux send-keys -t "$pane_id" "git show $token" Enter
+                    tmux display-message "Showing: ${token:0:8}..."
+                else
+                    printf '%s' "$token" | tmux load-buffer -w -
+                    tmux display-message "Copied: $token"
+                fi
+            else
+                printf '%s' "$token" | tmux load-buffer -w -
+                tmux display-message "Copied: $token"
             fi
             ;;
         *)

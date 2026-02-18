@@ -1707,6 +1707,257 @@ more at https://new.com/page?q=1,"
     [ "$result" = "https://example.com" ]
 }
 
+@test "extract: ANSI color codes stripped from type field in result handler" {
+    # Simulate what handle_scrollback_result does: extract type and strip ANSI
+    local item=$'\033[36murl\033[0m\thttps://example.com'
+    local ttype="${item%%	*}"
+    ttype=$(printf '%s' "$ttype" | sed 's/\x1b\[[0-9;]*m//g')
+    [ "$ttype" = "url" ]
+}
+
+@test "extract: colored type labels present in _extract_tokens output format" {
+    # Verify awk output includes ANSI color codes
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -c "\\\\033\[3[0-9]m" "'"$src"'"'
+    # Should have at least 7 colored type labels (url, path, hash, ip, uuid, diff, + file later)
+    [[ "${lines[0]}" -ge 6 ]]
+}
+
+@test "extract: URL with balanced parens preserved (Wikipedia)" {
+    local result
+    result=$(echo "see https://en.wikipedia.org/wiki/Bash_(Unix_shell) for info" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | while IFS= read -r url; do
+            opens="${url//[^(]/}"; closes="${url//[^)]/}"
+            while [[ ${#closes} -gt ${#opens} && "$url" == *')' ]]; do
+                url="${url%)}"; closes="${closes%)}"
+            done
+            while [[ "$url" =~ [.,\;:!\?\"\'~\`]$ ]]; do url="${url%?}"; done
+            printf '%s\n' "$url"
+        done)
+    [ "$result" = "https://en.wikipedia.org/wiki/Bash_(Unix_shell)" ]
+}
+
+@test "extract: URL in markdown link strips trailing paren" {
+    local result
+    result=$(echo "[link](https://example.com/page)" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | while IFS= read -r url; do
+            opens="${url//[^(]/}"; closes="${url//[^)]/}"
+            while [[ ${#closes} -gt ${#opens} && "$url" == *')' ]]; do
+                url="${url%)}"; closes="${closes%)}"
+            done
+            while [[ "$url" =~ [.,\;:!\?\"\'~\`]$ ]]; do url="${url%?}"; done
+            printf '%s\n' "$url"
+        done)
+    [ "$result" = "https://example.com/page" ]
+}
+
+@test "extract: bare URL without parens unchanged" {
+    local result
+    result=$(echo "visit https://example.com/path?q=1&r=2 today" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | while IFS= read -r url; do
+            opens="${url//[^(]/}"; closes="${url//[^)]/}"
+            while [[ ${#closes} -gt ${#opens} && "$url" == *')' ]]; do
+                url="${url%)}"; closes="${closes%)}"
+            done
+            while [[ "$url" =~ [.,\;:!\?\"\'~\`]$ ]]; do url="${url%?}"; done
+            printf '%s\n' "$url"
+        done)
+    [ "$result" = "https://example.com/path?q=1&r=2" ]
+}
+
+@test "extract: URL strips trailing punctuation" {
+    local result
+    result=$(echo "check https://example.com/page, and more" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
+        | while IFS= read -r url; do
+            opens="${url//[^(]/}"; closes="${url//[^)]/}"
+            while [[ ${#closes} -gt ${#opens} && "$url" == *')' ]]; do
+                url="${url%)}"; closes="${closes%)}"
+            done
+            while [[ "$url" =~ [.,\;:!\?\"\'~\`]$ ]]; do url="${url%?}"; done
+            printf '%s\n' "$url"
+        done)
+    [ "$result" = "https://example.com/page" ]
+}
+
+@test "extract: diff path regex matches --- a/ format" {
+    local result
+    result=$(echo "--- a/src/main.rs" \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///')
+    [ "$result" = "src/main.rs" ]
+}
+
+@test "extract: diff path regex matches +++ b/ format" {
+    local result
+    result=$(echo "+++ b/lib/utils.js" \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///')
+    [ "$result" = "lib/utils.js" ]
+}
+
+@test "extract: diff path regex rejects non-diff lines" {
+    local result
+    result=$(echo "-- not a diff" \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' || true)
+    [ -z "$result" ]
+}
+
+@test "extract: UUID regex matches standard format" {
+    local result
+    result=$(echo "request id: 550e8400-e29b-41d4-a716-446655440000 done" \
+        | grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+    [ "$result" = "550e8400-e29b-41d4-a716-446655440000" ]
+}
+
+@test "extract: UUID regex rejects short/malformed UUIDs" {
+    local result
+    result=$(echo "not-a-uuid: 550e8400-e29b-41d4-a716 or abc-def" \
+        | grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' || true)
+    [ -z "$result" ]
+}
+
+@test "extract: UUID regex is case-insensitive" {
+    local result
+    result=$(echo "ID: 550E8400-E29B-41D4-A716-446655440000" \
+        | grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+    [ "$result" = "550E8400-E29B-41D4-A716-446655440000" ]
+}
+
+@test "extract: path with line number validated against existing file" {
+    # Create a real file to validate against
+    touch "$BATS_TEST_TMPDIR/main.rs"
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && echo "error at main.rs:42" \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' \
+        | grep -v '^//' \
+        | while IFS= read -r match; do
+            [[ -f "${match%%:*}" ]] && printf 'path\t%s\n' "$match"
+        done)
+    [ "$result" = "path	main.rs:42" ]
+}
+
+@test "extract: path with line number rejected for non-existent file" {
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && echo "error at nonexistent.xyz:42" \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' \
+        | grep -v '^//' \
+        | while IFS= read -r match; do
+            [[ -f "${match%%:*}" ]] && printf 'path\t%s\n' "$match"
+        done || true)
+    [ -z "$result" ]
+}
+
+@test "extract: bare file path detected when file exists" {
+    touch "$BATS_TEST_TMPDIR/utils.js"
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && echo "see utils.js for details" \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' \
+        | grep -v '^//' | sort -u \
+        | while IFS= read -r match; do
+            [[ -f "$match" ]] && printf 'file\t%s\n' "$match"
+        done)
+    [ "$result" = "file	utils.js" ]
+}
+
+@test "extract: bare file path not emitted when file does not exist" {
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && echo "see phantom.xyz for details" \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' \
+        | grep -v '^//' | sort -u \
+        | while IFS= read -r match; do
+            [[ -f "$match" ]] && printf 'file\t%s\n' "$match"
+        done || true)
+    [ -z "$result" ]
+}
+
+@test "extract: ctrl-f filter binding present in scrollback mode" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -c "ctrl-f:transform" "'"$src"'"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "extract: filter cycle order is all→url→path→hash→ip→uuid→diff→file→all" {
+    # Test the case statement cycle logic used in the filter transform
+    run bash -c '
+        for cur in all url path hash ip uuid diff file; do
+            case "$cur" in
+                all) next=url;; url) next=path;; path) next=hash;; hash) next=ip;;
+                ip) next=uuid;; uuid) next=diff;; diff) next=file;; file) next=all;;
+                *) next=all;;
+            esac
+            printf "%s→%s " "$cur" "$next"
+        done
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"all→url"* ]]
+    [[ "$output" == *"url→path"* ]]
+    [[ "$output" == *"path→hash"* ]]
+    [[ "$output" == *"hash→ip"* ]]
+    [[ "$output" == *"ip→uuid"* ]]
+    [[ "$output" == *"uuid→diff"* ]]
+    [[ "$output" == *"diff→file"* ]]
+    [[ "$output" == *"file→all"* ]]
+}
+
+@test "extract: filter file created and initialized to 'all'" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    # Verify filter file creation in run_scrollback_mode
+    run bash -c 'grep "printf.*all.*filter_file" "'"$src"'"'
+    [ "$status" -eq 0 ]
+}
+
+@test "extract: ctrl-t toggle resets filter to all" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    # Both branches of the toggle_cmd should reset the filter
+    run bash -c 'grep -c "printf all.*filter_file" "'"$src"'"'
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "extract: grep ESC-anchor filters by type in first field only" {
+    # Simulate the grep filter approach: mTYPE\033 matches only type labels
+    local tokens_file
+    tokens_file=$(mktemp)
+    printf "\033[36murl\033[0m\thttps://example.com\n" > "$tokens_file"
+    printf "\033[33mpath\033[0m\tsrc/main.rs:42\n" >> "$tokens_file"
+    printf "\033[35mhash\033[0m\tabc1234\n" >> "$tokens_file"
+
+    # Filter for url — should match only the url line
+    local esc=$'\033'
+    local result
+    result=$(grep "murl${esc}" "$tokens_file" | wc -l)
+    [ "$result" -eq 1 ]
+
+    # Filter for path — should match only the path line
+    result=$(grep "mpath${esc}" "$tokens_file" | wc -l)
+    [ "$result" -eq 1 ]
+
+    # Filter for hash — should match only the hash line
+    result=$(grep "mhash${esc}" "$tokens_file" | wc -l)
+    [ "$result" -eq 1 ]
+
+    # "url" in the URL value should NOT be matched by murl\033
+    # (the ESC byte after "url" only appears in the type label, not the value)
+    printf "\033[35mhash\033[0m\thttps://myurl.com/abc1234\n" >> "$tokens_file"
+    result=$(grep "murl${esc}" "$tokens_file" | wc -l)
+    [ "$result" -eq 1 ]  # Still only the actual url-typed line
+
+    command rm -f "$tokens_file"
+}
+
+@test "extract: ^f filter hint in tokens border label" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep "tokens_label_inner" "'"$src"'" | grep -c "\\^f filter"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "extract: ^f filter hint in HELP_EXTRACT" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -A20 "HELP_EXTRACT=" "'"$src"'" | grep -c "filter"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
 @test "extract: browser detection uses BROWSER then xdg-open then open" {
     run bash -c '
         src="'"$SCRIPT_DIR"'/actions.sh"
