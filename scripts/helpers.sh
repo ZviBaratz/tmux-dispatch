@@ -247,6 +247,20 @@ _sq_escape() { printf '%s' "${1//\'/\'\\\'\'}"; }
 # Display error message to the user via tmux status line
 _dispatch_error() { tmux display-message "dispatch: $1"; }
 
+# Read a cached value from a tmux server variable, with fallback to live detection.
+# Used by dispatch.sh to avoid re-detecting tools on every popup open.
+# Usage: _dispatch_read_cached "@_dispatch-fd" detect_fd
+_dispatch_read_cached() {
+    local var="$1" fallback_fn="$2"
+    local val
+    val=$(tmux show -sv "$var" 2>/dev/null) || val=""
+    if [[ -n "$val" ]]; then
+        echo "$val"
+    else
+        "$fallback_fn"
+    fi
+}
+
 # Resolve a path to absolute form, normalizing . and .. components.
 # Works even when path components don't yet exist (like GNU realpath -m).
 # Falls back to pure bash on macOS where realpath lacks -m.

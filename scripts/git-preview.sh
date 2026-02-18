@@ -29,7 +29,7 @@ fi
 
 [[ -f "$FILE" ]] || { echo "File not found: $FILE"; exit 0; }
 
-BAT_CMD=$(detect_bat)
+BAT_CMD=$(_dispatch_read_cached "@_dispatch-bat" detect_bat)
 
 # Determine which diff to show based on status icon
 # Status icons: ✚ (staged), ● (modified), ✹ (both), ? (untracked)

@@ -82,22 +82,33 @@ case "$MODE" in
         ;;
 esac
 
-# ─── Read tmux options ───────────────────────────────────────────────────────
+# ─── Read tmux options (batched) ─────────────────────────────────────────────
+# One tmux subprocess instead of separate show-option calls.
+POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
+HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
+while IFS= read -r line; do
+    key="${line%% *}"
+    val="${line#* }"
+    val="${val#\"}" ; val="${val%\"}"
+    val="${val#\'}" ; val="${val%\'}"
+    case "$key" in
+        @dispatch-popup-editor)    POPUP_EDITOR="$val" ;;
+        @dispatch-pane-editor)     PANE_EDITOR="$val" ;;
+        @dispatch-fd-args)         FD_EXTRA_ARGS="$val" ;;
+        @dispatch-rg-args)         RG_EXTRA_ARGS="$val" ;;
+        @dispatch-history)         HISTORY_ENABLED="$val" ;;
+        @dispatch-file-types)      FILE_TYPES="$val" ;;
+        @dispatch-git-indicators)  GIT_INDICATORS="$val" ;;
+        @dispatch-theme)           DISPATCH_THEME="$val" ;;
+    esac
+done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
+POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
+PANE_EDITOR=$(detect_pane_editor "$PANE_EDITOR")
 
-POPUP_EDITOR=$(detect_popup_editor "$(get_tmux_option "@dispatch-popup-editor" "")")
-PANE_EDITOR=$(detect_pane_editor "$(get_tmux_option "@dispatch-pane-editor" "")")
-FD_EXTRA_ARGS=$(get_tmux_option "@dispatch-fd-args" "")
-RG_EXTRA_ARGS=$(get_tmux_option "@dispatch-rg-args" "")
-HISTORY_ENABLED=$(get_tmux_option "@dispatch-history" "on")
-FILE_TYPES=$(get_tmux_option "@dispatch-file-types" "")
-GIT_INDICATORS=$(get_tmux_option "@dispatch-git-indicators" "on")
-DISPATCH_THEME=$(get_tmux_option "@dispatch-theme" "default")
-
-# ─── Detect tools ────────────────────────────────────────────────────────────
-
-FD_CMD=$(detect_fd)
-BAT_CMD=$(detect_bat)
-RG_CMD=$(detect_rg)
+# ─── Read cached tool paths ──────────────────────────────────────────────────
+FD_CMD=$(_dispatch_read_cached "@_dispatch-fd" detect_fd)
+BAT_CMD=$(_dispatch_read_cached "@_dispatch-bat" detect_bat)
+RG_CMD=$(_dispatch_read_cached "@_dispatch-rg" detect_rg)
 
 # ─── Escape values for fzf bind strings ──────────────────────────────────────
 # fzf execute()/become() commands run via $SHELL -c. Variables embedded in
@@ -120,7 +131,10 @@ command -v fzf &>/dev/null || {
     exit 1
 }
 
-fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+fzf_version=$(tmux show -sv @_dispatch-fzf-version 2>/dev/null) || fzf_version=""
+if [[ -z "$fzf_version" ]]; then
+    fzf_version=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+fi
 if [[ -n "$fzf_version" ]]; then
     _fzf_below() { [[ "$(printf '%s\n%s' "$1" "$fzf_version" | sort -V | head -n1)" != "$1" ]]; }
     if _fzf_below "0.38"; then
@@ -903,7 +917,7 @@ run_rename_session_mode() {
 
 run_directory_mode() {
     local ZOXIDE_CMD
-    ZOXIDE_CMD=$(detect_zoxide)
+    ZOXIDE_CMD=$(_dispatch_read_cached "@_dispatch-zoxide" detect_zoxide)
 
     # Directory listing command
     _run_dir_cmd() {

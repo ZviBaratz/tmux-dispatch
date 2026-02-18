@@ -19,7 +19,7 @@ LINE="${2:-1}"
 
 [[ -f "$FILE" ]] || { echo "File not found: $FILE"; exit 0; }
 
-BAT_CMD=$(detect_bat)
+BAT_CMD=$(_dispatch_read_cached "@_dispatch-bat" detect_bat)
 
 if [[ -n "$BAT_CMD" ]]; then
     "$BAT_CMD" --color=always --style=numbers --highlight-line "$LINE" "$FILE"

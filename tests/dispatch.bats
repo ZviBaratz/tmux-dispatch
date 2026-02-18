@@ -846,3 +846,116 @@ session-name	extra-info"
     [ "$status" -eq 0 ]
     [[ "$output" != *"sanitized from:"* ]]
 }
+
+# ─── Cached tool detection ────────────────────────────────────────────────
+
+@test "cached tool: reads fd from tmux server var" {
+    run bash -c '
+        tmux() {
+            if [[ "$1" == "show" && "$2" == "-sv" && "$3" == "@_dispatch-fd" ]]; then
+                echo "fdfind"
+            else
+                echo ""
+            fi
+        }
+        export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        result=$(_dispatch_read_cached "@_dispatch-fd" detect_fd)
+        echo "$result"
+    '
+    [ "$output" = "fdfind" ]
+}
+
+@test "cached tool: falls back to detection when cache miss" {
+    run bash -c '
+        tmux() { return 1; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        detect_fd() { echo "fd-fallback"; }
+        result=$(_dispatch_read_cached "@_dispatch-fd" detect_fd)
+        echo "$result"
+    '
+    [ "$output" = "fd-fallback" ]
+}
+
+@test "cached tool: falls back when tmux show returns empty" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        detect_bat() { echo "bat-detected"; }
+        result=$(_dispatch_read_cached "@_dispatch-bat" detect_bat)
+        echo "$result"
+    '
+    [ "$output" = "bat-detected" ]
+}
+
+@test "batched options: parses tmux show-options grep output" {
+    run bash -c '
+        POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
+        HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
+        input="@dispatch-fd-args --hidden --no-ignore
+@dispatch-history off
+@dispatch-theme none"
+        while IFS= read -r line; do
+            key="${line%% *}"
+            val="${line#* }"
+            val="${val#\"}" ; val="${val%\"}"
+            case "$key" in
+                @dispatch-fd-args)         FD_EXTRA_ARGS="$val" ;;
+                @dispatch-history)         HISTORY_ENABLED="$val" ;;
+                @dispatch-theme)           DISPATCH_THEME="$val" ;;
+            esac
+        done <<< "$input"
+        echo "fd=$FD_EXTRA_ARGS"
+        echo "history=$HISTORY_ENABLED"
+        echo "theme=$DISPATCH_THEME"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "fd=--hidden --no-ignore" ]
+    [ "${lines[1]}" = "history=off" ]
+    [ "${lines[2]}" = "theme=none" ]
+}
+
+@test "batched options: defaults preserved when no matching options" {
+    run bash -c '
+        POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
+        HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
+        input=""
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            key="${line%% *}"
+            val="${line#* }"
+            val="${val#\"}" ; val="${val%\"}"
+            case "$key" in
+                @dispatch-history)         HISTORY_ENABLED="$val" ;;
+                @dispatch-theme)           DISPATCH_THEME="$val" ;;
+            esac
+        done <<< "$input"
+        echo "history=$HISTORY_ENABLED"
+        echo "theme=$DISPATCH_THEME"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "history=on" ]
+    [ "${lines[1]}" = "theme=default" ]
+}
+
+@test "batched options: strips single-quoted empty values from tmux" {
+    # tmux show-options -g outputs '' for empty string values
+    local script
+    script=$(cat << 'BASH'
+FILE_TYPES="default-val"
+input="@dispatch-file-types ''"
+while IFS= read -r line; do
+    key="${line%% *}"
+    val="${line#* }"
+    val="${val#\"}" ; val="${val%\"}"
+    val="${val#\'}" ; val="${val%\'}"
+    case "$key" in
+        @dispatch-file-types) FILE_TYPES="$val" ;;
+    esac
+done <<< "$input"
+echo "types=[$FILE_TYPES]"
+BASH
+    )
+    run bash -c "$script"
+    [ "${lines[0]}" = "types=[]" ]
+}

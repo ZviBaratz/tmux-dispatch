@@ -15,6 +15,16 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/helpers.sh
 source "$CURRENT_DIR/scripts/helpers.sh"
 
+# ─── Cache tool paths in server variables ───────────────────────────────────
+# Runs once at plugin load. dispatch.sh reads these instead of re-detecting
+# on every popup open. Server variables persist for the tmux server lifetime.
+# Underscore prefix (@_dispatch-*) distinguishes from user-facing options.
+tmux set -s @_dispatch-fd "$(detect_fd)"
+tmux set -s @_dispatch-bat "$(detect_bat)"
+tmux set -s @_dispatch-rg "$(detect_rg)"
+tmux set -s @_dispatch-zoxide "$(detect_zoxide)"
+tmux set -s @_dispatch-fzf-version "$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+
 DISPATCH="$CURRENT_DIR/scripts/dispatch.sh"
 
 # ─── Read user configuration ─────────────────────────────────────────────────
