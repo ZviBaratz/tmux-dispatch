@@ -1345,7 +1345,7 @@ run_urls_mode() {
     sq_scrollback_file=$(_sq_escape "$scrollback_file")
 
     # Preview: show URL header + surrounding context with the URL highlighted
-    local preview_cmd="printf '\033[1;36m%s\033[0m\n\033[38;5;244m─────────────────────────────────────────\033[0m\n' {}; grep --color=always -F -B2 -A2 -- {} '$sq_scrollback_file' | head -20"
+    local preview_cmd="printf '\033[1;36m%s\033[0m\n\033[38;5;244m─────────────────────────────────────────\033[0m\n' '{}'; grep --color=always -F -B2 -A2 -- '{}' '$sq_scrollback_file' | head -20"
 
     local result
     result=$(fzf < "$url_file" \

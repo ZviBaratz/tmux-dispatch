@@ -223,7 +223,7 @@ action_open_url() {
     fi
     if [[ -n "$open_cmd" ]]; then
         tmux run-shell -b "$open_cmd $(printf '%q' "$url") >/dev/null 2>&1"
-        tmux display-message "Opened: $url"
+        tmux display-message "Opened: ${url//#/##}"
     else
         printf '%s' "$url" | tmux load-buffer -w -
         tmux display-message "No browser found — copied URL"
