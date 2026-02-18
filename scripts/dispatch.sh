@@ -1252,6 +1252,33 @@ handle_scrollback_result() {
     esac
 }
 
+# Create default commands.conf with starter recipes
+_create_default_commands() {
+    local conf="$1"
+    mkdir -p "$(dirname "$conf")"
+    cat > "$conf" << 'CONF'
+# tmux-dispatch commands — edit with ^E or directly
+# Format: Description | command
+# Prefix shell commands with nothing, tmux commands with "tmux: "
+# Lines starting with # are comments
+
+# Tmux
+Reload tmux config | tmux: source-file ~/.tmux.conf; display-message "Config reloaded"
+Toggle mouse mode | tmux: if -F "#{mouse}" "set mouse off; display \"Mouse: OFF\"" "set mouse on; display \"Mouse: ON\""
+Toggle status bar | tmux: if -F "#{status}" "set status off" "set status on"
+
+# Clipboard
+Copy pane contents | tmux: capture-pane -J -p | tmux load-buffer -w -; display-message "Pane copied"
+Copy current path | tmux: run-shell "tmux display -p '#{pane_current_path}' | tmux load-buffer -w -"; display-message "Path copied"
+
+# Layout
+Split right | tmux: split-window -h -c "#{pane_current_path}"
+Split down | tmux: split-window -v -c "#{pane_current_path}"
+Even horizontal layout | tmux: select-layout even-horizontal
+Even vertical layout | tmux: select-layout even-vertical
+CONF
+}
+
 run_commands_mode() {
     local become_files_empty="$BECOME_FILES"
     local conf="$COMMANDS_FILE"
@@ -1259,20 +1286,9 @@ run_commands_mode() {
     local sq_conf
     sq_conf=$(_sq_escape "$conf")
 
-    # If config doesn't exist, show empty state with hint
+    # If config doesn't exist, create with defaults
     if [[ ! -f "$conf" ]]; then
-        fzf \
-            "${BASE_FZF_OPTS[@]}" \
-            --query "$QUERY" \
-            --prompt 'commands : ' \
-            --header "No commands configured — press ^E to create $(basename "$conf")" \
-            --border-label ' commands : · ? help · ^e edit · ⌫ files ' \
-            --border-label-pos 'center:bottom' \
-            --bind "ctrl-e:execute(mkdir -p '$(_sq_escape "$(dirname "$conf")")' && '$SQ_POPUP_EDITOR' '$sq_conf')+abort" \
-            --bind "backward-eof:$become_files_empty" \
-            --bind "?:preview:printf '%b' '$SQ_HELP_COMMANDS'" \
-            < /dev/null || true
-        exit 0
+        _create_default_commands "$conf"
     fi
 
     # Parse config: extract non-comment, non-empty lines

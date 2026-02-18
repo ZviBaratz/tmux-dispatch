@@ -1186,3 +1186,68 @@ line3"
     '
     [ "$output" = "commands" ]
 }
+
+# ─── Default commands.conf creation ───────────────────────────────────────
+
+@test "commands: _create_default_commands creates file at specified path" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        eval "$(sed -n "/_create_default_commands()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")"
+        conf="'"$BATS_TEST_TMPDIR"'/subdir/commands.conf"
+        _create_default_commands "$conf"
+        [ -f "$conf" ] && echo "exists" || echo "missing"
+    '
+    [ "$output" = "exists" ]
+}
+
+@test "commands: _create_default_commands includes starter recipes" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        eval "$(sed -n "/_create_default_commands()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")"
+        conf="'"$BATS_TEST_TMPDIR"'/commands.conf"
+        _create_default_commands "$conf"
+        grep -c "Reload tmux config" "$conf"
+    '
+    [ "$output" = "1" ]
+}
+
+@test "commands: _create_default_commands includes comment lines" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        eval "$(sed -n "/_create_default_commands()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")"
+        conf="'"$BATS_TEST_TMPDIR"'/commands.conf"
+        _create_default_commands "$conf"
+        grep -c "^#" "$conf"
+    '
+    # At least 5 comment lines (header comments + section headers)
+    [ "$output" -ge 5 ]
+}
+
+@test "commands: _create_default_commands uses Description | command format" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        eval "$(sed -n "/_create_default_commands()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")"
+        conf="'"$BATS_TEST_TMPDIR"'/commands.conf"
+        _create_default_commands "$conf"
+        # Count lines matching "text | text" pattern (non-comment, non-empty)
+        grep -v "^#" "$conf" | grep -v "^[[:space:]]*$" | grep -c " | "
+    '
+    # All non-comment non-empty lines should have the pipe format
+    [ "$output" -ge 9 ]
+}
+
+@test "commands: _create_default_commands creates parent directories" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        eval "$(sed -n "/_create_default_commands()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")"
+        conf="'"$BATS_TEST_TMPDIR"'/deep/nested/dir/commands.conf"
+        _create_default_commands "$conf"
+        [ -d "'"$BATS_TEST_TMPDIR"'/deep/nested/dir" ] && echo "dir_exists" || echo "no_dir"
+    '
+    [ "$output" = "dir_exists" ]
+}
