@@ -592,7 +592,11 @@ handle_file_result() {
                     [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$f"
                     quoted_files="${quoted_files:+$quoted_files }$(printf '%q' "$f")"
                 done
-                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter || _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
+                if tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") $quoted_files" Enter; then
+                    tmux display-message "Sent ${#files[@]} file(s) to pane"
+                else
+                    _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
+                fi
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
@@ -626,7 +630,11 @@ handle_grep_result() {
             # Send open command to the originating pane (with line number)
             if [[ -n "$PANE_ID" ]]; then
                 [[ "$HISTORY_ENABLED" == "on" ]] && record_file_open "$PWD" "$file"
-                tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") +$line_num $(printf '%q' "$file")" Enter || _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
+                if tmux send-keys -t "$PANE_ID" "$(printf '%q' "$PANE_EDITOR") +$line_num $(printf '%q' "$file")" Enter; then
+                    tmux display-message "Sent to pane: $file:$line_num"
+                else
+                    _dispatch_error "Failed to send to pane $PANE_ID — is it still open?"
+                fi
             else
                 tmux display-message "No target pane — use Ctrl+Y to copy instead"
             fi
