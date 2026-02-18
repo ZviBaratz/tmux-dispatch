@@ -458,6 +458,64 @@ MOCK
     [ "$status" -eq 0 ]
 }
 
+# ─── bookmark-remove ─────────────────────────────────────────────────────
+
+@test "bookmark-remove: removes bookmark by absolute path" {
+    source "$SCRIPT_DIR/helpers.sh"
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/file.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/proj" "file.txt"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    [ "$(wc -l < "$bf")" -eq 1 ]
+    run "$ACTIONS" bookmark-remove "$BATS_TEST_TMPDIR/proj/file.txt"
+    [ "$status" -eq 0 ]
+    bf="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/bookmarks"
+    local count
+    count=$(grep -c . "$bf" 2>/dev/null) || count=0
+    [ "$count" -eq 0 ]
+}
+
+@test "bookmark-remove: handles tilde-collapsed paths" {
+    source "$SCRIPT_DIR/helpers.sh"
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    # Manually add a bookmark entry for a file under HOME
+    printf '%s\t%s\n' "$HOME/testproj" "file.txt" >> "$bf"
+    # Pass tilde-collapsed path — action_bookmark_remove expands it
+    run "$ACTIONS" bookmark-remove "~/testproj/file.txt"
+    [ "$status" -eq 0 ]
+    bf="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/bookmarks"
+    local count
+    count=$(grep -c . "$bf" 2>/dev/null) || count=0
+    [ "$count" -eq 0 ]
+}
+
+@test "bookmark-remove: preserves other bookmarks" {
+    source "$SCRIPT_DIR/helpers.sh"
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg"
+    mkdir -p "$BATS_TEST_TMPDIR/proj"
+    touch "$BATS_TEST_TMPDIR/proj/keep.txt" "$BATS_TEST_TMPDIR/proj/remove.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/proj" "keep.txt"
+    toggle_bookmark "$BATS_TEST_TMPDIR/proj" "remove.txt"
+    run "$ACTIONS" bookmark-remove "$BATS_TEST_TMPDIR/proj/remove.txt"
+    [ "$status" -eq 0 ]
+    local bf="$BATS_TEST_TMPDIR/xdg/tmux-dispatch/bookmarks"
+    local count
+    count=$(grep -c . "$bf" 2>/dev/null) || count=0
+    [ "$count" -eq 1 ]
+    run cat "$bf"
+    [[ "${lines[0]}" == *"keep.txt"* ]]
+}
+
+@test "bookmark-remove: no-op when bookmark file missing" {
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/xdg-empty"
+    run "$ACTIONS" bookmark-remove "/nonexistent/file.txt"
+    [ "$status" -eq 0 ]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {
