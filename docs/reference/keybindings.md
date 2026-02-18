@@ -29,6 +29,7 @@ These keybindings are registered by the plugin and work from any tmux pane.
 | `Alt+s` | prefix-free | Open live grep popup |
 | `Alt+w` | prefix-free | Open session picker popup |
 | `prefix+e` | prefix | Open file finder popup |
+| _(configurable)_ | prefix-free | Reopen last-used mode with last query (`@dispatch-resume-key`) |
 
 All of these can be customized or disabled. See [Configuration](configuration) for details.
 
@@ -42,6 +43,7 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `Ctrl+O` | Send editor open command to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
 | `Ctrl+B` | Toggle bookmark (starred indicator, pinned to top) |
+| `Ctrl+G` | Open marks (global bookmarks) |
 | `Ctrl+H` | Toggle hidden files |
 | `Ctrl+R` | Rename file |
 | `Ctrl+X` | Delete file(s) (multi-select supported) |
@@ -52,6 +54,7 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `#` prefix | Switch to directories (remainder becomes query) |
 | `$` prefix | Switch to scrollback search (remainder becomes query) |
 | `:` prefix | Switch to custom commands (remainder becomes query) |
+| `~` prefix | Switch to files from `$HOME` |
 
 Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode.
 
@@ -143,15 +146,29 @@ Run custom commands from your personal command palette.
 | `Ctrl+E` | Edit commands.conf in popup editor |
 | `Backspace` on empty | Return to files (home) |
 
+## Marks
+
+View and manage all bookmarked files across all directories.
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Open file in popup editor |
+| `Ctrl+O` | Send file path to originating pane |
+| `Ctrl+Y` | Copy absolute path to clipboard |
+| `Ctrl+B` | Unbookmark (remove and reload) |
+| `Backspace` on empty | Return to files (home) |
+
 ## Quick Reference by Action
 
-| Action | Files | Grep | Git | Dirs | Sessions | Windows | Scrollback | Commands |
-|--------|-------|------|-----|------|----------|---------|------------|----------|
-| Open/switch | Enter | Enter | Enter | Enter | Enter | Enter | — | Enter |
-| Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — |
-| Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — |
-| Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — |
-| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | — | — |
-| Bookmark | Ctrl+B | — | — | — | — | — | — | — |
-| Edit config | — | — | — | — | — | — | — | Ctrl+E |
-| Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace |
+| Action | Files | Grep | Git | Dirs | Sessions | Windows | Scrollback | Commands | Marks |
+|--------|-------|------|-----|------|----------|---------|------------|----------|-------|
+| Open/switch | Enter | Enter | Enter | Enter | Enter | Enter | — | Enter | Enter |
+| Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — | Ctrl+O |
+| Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — | Ctrl+Y |
+| Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — | — |
+| Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | — | — | — |
+| Bookmark | Ctrl+B | — | — | — | — | — | — | — | Ctrl+B* |
+| Edit config | — | — | — | — | — | — | — | Ctrl+E | — |
+| Go back | — | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace | Backspace |
+
+*Ctrl+B in marks mode removes the bookmark

@@ -20,6 +20,7 @@ Customize which keys open each mode. Set any key option to `"none"` to disable t
 | `@dispatch-git-key` | `none` | Prefix-free key to open git status (disabled by default; use `!` prefix instead) |
 | `@dispatch-prefix-key` | `e` | Prefix key to open file finder (prefix+e) |
 | `@dispatch-session-prefix-key` | `none` | Prefix key to open session picker (disabled by default) |
+| `@dispatch-resume-key` | `none` | Prefix-free key to reopen last-used mode with last query (disabled by default) |
 
 ## Popup options
 
@@ -103,6 +104,7 @@ set -g @dispatch-session-key "M-w"
 set -g @dispatch-git-key "none"
 set -g @dispatch-prefix-key "e"
 set -g @dispatch-session-prefix-key "none"
+set -g @dispatch-resume-key "M-r"
 
 # Popup
 set -g @dispatch-popup-size "85%"

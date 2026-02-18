@@ -22,6 +22,7 @@ This works via fzf's `become` action: when a prefix is detected in the `change:t
 | `#` | Directories | Type `#src` to filter directories containing "src" |
 | `$` | Scrollback Search | Type `$error` to search scrollback for "error" |
 | `:` | Custom Commands | Type `:deploy` to filter your command palette |
+| `~` | Files from Home | Type `~` to browse files under `$HOME` |
 
 Prefixes are only detected when typed as the first character in the query. If you're filtering files and your query starts with one of these characters, mode switching activates immediately.
 
@@ -50,6 +51,7 @@ This creates a natural navigation pattern:
 - **files** --> type `@` --> **sessions** --> `Ctrl+W` --> **windows** --> backspace --> **sessions** --> backspace --> **files**
 - **files** --> type `$error` --> **scrollback** (searching for "error") --> backspace on empty --> **files**
 - **files** --> type `:deploy` --> **commands** (filtered to "deploy") --> backspace on empty --> **files**
+- **files** --> type `~` --> **files (from $HOME)**
 
 You can always get back to files mode by clearing the query and pressing backspace. Alternatively, pressing `Escape` closes the popup entirely from any mode.
 
@@ -62,6 +64,7 @@ When you switch modes via prefix, the text you've already typed (minus the prefi
 - In files mode, type `#src` --> directories opens with query "src" filtering directories
 - In files mode, type `$error` --> scrollback opens with query "error" filtering scrollback lines
 - In files mode, type `:deploy` --> commands opens with query "deploy" filtering the command list
+- In files mode, type `~` --> files opens with `$HOME` as the working directory
 
 This is particularly useful for grep mode, where the query triggers an immediate ripgrep search. You can type `>functionName` in files mode and arrive in grep mode with matching results already visible.
 

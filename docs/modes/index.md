@@ -22,6 +22,7 @@ Modes are the core concept in tmux-dispatch. Each mode gives you a different way
 | [Windows](windows) | _(from sessions)_ | Browse windows within a session using 2D grid navigation with pane content preview | You want to see what's running in each window before switching |
 | [Scrollback Search](scrollback) | `$` | Search and copy from terminal scrollback with context preview | You want to grab a command, path, or output from your terminal history |
 | [Custom Commands](commands) | `:` | Run user-defined commands from a configurable palette | You have custom scripts, tmux commands, or workflows you run frequently |
+| [Marks](marks) | `Ctrl+G` | Global bookmarks -- all bookmarked files across all directories | You want to jump to a frequently-used file in a different project |
 
 ## How Mode Switching Works
 
@@ -33,6 +34,7 @@ Mode switching uses prefix characters — special characters that, when typed as
 - Type `#` to switch to directories — jump to a recent or nearby directory
 - Type `$` to switch to scrollback search — find and copy text from your terminal history
 - Type `:` to switch to custom commands — run commands from your personal palette
+- Type `~` to switch to files from home directory — browse all files under `$HOME`
 
 In any sub-mode, press **Backspace** on an empty query to return to the file finder. This works like VSCode's command palette — you never need to close and reopen the popup.
 

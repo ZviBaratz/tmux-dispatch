@@ -9,7 +9,7 @@
   <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux" alt="tmux"></a>
 </p>
 
-<h3 align="center">One popup. Eight modes. Zero context switching.</h3>
+<h3 align="center">One popup. Nine modes. Zero context switching.</h3>
 
 <p align="center">
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
@@ -40,7 +40,7 @@ Start with `Alt+o` to browse files, then explore other modes by typing prefix ch
 | `Alt+s` | Live grep (search file contents) | You're looking for a specific string across your project |
 | `Alt+w` | Switch or create tmux sessions | You need to jump between projects or create a new workspace |
 
-Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories, `$` to scrollback, `:` to commands. Backspace on empty returns home to files — just like VSCode's command palette.
+Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories, `$` to scrollback, `:` to commands, `~` for home. Backspace on empty returns home to files — just like VSCode's command palette.
 
 **Tip:** Press `?` in any mode for context-sensitive help showing all available keybindings.
 

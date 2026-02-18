@@ -19,6 +19,7 @@ Type to filter files instantly. Bookmarked files show a gold star and appear fir
 | `Ctrl+O` | Send `$EDITOR file` to originating pane |
 | `Ctrl+Y` | Copy file path to clipboard |
 | `Ctrl+B` | Toggle bookmark (starred indicator, pinned to top) |
+| `Ctrl+G` | Open [marks](marks) (global bookmarks) |
 | `Ctrl+H` | Toggle hidden files (shown by default) |
 | `Ctrl+R` | Rename file inline |
 | `Ctrl+X` | Delete file(s) with confirmation |
@@ -37,6 +38,9 @@ Type these as the first character in the query to switch modes. The remainder of
 | `@` | [Sessions](sessions) |
 | `!` | [Git Status](git) |
 | `#` | [Directories](dirs) |
+| `$` | [Scrollback Search](scrollback) |
+| `:` | [Custom Commands](commands) |
+| `~` | Files from `$HOME` |
 
 See [Mode Switching](../features/mode-switching) for details on how prefix-based navigation works.
 
