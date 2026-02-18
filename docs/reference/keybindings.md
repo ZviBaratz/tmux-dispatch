@@ -53,10 +53,11 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `!` prefix | Switch to git status (remainder becomes query) |
 | `#` prefix | Switch to directories (remainder becomes query) |
 | `$` prefix | Switch to scrollback search (remainder becomes query) |
+| `&` prefix | Switch to scrollback extract/tokens (remainder becomes query) |
 | `:` prefix | Switch to custom commands (remainder becomes query) |
 | `~` prefix | Switch to files from `$HOME` |
 
-Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode. The `&` prefix for URLs has been removed -- URL extraction is now part of scrollback mode's tokens view (toggle with `Ctrl+T`).
+Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode. `$` opens the lines view (deduplicated scrollback), while `&` opens the tokens view (extracted URLs, file:line paths, git hashes, IPs). Both views can be toggled with `Ctrl+T` once open.
 
 ## Grep
 

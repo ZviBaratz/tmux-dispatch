@@ -24,6 +24,7 @@
 #   ! prefix   — Files → git status (remainder becomes query)
 #   # prefix   — Files → directories (remainder becomes query)
 #   $ prefix   — Files → scrollback search (remainder becomes query)
+#   & prefix   — Files → scrollback extract/tokens (remainder becomes query)
 #   : prefix   — Files → custom commands (remainder becomes query)
 #   ~ prefix   — Files → files from $HOME
 #   ⌫ on empty — Sub-modes → files (return to home)
@@ -196,6 +197,7 @@ HELP_FILES="$(printf '%b' '
   !...      git status
   #...      directories
   $...      scrollback search
+  &...      extract tokens
   :...      custom commands
   ~...      files from home
 ')"
@@ -503,6 +505,8 @@ elif [[ {q} == '#'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '\$'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID' --query={q})\"
+elif [[ {q} == '&'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '~'* ]]; then
@@ -1617,7 +1621,7 @@ _strip_mode_prefix() {
         sessions)   QUERY="${QUERY#@}" ;;
         dirs)       QUERY="${QUERY#\#}" ;;
         git)        QUERY="${QUERY#!}" ;;
-        scrollback) QUERY="${QUERY#\$}" ;;
+        scrollback) QUERY="${QUERY#\$}"; QUERY="${QUERY#&}" ;;
         commands)   QUERY="${QUERY#:}" ;;
     esac
 }

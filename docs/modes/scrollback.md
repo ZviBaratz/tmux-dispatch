@@ -12,8 +12,9 @@ Scrollback mode captures content from your tmux pane's scrollback buffer and pre
 
 ## How to access
 
-- Type `$` from files mode -- the remainder of your query becomes the search term.
-- Or bind a dedicated key via `@dispatch-extract-key` to open directly in tokens view (disabled by default).
+- Type `$` from files mode to open the lines view -- the remainder of your query becomes the search term.
+- Type `&` from files mode to open the tokens (extract) view directly.
+- Or bind a dedicated key via `@dispatch-extract-key` to open tokens view without going through files mode.
 
 ## Keybindings
 

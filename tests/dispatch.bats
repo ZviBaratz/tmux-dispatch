@@ -971,6 +971,15 @@ BASH
     [ "$output" = "ls -la output" ]
 }
 
+@test "scrollback mode strips leading & from query" {
+    run bash -c '
+        QUERY="&search term"
+        QUERY="${QUERY#&}"
+        echo "$QUERY"
+    '
+    [ "$output" = "search term" ]
+}
+
 @test "dispatch: scrollback is a valid mode" {
     run bash -c '
         MODE="scrollback"
@@ -1173,6 +1182,26 @@ line3"
         fi
     '
     [ "$output" = "scrollback" ]
+}
+
+@test "extract: & prefix triggers mode switch to scrollback tokens view" {
+    run bash -c '
+        query="&search term"
+        if [[ "$query" == "&"* ]]; then
+            echo "extract"
+        else
+            echo "other"
+        fi
+    '
+    [ "$output" = "extract" ]
+}
+
+@test "extract: & prefix present in change_transform in dispatch.sh" {
+    grep -q "\\[\\[ {q} == '&'\\*" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "extract: & prefix passes --view=tokens in dispatch.sh" {
+    grep -q "\-\-view=tokens.*\-\-query={q}" "$SCRIPT_DIR/dispatch.sh"
 }
 
 @test "commands: : prefix triggers mode switch in transform pattern" {
