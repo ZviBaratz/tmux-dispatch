@@ -1277,3 +1277,72 @@ line3"
     run bash "$SCRIPT_DIR/doctor.sh" 2>&1
     [[ "$output" == *"Summary:"* ]]
 }
+
+# ─── Help overlay completeness ────────────────────────────────────────────
+
+@test "help: all 9 HELP_* variables are defined in dispatch.sh" {
+    # Verify every mode has a corresponding help overlay string
+    local expected=(
+        HELP_FILES
+        HELP_GREP
+        HELP_GIT
+        HELP_SESSIONS
+        HELP_DIRS
+        HELP_WINDOWS
+        HELP_SESSION_NEW
+        HELP_SCROLLBACK
+        HELP_COMMANDS
+    )
+    local missing=()
+    local var
+    for var in "${expected[@]}"; do
+        if ! grep -q "^${var}=" "$SCRIPT_DIR/dispatch.sh"; then
+            missing+=("$var")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "Missing HELP variables: ${missing[*]}"
+        return 1
+    fi
+}
+
+@test "help: all 9 SQ_HELP_* escape variables are defined in dispatch.sh" {
+    # Verify every help string is also pre-escaped for fzf bind embedding
+    local expected=(
+        SQ_HELP_FILES
+        SQ_HELP_GREP
+        SQ_HELP_GIT
+        SQ_HELP_SESSIONS
+        SQ_HELP_DIRS
+        SQ_HELP_WINDOWS
+        SQ_HELP_SESSION_NEW
+        SQ_HELP_SCROLLBACK
+        SQ_HELP_COMMANDS
+    )
+    local missing=()
+    local var
+    for var in "${expected[@]}"; do
+        if ! grep -q "^${var}=" "$SCRIPT_DIR/dispatch.sh"; then
+            missing+=("$var")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "Missing SQ_HELP variables: ${missing[*]}"
+        return 1
+    fi
+}
+
+@test "help: every mode with ? binding has matching HELP variable" {
+    # Extract mode names from ?:preview bindings, verify each has a HELP_* definition
+    local help_binds
+    help_binds=$(grep -oP "SQ_HELP_\w+" "$SCRIPT_DIR/dispatch.sh" | sort -u)
+    local var
+    for var in $help_binds; do
+        # SQ_HELP_FOO → HELP_FOO should exist as a definition
+        local base="${var#SQ_}"
+        if ! grep -q "^${base}=" "$SCRIPT_DIR/dispatch.sh"; then
+            echo "Used $var in bind but $base is not defined"
+            return 1
+        fi
+    done
+}

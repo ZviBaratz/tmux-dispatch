@@ -794,7 +794,7 @@ run_session_new_mode() {
     local selected
     selected=$(_run_dir_cmd | sort | fzf \
         "${BASE_FZF_OPTS[@]}" \
-        --border-label=' new session · ? help · enter select · ⌫ sessions ' \
+        --border-label=' new session · ? help · enter create · ⌫ sessions ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "backward-eof:$become_sessions" \
