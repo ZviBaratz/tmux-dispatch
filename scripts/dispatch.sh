@@ -2,7 +2,7 @@
 # =============================================================================
 # dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Twelve modes, switchable mid-session via fzf's become action:
+# Thirteen modes, switchable mid-session via fzf's become action:
 #
 #   --mode=files          fd/find → fzf (normal filtering, bat preview)
 #   --mode=grep           fzf --disabled + change:reload:rg (live search)
@@ -15,6 +15,7 @@
 #   --mode=rename-session inline session rename (fzf query = new name)
 #   --mode=scrollback     search tmux scrollback history
 #   --mode=commands        custom command palette
+#   --mode=marks          global bookmarks viewer
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -26,7 +27,7 @@
 #   : prefix   — Files → custom commands (remainder becomes query)
 #   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks
 #        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
 # =============================================================================
 
@@ -296,8 +297,21 @@ HELP_COMMANDS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
+HELP_MARKS="$(printf '%b' '
+  \033[1mMARKS\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     open in editor
+  ^O        send to pane
+  ^Y        copy path
+  ^B        unbookmark
+  ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
+SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -539,6 +553,7 @@ fi"
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_file')" \
+        --bind "ctrl-g:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=marks --pane='$SQ_PANE_ID')" \
         --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_files')+reload:$file_list_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' '$fzf_file')+reload:$file_list_cmd" \
         --bind "ctrl-h:execute-silent(if [ -f '$sq_hidden_flag' ]; then command rm -f '$sq_hidden_flag'; else touch '$sq_hidden_flag'; fi)+reload:$file_list_cmd" \
@@ -1369,6 +1384,85 @@ run_commands_mode() {
     fi
 }
 
+# ─── Mode: marks (global bookmarks) ──────────────────────────────────────
+
+run_marks_mode() {
+    local become_files_empty="$BECOME_FILES"
+
+    # Get all bookmarks as absolute tilde-collapsed paths
+    local marks
+    marks=$(all_bookmarks)
+
+    if [[ -z "$marks" ]]; then
+        _dispatch_error "no bookmarks yet — press ^B in files mode to bookmark"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    # Preview: expand tilde for bat/head, use absolute path
+    local preview_cmd
+    if [[ -n "$BAT_CMD" ]]; then
+        local sq_bat
+        sq_bat=$(_sq_escape "$BAT_CMD")
+        preview_cmd="f='{}'; f=\"\${f/#\\~/\$HOME}\"; '$sq_bat' --color=always --style=numbers --line-range=:500 \"\$f\""
+    else
+        preview_cmd="f='{}'; f=\"\${f/#\\~/\$HOME}\"; head -500 \"\$f\""
+    fi
+
+    # Reload command for after unbookmark
+    local reload_cmd="bash -c 'source \"$SQ_SCRIPT_DIR/helpers.sh\"; all_bookmarks'"
+
+    local result
+    result=$(echo "$marks" | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --expect=ctrl-o,ctrl-y \
+        --query "$QUERY" \
+        --prompt 'marks ★ ' \
+        --ansi \
+        --border-label ' marks · ? help · enter open · ^o pane · ^y copy · ^b unbookmark · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
+        --preview "$preview_cmd" \
+        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-remove '{}')+reload:$reload_cmd" \
+        --bind "backward-eof:$become_files_empty" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_MARKS'" \
+    ) || exit 0
+
+    [[ -z "$result" ]] && exit 0
+
+    local key selected
+    key=$(head -1 <<< "$result")
+    selected=$(tail -n +2 <<< "$result" | head -1)
+    [[ -z "$selected" ]] && exit 0
+
+    # Expand tilde for operations
+    selected="${selected/#\~/$HOME}"
+
+    case "$key" in
+        ctrl-o)
+            if [[ -n "$PANE_ID" ]]; then
+                local qfile
+                qfile=$(printf '%q' "$selected")
+                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $qfile" Enter
+                tmux display-message "Sent to pane: ${selected/#$HOME/\~}"
+            fi
+            ;;
+        ctrl-y)
+            printf '%s' "$selected" | tmux load-buffer -w -
+            tmux display-message "Copied: ${selected/#$HOME/\~}"
+            ;;
+        *)
+            # Open in editor — cd to file's directory first
+            local dir
+            dir=$(dirname "$selected")
+            if [[ "$HISTORY_ENABLED" == "on" ]]; then
+                local relfile
+                relfile=$(basename "$selected")
+                record_file_open "$dir" "$relfile"
+            fi
+            (cd "$dir" && "$POPUP_EDITOR" "$(basename "$selected")")
+            ;;
+    esac
+}
+
 # Strip mode prefix character from query (used when switching via prefix typing)
 _strip_mode_prefix() {
     case "$MODE" in
@@ -1400,4 +1494,5 @@ case "$MODE" in
     rename-session) run_rename_session_mode ;;
     scrollback)     run_scrollback_mode ;;
     commands)       run_commands_mode ;;
+    marks)          run_marks_mode ;;
 esac

@@ -1334,7 +1334,7 @@ line3"
 
 # ─── Help overlay completeness ────────────────────────────────────────────
 
-@test "help: all 9 HELP_* variables are defined in dispatch.sh" {
+@test "help: all 10 HELP_* variables are defined in dispatch.sh" {
     # Verify every mode has a corresponding help overlay string
     local expected=(
         HELP_FILES
@@ -1346,6 +1346,7 @@ line3"
         HELP_SESSION_NEW
         HELP_SCROLLBACK
         HELP_COMMANDS
+        HELP_MARKS
     )
     local missing=()
     local var
@@ -1360,7 +1361,7 @@ line3"
     fi
 }
 
-@test "help: all 9 SQ_HELP_* escape variables are defined in dispatch.sh" {
+@test "help: all 10 SQ_HELP_* escape variables are defined in dispatch.sh" {
     # Verify every help string is also pre-escaped for fzf bind embedding
     local expected=(
         SQ_HELP_FILES
@@ -1372,6 +1373,7 @@ line3"
         SQ_HELP_SESSION_NEW
         SQ_HELP_SCROLLBACK
         SQ_HELP_COMMANDS
+        SQ_HELP_MARKS
     )
     local missing=()
     local var
@@ -1458,4 +1460,34 @@ line3"
         esac
     '
     [ "$output" = "valid" ]
+}
+
+# ─── Marks mode ──────────────────────────────────────────────────────────
+
+@test "marks: dispatch.sh contains run_marks_mode function" {
+    run bash -c '
+        grep -c "run_marks_mode()" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: ctrl-g binding present in files mode" {
+    run bash -c '
+        grep -c "ctrl-g.*marks\|ctrl-g.*become.*marks" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: HELP_MARKS defined in dispatch.sh" {
+    run bash -c '
+        grep -c "HELP_MARKS" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "marks: dispatch case includes marks mode" {
+    run bash -c '
+        grep -c "marks).*run_marks_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
 }

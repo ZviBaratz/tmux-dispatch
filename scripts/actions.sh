@@ -208,6 +208,27 @@ action_git_toggle() {
     fi
 }
 
+# ─── bookmark-remove ─────────────────────────────────────────────────────
+
+action_bookmark_remove() {
+    local abs_path="$1"
+    [[ -z "$abs_path" ]] && return 0
+    # Expand tilde
+    abs_path="${abs_path/#\~/$HOME}"
+    local bf
+    bf=$(_dispatch_bookmark_file)
+    [[ -f "$bf" ]] || return 0
+    local tmp
+    tmp=$(mktemp "${bf}.XXXXXX") || return 1
+    # Remove any entry whose dir/file resolves to this absolute path
+    while IFS=$'\t' read -r dir file; do
+        [[ "$dir/$file" == "$abs_path" ]] && continue
+        printf '%s\t%s\n' "$dir" "$file"
+    done < "$bf" > "$tmp"
+    \mv "$tmp" "$bf"
+    tmux display-message "Unbookmarked: ${abs_path/#$HOME/\~}"
+}
+
 # ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 action="${1:-}"
@@ -224,6 +245,7 @@ case "$action" in
     git-toggle)             action_git_toggle "$@" ;;
     kill-session)           action_kill_session "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
+    bookmark-remove)        action_bookmark_remove "$@" ;;
     *)
         echo "Unknown action: $action"
         echo "Usage: actions.sh <action> [args...]"
