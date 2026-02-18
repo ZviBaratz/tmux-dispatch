@@ -1019,3 +1019,52 @@ line3"
     '
     [ "$output" = "valid" ]
 }
+
+# ─── Commands config parsing ────────────────────────────────────────────
+
+@test "commands config: parses label|command format" {
+    local conf="$BATS_TEST_TMPDIR/commands.conf"
+    printf '# comment\nDeploy | ssh deploy.sh\n\nRestart | systemctl restart\n' > "$conf"
+    run bash -c '
+        grep -v "^#" "'"$conf"'" | grep -v "^[[:space:]]*$" | while IFS="|" read -r label _rest; do
+            label="${label## }"; label="${label%% }"
+            echo "$label"
+        done
+    '
+    [ "${lines[0]}" = "Deploy" ]
+    [ "${lines[1]}" = "Restart" ]
+}
+
+@test "commands config: handles missing file gracefully" {
+    run bash -c '
+        conf="/nonexistent/commands.conf"
+        if [[ ! -f "$conf" ]]; then
+            echo "no-config"
+        fi
+    '
+    [ "$output" = "no-config" ]
+}
+
+@test "commands config: identifies tmux commands by prefix" {
+    run bash -c '
+        cmd="tmux: split-window -h"
+        if [[ "$cmd" == "tmux: "* ]]; then
+            echo "tmux-cmd:${cmd#tmux: }"
+        else
+            echo "shell-cmd:$cmd"
+        fi
+    '
+    [ "$output" = "tmux-cmd:split-window -h" ]
+}
+
+@test "commands config: shell commands have no prefix" {
+    run bash -c '
+        cmd="ssh deploy.sh"
+        if [[ "$cmd" == "tmux: "* ]]; then
+            echo "tmux-cmd:${cmd#tmux: }"
+        else
+            echo "shell-cmd:$cmd"
+        fi
+    '
+    [ "$output" = "shell-cmd:ssh deploy.sh" ]
+}

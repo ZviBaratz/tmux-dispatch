@@ -13,8 +13,8 @@
 #   --mode=windows        tmux window picker for a session
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
-#   --mode=scrollback     search tmux scrollback history (stub)
-#   --mode=commands        custom command palette (stub)
+#   --mode=scrollback     search tmux scrollback history
+#   --mode=commands        custom command palette
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -91,6 +91,7 @@ esac
 POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
 HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
 SCROLLBACK_LINES="10000"
+COMMANDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/commands.conf"
 while IFS= read -r line; do
     key="${line%% *}"
     val="${line#* }"
@@ -106,6 +107,7 @@ while IFS= read -r line; do
         @dispatch-git-indicators)  GIT_INDICATORS="$val" ;;
         @dispatch-theme)           DISPATCH_THEME="$val" ;;
         @dispatch-scrollback-lines) SCROLLBACK_LINES="$val" ;;
+        @dispatch-commands-file) COMMANDS_FILE="$val" ;;
     esac
 done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
 POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
@@ -289,7 +291,6 @@ HELP_COMMANDS="$(printf '%b' '
 ')"
 
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
-# shellcheck disable=SC2034  # used when commands mode is fully implemented
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
@@ -1269,8 +1270,80 @@ handle_scrollback_result() {
 }
 
 run_commands_mode() {
-    _dispatch_error "commands mode: not yet implemented"
-    exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    local become_files_empty="$BECOME_FILES"
+    local conf="$COMMANDS_FILE"
+
+    local sq_conf
+    sq_conf=$(_sq_escape "$conf")
+
+    # If config doesn't exist, show empty state with hint
+    if [[ ! -f "$conf" ]]; then
+        fzf \
+            "${BASE_FZF_OPTS[@]}" \
+            --query "$QUERY" \
+            --prompt 'commands : ' \
+            --header "No commands configured — press ^E to create $(basename "$conf")" \
+            --border-label ' commands : · ? help · ^e edit · ⌫ files ' \
+            --border-label-pos 'center:bottom' \
+            --bind "ctrl-e:execute(mkdir -p '$(_sq_escape "$(dirname "$conf")")' && '$SQ_POPUP_EDITOR' '$sq_conf')+abort" \
+            --bind "backward-eof:$become_files_empty" \
+            --bind "?:preview:printf '%b' '$SQ_HELP_COMMANDS'" \
+            < /dev/null || true
+        exit 0
+    fi
+
+    # Parse config: extract non-comment, non-empty lines
+    local entries
+    entries=$(grep -v '^#' "$conf" | grep -v '^[[:space:]]*$') || true
+
+    if [[ -z "$entries" ]]; then
+        _dispatch_error "commands.conf is empty — press : then ^E to add commands"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    # Display labels (left of first |), preview shows command (right of first |)
+    local labels
+    labels=$(echo "$entries" | while IFS='|' read -r label _rest; do
+        label="${label## }"; label="${label%% }"
+        echo "$label"
+    done)
+
+    # Preview: show the command for the selected label (bat syntax highlighting if available)
+    local preview_cmd="grep -F '{}' '$sq_conf' | head -1 | sed 's/^[^|]*|[[:space:]]*//' "
+    if [[ -n "$BAT_CMD" ]]; then
+        local sq_bat
+        sq_bat=$(_sq_escape "$BAT_CMD")
+        preview_cmd+="| '$sq_bat' --color=always -l sh --style=plain"
+    fi
+
+    local result
+    result=$(echo "$labels" | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --query "$QUERY" \
+        --prompt 'commands : ' \
+        --no-sort \
+        --border-label ' commands : · ? help · enter run · ^e edit · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
+        --preview "$preview_cmd" \
+        --bind "ctrl-e:execute('$SQ_POPUP_EDITOR' '$sq_conf')+abort" \
+        --bind "backward-eof:$become_files_empty" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_COMMANDS'" \
+    ) || exit 0
+
+    [[ -z "$result" ]] && exit 0
+
+    # Look up the command for the selected label (exact match to avoid substring collisions)
+    local selected_cmd
+    selected_cmd=$(awk -F'|' -v label="$result" '{l=$1; gsub(/^ +| +$/,"",l)} l==label{sub(/^[^|]*\|[[:space:]]*/,""); print; exit}' "$conf")
+    [[ -z "$selected_cmd" ]] && exit 0
+
+    # Execute: tmux command or shell command
+    # shellcheck disable=SC2086  # intentional word-splitting for tmux subcommand + args
+    if [[ "$selected_cmd" == "tmux: "* ]]; then
+        tmux ${selected_cmd#tmux: }
+    else
+        bash -c "$selected_cmd"
+    fi
 }
 
 # Strip mode prefix character from query (used when switching via prefix typing)
