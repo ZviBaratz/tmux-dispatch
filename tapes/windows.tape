@@ -33,8 +33,8 @@ Sleep 1.5s
 Up
 Sleep 1.5s
 
-# Select a window
-Enter
+# Close
+Escape
 Sleep 500ms
 
 Hide
