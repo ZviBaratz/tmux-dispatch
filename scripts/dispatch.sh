@@ -166,7 +166,7 @@ HELP_FILES="$(printf '%b' '
   \033[1mFILES\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     open in editor
-  S-tab     multi-select
+  tab       select
   ^O        send to pane
   ^Y        copy path
   ^B        toggle bookmark
@@ -203,7 +203,6 @@ HELP_GIT="$(printf '%b' '
   \033[1mGIT\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   tab       stage / unstage
-  S-tab     multi-select
   enter     open in editor
   ^O        send to pane
   ^Y        copy path
@@ -274,7 +273,7 @@ HELP_SCROLLBACK="$(printf '%b' '
   enter     copy to clipboard
   ^O        paste to pane
   ^X        delete from history
-  S-tab     multi-select
+  tab       select
   ⌫ empty   back to files
 
   ^D/^U     scroll preview
@@ -1141,7 +1140,7 @@ run_git_mode() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '{2..}' '{1}'" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' git ! · ? help · tab stage · S-tab select · enter open · ^r rename · ^x delete · ⌫ files ' \
+        --border-label ' git ! · ? help · tab stage · enter open · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
@@ -1232,7 +1231,7 @@ run_scrollback_mode() {
         --prompt 'scrollback $ ' \
         --ansi \
         --no-sort \
-        --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · S-tab select · ⌫ files ' \
+        --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · tab select · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history {})+reload(cat '$sq_scrollback_file')" \
