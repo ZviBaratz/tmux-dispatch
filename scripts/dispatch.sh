@@ -1305,14 +1305,20 @@ fi"
     local help_cmd="if [ -f '$sq_view_flag' ]; then printf '%b' '$SQ_HELP_EXTRACT'; else printf '%b' '$SQ_HELP_SCROLLBACK'; fi"
 
     # Ctrl+T toggle: flip view flag, reload data, update prompt and border label
-    local lines_label="' scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files '"
-    local tokens_label="' extract \$ · ? help · ^t lines · enter copy · ^o open · tab select · ⌫ files '"
+    # NOTE: The echo must use a single unbroken single-quoted string. Breaking out
+    # of single quotes for variable embedding (e.g., 'text'$var'text') confuses
+    # fzf's --bind parser, which interprets single quotes during transform: parsing.
+    # Since the outer definition is double-quoted, variables are expanded inline.
+    local lines_label_inner=" scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files "
+    local tokens_label_inner=" extract \$ · ? help · ^t lines · enter copy · ^o open · tab select · ⌫ files "
+    local lines_label="'$lines_label_inner'"
+    local tokens_label="'$tokens_label_inner'"
     local toggle_cmd="if [ -f '$sq_view_flag' ]; then \
 command rm -f '$sq_view_flag'; \
-echo 'reload(cat '$sq_lines_file')+change-prompt(scrollback \$ )+change-border-label($lines_label)'; \
+echo 'reload(cat $sq_lines_file)+change-prompt(scrollback \$ )+change-border-label($lines_label_inner)'; \
 else \
 touch '$sq_view_flag'; \
-echo 'reload(cat '$sq_tokens_file')+change-prompt(extract \$ )+change-border-label($tokens_label)'; \
+echo 'reload(cat $sq_tokens_file)+change-prompt(extract \$ )+change-border-label($tokens_label_inner)'; \
 fi"
 
     # Determine initial state
