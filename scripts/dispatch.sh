@@ -1215,8 +1215,9 @@ run_scrollback_mode() {
     sq_scrollback_file=$(_sq_escape "$scrollback_file")
 
     # Preview: show surrounding context (5 lines) around the selected line
-    local preview_cmd="n=\$(grep -nFx -- '{}' '$sq_scrollback_file' | head -1 | cut -d: -f1); "
-    preview_cmd+="[ -n \"\$n\" ] && awk -v n=\"\$n\" 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_scrollback_file' || echo '(no context)'"
+    # Use {n} (0-indexed item position) to find the line by number — avoids
+    # quoting issues with {} on lines containing spaces or single quotes
+    local preview_cmd="awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_scrollback_file'"
 
     # HISTFILE for Ctrl+X deletion
     local sq_histfile
@@ -1234,7 +1235,7 @@ run_scrollback_mode() {
         --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · S-tab select · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
-        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history '{}')+reload(cat '$sq_scrollback_file')" \
+        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history {})+reload(cat '$sq_scrollback_file')" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:printf '%b' '$SQ_HELP_SCROLLBACK'" \
     ) || exit 0
