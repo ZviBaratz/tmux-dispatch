@@ -1205,7 +1205,7 @@ run_scrollback_mode() {
         | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$scrollback_file"
 
     if [[ ! -s "$scrollback_file" ]]; then
-        _dispatch_error "scrollback is empty"
+        _dispatch_error "scrollback is empty — pane has no output yet"
         command rm -f "$scrollback_file"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
@@ -1234,7 +1234,7 @@ run_scrollback_mode() {
         --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · tab select · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
-        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history {})+reload(cat '$sq_scrollback_file')" \
+        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history '{}')+reload(cat '$sq_scrollback_file')" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:printf '%b' '$SQ_HELP_SCROLLBACK'" \
     ) || exit 0
@@ -1304,7 +1304,7 @@ run_commands_mode() {
     # Display labels (left of first |), preview shows command (right of first |)
     local labels
     labels=$(echo "$entries" | while IFS='|' read -r label _rest; do
-        label="${label## }"; label="${label%% }"
+        label="${label#"${label%%[! ]*}"}"; label="${label%"${label##*[! ]}"}"
         echo "$label"
     done)
 
