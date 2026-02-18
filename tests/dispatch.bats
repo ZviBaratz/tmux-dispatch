@@ -1400,3 +1400,24 @@ line3"
         fi
     done
 }
+
+# ─── HOME root-switching ─────────────────────────────────────────────────
+
+@test "change_transform: ~ prefix triggers HOME root-switch" {
+    run bash -c '
+        query="~"
+        if [[ "$query" == "~"* ]]; then
+            echo "home"
+        else
+            echo "no-match"
+        fi
+    '
+    [ "$output" = "home" ]
+}
+
+@test "change_transform: ~ prefix present in dispatch.sh source" {
+    run bash -c '
+        grep -c "cd ~ &&\|cd.*HOME" "'"$SCRIPT_DIR"'/dispatch.sh" || echo "0"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}

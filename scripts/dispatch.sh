@@ -79,12 +79,19 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, resume)"
         exit 1
         ;;
 esac
+
+# ─── Resolve resume mode ──────────────────────────────────────────────────
+if [[ "$MODE" == "resume" ]]; then
+    MODE=$(tmux show -sv @_dispatch-last-mode 2>/dev/null) || MODE=""
+    QUERY=$(tmux show -sv @_dispatch-last-query 2>/dev/null) || QUERY=""
+    [[ -z "$MODE" ]] && MODE="files"
+fi
 
 # ─── Read tmux options (batched) ─────────────────────────────────────────────
 # One tmux subprocess instead of separate show-option calls.
@@ -183,6 +190,7 @@ HELP_FILES="$(printf '%b' '
   #...      directories
   $...      scrollback search
   :...      custom commands
+  ~...      files from home
 ')"
 
 HELP_GREP="$(printf '%b' '
@@ -461,6 +469,8 @@ elif [[ {q} == '\$'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
+elif [[ {q} == '~'* ]]; then
+  echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')\"
 fi"
 
     # ─── Reload command construction ────────────────────────────────────────────
@@ -499,6 +509,15 @@ fi"
     local -a header_args=()
     [[ -n "$header" ]] && header_args=(--header "$header")
 
+    local files_prompt='  '
+    local files_border_label=' files · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^g marks · ^h hidden · ^r rename · ^x delete '
+    if [[ "$PWD" == "$HOME" ]]; then
+        # shellcheck disable=SC2088  # Literal ~/ for display, not expansion
+        files_prompt='~/ '
+        # shellcheck disable=SC2088
+        files_border_label=' files ~/ · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^g marks · ^h hidden · ^r rename · ^x delete '
+    fi
+
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
@@ -512,10 +531,10 @@ fi"
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
-        --prompt '  ' \
+        --prompt "$files_prompt" \
         --preview "$file_preview" \
         --preview-label=" preview " \
-        --border-label ' files · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^h hidden · ^r rename · ^x delete ' \
+        --border-label "$files_border_label" \
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
@@ -1362,6 +1381,10 @@ _strip_mode_prefix() {
     esac
 }
 _strip_mode_prefix
+
+# ─── Save state for resume ────────────────────────────────────────────────
+tmux set -s @_dispatch-last-mode "$MODE" 2>/dev/null || true
+tmux set -s @_dispatch-last-query "$QUERY" 2>/dev/null || true
 
 # ─── Dispatch ────────────────────────────────────────────────────────────────
 
