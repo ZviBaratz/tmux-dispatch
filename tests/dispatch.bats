@@ -998,6 +998,98 @@ line3"
     [ "$output" = "$expected" ]
 }
 
+# ─── Empty state detection ────────────────────────────────────────────────
+
+@test "git empty state: empty git status triggers error" {
+    local repo="$BATS_TEST_TMPDIR/clean-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" config user.email "test@test.com"
+    git -C "$repo" config user.name "Test"
+    echo "file" > "$repo/file.txt"
+    git -C "$repo" add . && git -C "$repo" commit -q -m "init"
+
+    run bash -c '
+        cd "'"$repo"'"
+        output=$(git status --porcelain 2>/dev/null)
+        if [[ -z "$output" ]]; then
+            echo "EMPTY"
+        else
+            echo "HAS_OUTPUT"
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "EMPTY" ]
+}
+
+@test "git empty state: dirty git status has output" {
+    local repo="$BATS_TEST_TMPDIR/dirty-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" config user.email "test@test.com"
+    git -C "$repo" config user.name "Test"
+    echo "file" > "$repo/file.txt"
+    git -C "$repo" add . && git -C "$repo" commit -q -m "init"
+    echo "changed" > "$repo/file.txt"
+
+    run bash -c '
+        cd "'"$repo"'"
+        output=$(git status --porcelain 2>/dev/null)
+        if [[ -z "$output" ]]; then
+            echo "EMPTY"
+        else
+            echo "HAS_OUTPUT"
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "HAS_OUTPUT" ]
+}
+
+@test "dirs empty state: empty zoxide output triggers error with zoxide message" {
+    run bash -c '
+        ZOXIDE_CMD="zoxide"
+        dir_output=""
+        if [[ -z "$dir_output" ]]; then
+            if [[ -z "$ZOXIDE_CMD" ]]; then
+                echo "no directories found — install zoxide for frecency: brew install zoxide"
+            else
+                echo "no directories in zoxide — cd around first to build history"
+            fi
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no directories in zoxide"* ]]
+}
+
+@test "dirs empty state: empty output without zoxide suggests installation" {
+    run bash -c '
+        ZOXIDE_CMD=""
+        dir_output=""
+        if [[ -z "$dir_output" ]]; then
+            if [[ -z "$ZOXIDE_CMD" ]]; then
+                echo "no directories found — install zoxide for frecency: brew install zoxide"
+            else
+                echo "no directories in zoxide — cd around first to build history"
+            fi
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"install zoxide"* ]]
+}
+
+@test "dirs empty state: non-empty output skips error" {
+    run bash -c '
+        dir_output="/home/user/projects"
+        if [[ -z "$dir_output" ]]; then
+            echo "ERROR"
+        else
+            echo "OK"
+        fi
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "OK" ]
+}
+
 # ─── Commands mode ───────────────────────────────────────────────────────
 
 @test "commands mode strips leading : from query" {

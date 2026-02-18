@@ -953,10 +953,22 @@ run_directory_mode() {
         dir_preview="$tilde_expand; ls -laG \"\$d\""
     fi
 
+    local dir_output
+    dir_output=$(_run_dir_cmd)
+
+    if [[ -z "$dir_output" ]]; then
+        if [[ -z "$ZOXIDE_CMD" ]]; then
+            _dispatch_error "no directories found — install zoxide for frecency: brew install zoxide"
+        else
+            _dispatch_error "no directories in zoxide — cd around first to build history"
+        fi
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
     local become_files="$BECOME_FILES"
 
     local result
-    result=$(_run_dir_cmd | fzf \
+    result=$(echo "$dir_output" | fzf \
         "${BASE_FZF_OPTS[@]}" \
         --expect=ctrl-y \
         --query "$QUERY" \
@@ -1093,10 +1105,18 @@ run_git_mode() {
     # fzf reload string — single quotes around $git_awk protect awk's $0 from sh
     local git_status_cmd="git status --porcelain 2>/dev/null | awk '${git_awk}'"
 
+    local git_output
+    git_output=$(_run_git_status)
+
+    if [[ -z "$git_output" ]]; then
+        _dispatch_error "working tree clean — nothing to stage"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
     local become_files="$BECOME_FILES"
 
     local result
-    result=$(_run_git_status | fzf \
+    result=$(echo "$git_output" | fzf \
         "${BASE_FZF_OPTS[@]}" \
         --multi \
         --expect=ctrl-o,ctrl-y \
