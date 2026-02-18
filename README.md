@@ -15,7 +15,7 @@
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
 </p>
 
-<p align="center"><i>Type <code>&gt;</code> to grep, <code>@</code> for sessions, <code>!</code> for git status — all without closing the popup</i></p>
+<p align="center"><i>Like VS Code's Cmd+P for tmux — type <code>&gt;</code> to grep, <code>@</code> for sessions, <code>!</code> for git — all without closing the popup</i></p>
 
 <!-- Re-record: vhs demo.tape (requires https://github.com/charmbracelet/vhs) -->
 
@@ -44,6 +44,9 @@ Start with `Alt+o` to browse files, then explore other modes by typing prefix ch
 Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories. Backspace on empty returns home to files — just like VSCode's command palette.
 
 **Tip:** Press `?` in any mode for context-sensitive help showing all available keybindings.
+
+> **Alt keys not working?** Some terminals need configuration for Alt keybindings.
+> Use `prefix + e` as a fallback, or see [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) for setup guides.
 
 ## Installation
 
