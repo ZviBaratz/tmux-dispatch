@@ -975,7 +975,7 @@ BASH
     run bash -c '
         MODE="scrollback"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1105,7 +1105,7 @@ line3"
     run bash -c '
         MODE="commands"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1420,4 +1420,42 @@ line3"
         grep -c "cd ~ &&\|cd.*HOME" "'"$SCRIPT_DIR"'/dispatch.sh" || echo "0"
     '
     [[ "${lines[0]}" -ge 1 ]]
+}
+
+# ─── Resume mode ─────────────────────────────────────────────────────────
+
+@test "resume: --mode=resume falls back to files when no stored state" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        MODE="resume"
+        if [[ "$MODE" == "resume" ]]; then
+            MODE=$(tmux show -sv @_dispatch-last-mode 2>/dev/null) || MODE=""
+            [[ -z "$MODE" ]] && MODE="files"
+        fi
+        echo "$MODE"
+    '
+    [ "$output" = "files" ]
+}
+
+@test "resume: mode validation accepts resume" {
+    run bash -c '
+        MODE="resume"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
+}
+
+@test "resume: mode validation accepts marks" {
+    run bash -c '
+        MODE="marks"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
 }
