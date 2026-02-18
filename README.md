@@ -9,29 +9,26 @@
   <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux" alt="tmux"></a>
 </p>
 
-<h3 align="center">A unified command palette for tmux — files, grep, git, directories, sessions, scrollback, and custom commands in one popup.</h3>
+<h3 align="center">One popup. Eight modes. Zero context switching.</h3>
 
 <p align="center">
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
 </p>
 
-<p align="center"><i>Like VS Code's Cmd+P for tmux — type <code>&gt;</code> to grep, <code>@</code> for sessions, <code>$</code> for scrollback, <code>:</code> for commands — all without closing the popup</i></p>
+<p align="center"><i>Like Cmd+P for tmux — type a prefix to switch modes, never close the popup</i></p>
 
 <!-- Re-record: vhs tapes/demo.tape (requires https://github.com/charmbracelet/vhs) -->
 
-## Features
+## What's inside
 
-- **File finder** — Find any file instantly with `fd`/`find`, `bat` preview, bookmarks (★), frecency ranking, and git status indicators
-- **Live grep** — Search your entire project on every keystroke with ripgrep and line-highlighted preview
-- **Git status** — Stage and unstage without leaving the popup — colored status icons, `Tab` to toggle, inline diff preview
-- **Directory jump** — Jump to any recent directory with zoxide frecency — `Enter` sends `cd` to your pane
-- **Session management** — Switch, create, or kill sessions without memorizing tmux commands — window grid preview shows what's running
-- **Window picker** — See what's in each window before switching — pane content preview in a 2-column grid
-- **Scrollback search** — Search and copy from your terminal's output history — `Enter` copies to clipboard, `Ctrl+O` pastes to pane
-- **Custom commands** — Define your own command palette in `commands.conf` — run shell scripts, tmux commands, or anything you want with a fuzzy search
-- **Mode switching** — Never close the popup: type `>` for grep, `@` for sessions, `!` for git, `#` for directories, `$` for scrollback, `:` for commands — backspace returns home
-- **In-place actions** — Rename, delete, bookmark, multi-select, and copy without leaving the popup
-- **Built-in guide** — Opening the popup shows all keybindings; press `?` in any mode for context-sensitive help
+| | |
+|---|---|
+| **File finder** — fd/find + bat preview, bookmarks, frecency | **Live grep** — Ripgrep on every keystroke, line-highlighted preview |
+| <img src="docs/assets/files.gif" width="400"> | <img src="docs/assets/grep.gif" width="400"> |
+| **Git status** — Stage/unstage with Tab, inline diff | **Sessions** — Switch, create, kill with window preview |
+| <img src="docs/assets/git.gif" width="400"> | <img src="docs/assets/sessions.gif" width="400"> |
+
+**Plus:** [Directory jump](https://zvibaratz.github.io/tmux-dispatch/modes/dirs) via zoxide (`#`) | [Window picker](https://zvibaratz.github.io/tmux-dispatch/modes/windows) with pane preview | [Scrollback search](https://zvibaratz.github.io/tmux-dispatch/modes/scrollback) with copy/paste (`$`) | [Custom commands](https://zvibaratz.github.io/tmux-dispatch/modes/commands) from a config file (`:`) | [Mode switching](https://zvibaratz.github.io/tmux-dispatch/features/mode-switching) via prefix characters | [Bookmarks](https://zvibaratz.github.io/tmux-dispatch/features/bookmarks) with `Ctrl+B`
 
 ## Quick Start
 
@@ -109,9 +106,20 @@ sudo dnf install fzf fd-find bat ripgrep
 curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 ```
 
+## Replaces your plugin stack
+
+| Without tmux-dispatch | With tmux-dispatch |
+|---|---|
+| extrakto (scrollback) | `$` scrollback mode |
+| tmux-fzf (sessions/windows) | `@` sessions mode |
+| tmux-which-key (commands) | `:` commands mode |
+| fzf + fd (file finding) | Default mode |
+| rg (project grep) | `>` grep mode |
+| **5 plugins, 5 keybindings** | **1 plugin, 3 keybindings** |
+
 ## Documentation
 
-Full documentation is available at **[zvibaratz.github.io/tmux-dispatch](https://zvibaratz.github.io/tmux-dispatch/)**.
+Full documentation at **[zvibaratz.github.io/tmux-dispatch](https://zvibaratz.github.io/tmux-dispatch/)**.
 
 | | | |
 |---|---|---|
@@ -120,31 +128,13 @@ Full documentation is available at **[zvibaratz.github.io/tmux-dispatch](https:/
 | [Scrollback Search](https://zvibaratz.github.io/tmux-dispatch/modes/scrollback) | [Custom Commands](https://zvibaratz.github.io/tmux-dispatch/modes/commands) | [Mode Switching](https://zvibaratz.github.io/tmux-dispatch/features/mode-switching) |
 | [Configuration](https://zvibaratz.github.io/tmux-dispatch/reference/configuration) | [Keybindings](https://zvibaratz.github.io/tmux-dispatch/reference/keybindings) | [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) |
 
-## How is this different?
-
-Most tmux fuzzy-finder plugins provide a menu of separate tmux operations (sessions, windows, panes, commands) where each action opens a new picker. tmux-dispatch takes a different approach:
-
-- **Unified popup** — Files, grep, git, directories, and sessions all live in a single popup. No closing and reopening for different tasks.
-- **No-close mode switching** — Type a prefix character (`>`, `@`, `!`, `#`, `$`, `:`) to switch modes instantly. Backspace on empty returns home. The popup stays open throughout.
-- **Frecency ranking** — Recently and frequently opened files appear first, so your most-used files are always within reach.
-- **Inline git staging** — Stage and unstage files with `Tab` directly in the git status view, with an inline diff preview. No need to drop to the command line.
-- **Bookmarks** — Pin important files with `Ctrl+B` so they always appear at the top of the file list.
-- **Scrollback search** — Grab commands, paths, or output from your terminal history without a separate plugin. Search, multi-select, copy to clipboard, or paste directly into your pane.
-- **Custom command palette** — Define your own commands in a simple config file and run them with fuzzy search. Shell scripts, tmux commands, project-specific workflows — all one prefix away.
-- **Replaces 3-4 plugins** — Between file finding, grep, git staging, session management, scrollback search, and custom commands, tmux-dispatch replaces what would otherwise require extrakto + tmux-fzf + tmux-which-key (or similar).
-
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a full list of changes in each release.
 
 ## Similar Projects
 
-- [sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) — fzf-based tmux management (sessions, windows, panes, commands). Complementary to tmux-dispatch.
-- [laktak/extrakto](https://github.com/laktak/extrakto) — Extract text/URLs from terminal scrollback. tmux-dispatch's scrollback mode covers this use case.
-- [joshmedeski/sesh](https://github.com/joshmedeski/sesh) — Go-based tmux session manager with zoxide integration
-- [alexwforsythe/tmux-which-key](https://github.com/alexwforsythe/tmux-which-key) — Hierarchical keybinding menu for tmux commands. tmux-dispatch's commands mode provides similar functionality.
-- [wfxr/tmux-fzf-url](https://github.com/wfxr/tmux-fzf-url) — Open URLs from terminal output via fzf
-- [junegunn/fzf](https://github.com/junegunn/fzf) — The fuzzy finder that powers tmux-dispatch (includes built-in `fzf-tmux`)
+[sainnhe/tmux-fzf](https://github.com/sainnhe/tmux-fzf) | [laktak/extrakto](https://github.com/laktak/extrakto) | [joshmedeski/sesh](https://github.com/joshmedeski/sesh) | [alexwforsythe/tmux-which-key](https://github.com/alexwforsythe/tmux-which-key) | [wfxr/tmux-fzf-url](https://github.com/wfxr/tmux-fzf-url) | [junegunn/fzf](https://github.com/junegunn/fzf)
 
 ## License
 
