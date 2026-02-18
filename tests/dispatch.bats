@@ -1251,3 +1251,29 @@ line3"
     '
     [ "$output" = "dir_exists" ]
 }
+
+# ─── Doctor script ────────────────────────────────────────────────────────
+
+@test "doctor.sh: exists and is executable" {
+    [ -x "$SCRIPT_DIR/doctor.sh" ]
+}
+
+@test "doctor.sh: reports bash version" {
+    run bash "$SCRIPT_DIR/doctor.sh" 2>&1
+    [[ "$output" == *"bash"* ]]
+}
+
+@test "doctor.sh: reports fzf status" {
+    run bash "$SCRIPT_DIR/doctor.sh" 2>&1
+    [[ "$output" == *"fzf"* ]]
+}
+
+@test "doctor.sh: reports tmux status" {
+    run bash "$SCRIPT_DIR/doctor.sh" 2>&1
+    [[ "$output" == *"tmux"* ]]
+}
+
+@test "doctor.sh: shows summary line" {
+    run bash "$SCRIPT_DIR/doctor.sh" 2>&1
+    [[ "$output" == *"Summary:"* ]]
+}
