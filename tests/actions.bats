@@ -516,6 +516,82 @@ MOCK
     [ "$status" -eq 0 ]
 }
 
+# ─── smart-open ───────────────────────────────────────────────────────────────
+
+@test "smart-open: dispatches url type to open-url" {
+    # Mock tmux to capture the display-message call (open-url uses tmux run-shell)
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    # Also need xdg-open/open mock for the url handler
+    cat > "$BATS_TEST_TMPDIR/xdg-open" <<'MOCK'
+#!/usr/bin/env bash
+exit 0
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/xdg-open"
+
+    run "$ACTIONS" smart-open url "https://example.com" "%1" "vim"
+    [ "$status" -eq 0 ]
+    # Should have called tmux (either run-shell for browser or display-message)
+    [ -f "$log" ]
+}
+
+@test "smart-open: path type extracts file and line number" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open path "src/main.rs:42" "%1" "vim"
+    [ "$status" -eq 0 ]
+    # Should have sent editor command to pane
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"+42"* ]]
+    [[ "$output" == *"src/main.rs"* ]]
+}
+
+@test "smart-open: path with column extracts correctly" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open path "lib/utils.js:10:5" "%2" "nvim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"+10"* ]]
+    [[ "$output" == *"lib/utils.js"* ]]
+}
+
+@test "smart-open: unknown type copies to clipboard" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" smart-open hash "abc1234" "%1" "vim"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"display-message"* ]]
+    [[ "$output" == *"Copied"* ]]
+}
+
+@test "smart-open: empty token is a no-op" {
+    run "$ACTIONS" smart-open url "" "%1" "vim"
+    [ "$status" -eq 0 ]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {

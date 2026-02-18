@@ -56,7 +56,7 @@ The default mode when the popup opens. Provides fuzzy file finding with preview.
 | `:` prefix | Switch to custom commands (remainder becomes query) |
 | `~` prefix | Switch to files from `$HOME` |
 
-Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode.
+Mode prefix switching works by typing the prefix character as the first character in the query. The rest of the query carries over to the new mode. The `&` prefix for URLs has been removed -- URL extraction is now part of scrollback mode's tokens view (toggle with `Ctrl+T`).
 
 ## Grep
 
@@ -127,12 +127,25 @@ Browse and switch between windows in a session. Arrow keys navigate spatially wi
 
 ## Scrollback
 
-Search and copy text from your terminal's scrollback buffer.
+Search and copy text from your terminal's scrollback buffer. Two views toggle with `Ctrl+T`.
+
+### Lines view
 
 | Key | Action |
 |-----|--------|
 | `Enter` | Copy selected line(s) to tmux buffer + system clipboard |
 | `Ctrl+O` | Paste selection into originating pane |
+| `Ctrl+T` | Switch to tokens (extract) view |
+| `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
+| `Backspace` on empty | Return to files (home) |
+
+### Tokens view (extract)
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Copy selected token(s) to tmux buffer + system clipboard |
+| `Ctrl+O` | Smart open: browser for URLs, editor for file:line, clipboard for others |
+| `Ctrl+T` | Switch to lines view |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `Backspace` on empty | Return to files (home) |
 
@@ -165,6 +178,7 @@ View and manage all bookmarked files across all directories.
 | Open/switch | Enter | Enter | Enter | Enter | Enter | Enter | — | Enter | Enter |
 | Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — | Ctrl+O |
 | Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — | Ctrl+Y |
+| Toggle view | — | Ctrl+F | — | — | — | — | Ctrl+T | — | — |
 | Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — | — |
 | Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | — | — | — |
 | Bookmark | Ctrl+B | — | — | — | — | — | — | — | Ctrl+B* |

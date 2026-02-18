@@ -18,7 +18,7 @@ Customize which keys open each mode. Set any key option to `"none"` to disable t
 | `@dispatch-grep-key` | `M-s` | Prefix-free key to open live grep (Alt+s) |
 | `@dispatch-session-key` | `M-w` | Prefix-free key to open session picker (Alt+w) |
 | `@dispatch-git-key` | `none` | Prefix-free key to open git status (disabled by default; use `!` prefix instead) |
-| `@dispatch-url-key` | `none` | Prefix-free key to open URL extraction (disabled by default; use `&` prefix instead) |
+| `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback in tokens (extract) view (disabled by default; use `$` then `Ctrl+T` instead) |
 | `@dispatch-prefix-key` | `e` | Prefix key to open file finder (prefix+e) |
 | `@dispatch-session-prefix-key` | `none` | Prefix key to open session picker (disabled by default) |
 | `@dispatch-resume-key` | `none` | Prefix-free key to reopen last-used mode with last query (disabled by default) |
@@ -76,6 +76,7 @@ When set, only files matching the listed extensions appear in the file finder, b
 | Option | Default | Description |
 |--------|---------|-------------|
 | `@dispatch-scrollback-lines` | `10000` | Number of scrollback lines to capture from the originating pane |
+| `@dispatch-scrollback-view` | `lines` | Default view when entering scrollback mode: `lines` (full scrollback lines) or `tokens` (extracted URLs, file paths, git hashes, IPs) |
 
 ## Commands options
 
@@ -103,7 +104,7 @@ set -g @dispatch-find-key "M-o"
 set -g @dispatch-grep-key "M-s"
 set -g @dispatch-session-key "M-w"
 set -g @dispatch-git-key "none"
-set -g @dispatch-url-key "none"
+set -g @dispatch-extract-key "none"
 set -g @dispatch-prefix-key "e"
 set -g @dispatch-session-prefix-key "none"
 set -g @dispatch-resume-key "M-r"
@@ -129,6 +130,7 @@ set -g @dispatch-file-types "ts,tsx,js"
 
 # Scrollback
 set -g @dispatch-scrollback-lines "10000"
+set -g @dispatch-scrollback-view "lines"
 
 # Commands
 set -g @dispatch-commands-file "$HOME/.config/tmux-dispatch/commands.conf"

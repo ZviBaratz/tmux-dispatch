@@ -230,6 +230,32 @@ action_open_url() {
     fi
 }
 
+# ─── smart-open ───────────────────────────────────────────────────────────
+
+action_smart_open() {
+    local type="$1" token="$2" pane_id="${3:-}" pane_editor="${4:-}"
+    [[ -z "$token" ]] && return 0
+    case "$type" in
+        url)  action_open_url "$token" ;;
+        path)
+            local file="${token%%:*}"
+            local line_num="${token#*:}"; line_num="${line_num%%:*}"
+            [[ "$line_num" =~ ^[0-9]+$ ]] || line_num=1
+            if [[ -n "$pane_id" && -n "$pane_editor" ]]; then
+                tmux send-keys -t "$pane_id" "$pane_editor +$line_num $(printf '%q' "$file")" Enter
+                tmux display-message "Opened: $file:$line_num"
+            else
+                printf '%s' "$token" | tmux load-buffer -w -
+                tmux display-message "No editor target — copied: $token"
+            fi
+            ;;
+        *)
+            printf '%s' "$token" | tmux load-buffer -w -
+            tmux display-message "Copied: $token"
+            ;;
+    esac
+}
+
 # ─── bookmark-remove ─────────────────────────────────────────────────────
 
 action_bookmark_remove() {
@@ -267,6 +293,7 @@ case "$action" in
     git-toggle)             action_git_toggle "$@" ;;
     kill-session)           action_kill_session "$@" ;;
     open-url)               action_open_url "$@" ;;
+    smart-open)             action_smart_open "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
     bookmark-remove)        action_bookmark_remove "$@" ;;
     *)

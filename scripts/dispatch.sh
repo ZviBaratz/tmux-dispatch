@@ -2,7 +2,7 @@
 # =============================================================================
 # dispatch.sh — Unified file finder, content search, and session picker
 # =============================================================================
-# Thirteen modes, switchable mid-session via fzf's become action:
+# Twelve modes, switchable mid-session via fzf's become action:
 #
 #   --mode=files          fd/find → fzf (normal filtering, bat preview)
 #   --mode=grep           fzf --disabled + change:reload:rg (live search)
@@ -13,10 +13,9 @@
 #   --mode=windows        tmux window picker for a session
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
-#   --mode=scrollback     search tmux scrollback history
+#   --mode=scrollback     search tmux scrollback (lines + token extraction)
 #   --mode=commands        custom command palette
 #   --mode=marks          global bookmarks viewer
-#   --mode=urls           extract and open URLs from scrollback
 #
 # Mode switching (VSCode command palette style):
 #   Files is the home mode. Prefixes step into sub-modes:
@@ -26,11 +25,11 @@
 #   # prefix   — Files → directories (remainder becomes query)
 #   $ prefix   — Files → scrollback search (remainder becomes query)
 #   : prefix   — Files → custom commands (remainder becomes query)
-#   & prefix   — Files → URL extraction from scrollback
+#   ~ prefix   — Files → files from $HOME
 #   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls
-#        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME]
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks
+#        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME] [--view=lines|tokens]
 # =============================================================================
 
 set -euo pipefail
@@ -56,6 +55,7 @@ PANE_ID=""
 QUERY=""
 FILE=""
 SESSION=""
+SCROLLBACK_VIEW=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -64,6 +64,7 @@ for arg in "$@"; do
         --query=*)   QUERY="${arg#--query=}" ;;
         --file=*)    FILE="${arg#--file=}" ;;
         --session=*) SESSION="${arg#--session=}" ;;
+        --view=*)    SCROLLBACK_VIEW="${arg#--view=}" ;;
     esac
 done
 
@@ -82,9 +83,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, urls, resume)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, resume)"
         exit 1
         ;;
 esac
@@ -100,7 +101,7 @@ fi
 # One tmux subprocess instead of separate show-option calls.
 POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
 HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
-SCROLLBACK_LINES="10000"
+SCROLLBACK_LINES="10000" SCROLLBACK_VIEW_DEFAULT="lines"
 COMMANDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/commands.conf"
 while IFS= read -r line; do
     key="${line%% *}"
@@ -117,11 +118,14 @@ while IFS= read -r line; do
         @dispatch-git-indicators)  GIT_INDICATORS="$val" ;;
         @dispatch-theme)           DISPATCH_THEME="$val" ;;
         @dispatch-scrollback-lines) SCROLLBACK_LINES="$val" ;;
+        @dispatch-scrollback-view) SCROLLBACK_VIEW_DEFAULT="$val" ;;
         @dispatch-commands-file) COMMANDS_FILE="$val" ;;
     esac
 done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
 POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
 PANE_EDITOR=$(detect_pane_editor "$PANE_EDITOR")
+# Apply default scrollback view if not overridden by --view= CLI arg
+[[ -z "$SCROLLBACK_VIEW" ]] && SCROLLBACK_VIEW="$SCROLLBACK_VIEW_DEFAULT"
 
 # ─── Read cached tool paths ──────────────────────────────────────────────────
 FD_CMD=$(_dispatch_read_cached "@_dispatch-fd" detect_fd)
@@ -194,7 +198,6 @@ HELP_FILES="$(printf '%b' '
   $...      scrollback search
   :...      custom commands
   ~...      files from home
-  &...      urls from scrollback
 ')"
 
 HELP_GREP="$(printf '%b' '
@@ -280,10 +283,11 @@ SQ_HELP_WINDOWS=$(_sq_escape "$HELP_WINDOWS")
 SQ_HELP_SESSION_NEW=$(_sq_escape "$HELP_SESSION_NEW")
 
 HELP_SCROLLBACK="$(printf '%b' '
-  \033[1mSCROLLBACK\033[0m
+  \033[1mSCROLLBACK (lines)\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     copy to clipboard
   ^O        paste to pane
+  ^T        switch to extract
   tab       select
   ⌫ empty   back to files
 
@@ -312,21 +316,24 @@ HELP_MARKS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
-HELP_URLS="$(printf '%b' '
-  \033[1mURLS\033[0m
+HELP_EXTRACT="$(printf '%b' '
+  \033[1mEXTRACT (tokens)\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     copy to clipboard
-  ^O        open in browser
+  ^O        smart open
+            (editor / browser)
+  ^T        switch to lines
   tab       select
   ⌫ empty   back to files
 
+  \033[38;5;244mtypes: url path hash ip\033[0m
   ^D/^U     scroll preview
 ')"
 
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
-SQ_HELP_URLS=$(_sq_escape "$HELP_URLS")
+SQ_HELP_EXTRACT=$(_sq_escape "$HELP_EXTRACT")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -500,8 +507,6 @@ elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '~'* ]]; then
   echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')\"
-elif [[ {q} == '&'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=urls --pane='$SQ_PANE_ID' --query={q})\"
 fi"
 
     # ─── Reload command construction ────────────────────────────────────────────
@@ -1242,140 +1247,161 @@ run_scrollback_mode() {
 
     local become_files_empty="$BECOME_FILES"
 
-    # Capture scrollback from originating pane, dedup, reverse (most recent first)
-    local scrollback_file
-    scrollback_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-scrollback-XXXXXX")
-    trap 'command rm -f "$scrollback_file"' EXIT
+    # Capture raw scrollback from originating pane
+    local raw_file lines_file tokens_file view_flag
+    raw_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-raw-XXXXXX")
+    lines_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-lines-XXXXXX")
+    tokens_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-tokens-XXXXXX")
+    view_flag=$(mktemp "${TMPDIR:-/tmp}/dispatch-view-XXXXXX")
+    trap 'command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag"' EXIT
 
-    tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null \
-        | awk 'NF && !seen[$0]++' \
-        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$scrollback_file"
+    tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null > "$raw_file"
 
-    if [[ ! -s "$scrollback_file" ]]; then
+    # Build lines file: dedup + reverse (most recent first)
+    awk 'NF && !seen[$0]++' "$raw_file" \
+        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$lines_file"
+
+    if [[ ! -s "$lines_file" ]]; then
         _dispatch_error "scrollback is empty — pane has no output yet"
-        command rm -f "$scrollback_file"
+        command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
-    local sq_scrollback_file
-    sq_scrollback_file=$(_sq_escape "$scrollback_file")
+    # Build tokens file via _extract_tokens
+    _extract_tokens "$raw_file" > "$tokens_file"
 
-    # Preview: show surrounding context (5 lines) around the selected line
-    # Use {n} (0-indexed item position) to find the line by number — avoids
-    # quoting issues with {} on lines containing spaces or single quotes
-    local preview_cmd="awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_scrollback_file'"
+    # If tokens view requested but no tokens found, fall back to lines
+    if [[ "$SCROLLBACK_VIEW" == "tokens" && ! -s "$tokens_file" ]]; then
+        _dispatch_error "no tokens found in scrollback — showing lines"
+        SCROLLBACK_VIEW="lines"
+    fi
+
+    # View flag file: present = tokens view, absent = lines view
+    if [[ "$SCROLLBACK_VIEW" == "tokens" ]]; then
+        touch "$view_flag"
+    else
+        command rm -f "$view_flag"
+    fi
+
+    local sq_lines_file sq_tokens_file sq_view_flag sq_raw_file
+    sq_lines_file=$(_sq_escape "$lines_file")
+    sq_tokens_file=$(_sq_escape "$tokens_file")
+    sq_view_flag=$(_sq_escape "$view_flag")
+    sq_raw_file=$(_sq_escape "$raw_file")
+
+    # Preview command: branches on view flag
+    # Lines view: show surrounding context (5 lines) around selected line
+    # Tokens view: show token type header + grep context in raw scrollback
+    local preview_cmd="if [ -f '$sq_view_flag' ]; then \
+token=\$(printf '%s' '{}' | cut -f2); \
+ttype=\$(printf '%s' '{}' | cut -f1); \
+printf '\\033[1;36m%s\\033[0m  \\033[38;5;244m(%s)\\033[0m\\n\\033[38;5;244m─────────────────────────────────────────\\033[0m\\n' \"\$token\" \"\$ttype\"; \
+grep --color=always -F -B2 -A2 -- \"\$token\" '$sq_raw_file' 2>/dev/null | head -30; \
+else \
+awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_lines_file'; \
+fi"
+
+    # Help binding: branches on view flag
+    local help_cmd="if [ -f '$sq_view_flag' ]; then printf '%b' '$SQ_HELP_EXTRACT'; else printf '%b' '$SQ_HELP_SCROLLBACK'; fi"
+
+    # Ctrl+T toggle: flip view flag, reload data, update prompt and border label
+    local lines_label="' scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files '"
+    local tokens_label="' extract \$ · ? help · ^t lines · enter copy · ^o open · tab select · ⌫ files '"
+    local toggle_cmd="if [ -f '$sq_view_flag' ]; then \
+command rm -f '$sq_view_flag'; \
+echo 'reload(cat '$sq_lines_file')+change-prompt(scrollback \$ )+change-border-label($lines_label)'; \
+else \
+touch '$sq_view_flag'; \
+echo 'reload(cat '$sq_tokens_file')+change-prompt(extract \$ )+change-border-label($tokens_label)'; \
+fi"
+
+    # Determine initial state
+    local initial_prompt initial_label initial_file
+    if [[ "$SCROLLBACK_VIEW" == "tokens" ]]; then
+        initial_prompt='extract $ '
+        initial_label="$tokens_label"
+        initial_file="$tokens_file"
+    else
+        initial_prompt='scrollback $ '
+        initial_label="$lines_label"
+        initial_file="$lines_file"
+    fi
 
     local result
-    result=$(fzf < "$scrollback_file" \
+    result=$(fzf < "$initial_file" \
         "${BASE_FZF_OPTS[@]}" \
         --expect=ctrl-o \
         --multi \
         --query "$QUERY" \
-        --prompt 'scrollback $ ' \
+        --prompt "$initial_prompt" \
         --ansi \
         --no-sort \
-        --border-label ' scrollback $ · ? help · enter copy · ^o paste · tab select · ⌫ files ' \
+        --delimiter=$'\t' \
+        --border-label "$initial_label" \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
+        --bind "ctrl-t:transform:$toggle_cmd" \
         --bind "backward-eof:$become_files_empty" \
-        --bind "?:preview:printf '%b' '$SQ_HELP_SCROLLBACK'" \
+        --bind "?:preview:$help_cmd" \
     ) || exit 0
 
-    handle_scrollback_result "$result"
+    handle_scrollback_result "$result" "$view_flag"
 }
 
 handle_scrollback_result() {
     local result="$1"
+    local view_flag="$2"
     local key
-    local -a lines
+    local -a items
 
     key=$(head -1 <<< "$result")
-    mapfile -t lines < <(tail -n +2 <<< "$result")
-    [[ ${#lines[@]} -eq 0 ]] && exit 0
+    mapfile -t items < <(tail -n +2 <<< "$result")
+    [[ ${#items[@]} -eq 0 ]] && exit 0
 
-    case "$key" in
-        ctrl-o)
-            # Paste to originating pane
-            if [[ -n "$PANE_ID" ]]; then
-                local text
-                text=$(printf '%s\n' "${lines[@]}")
-                tmux send-keys -t "$PANE_ID" -- "$text"
-                tmux display-message "Sent ${#lines[@]} line(s) to pane"
-            fi
-            ;;
-        *)
-            # Default: copy to clipboard
-            printf '%s\n' "${lines[@]}" | tmux load-buffer -w -
-            tmux display-message "Copied ${#lines[@]} line(s)"
-            ;;
-    esac
-}
-
-# ─── Mode: urls ───────────────────────────────────────────────────────────────
-
-run_urls_mode() {
-    if [[ -z "$PANE_ID" ]]; then
-        _dispatch_error "urls requires a pane — use keybinding, not direct invocation"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    if [[ -f "$view_flag" ]]; then
+        # ─── Tokens view ──────────────────────────────────────────────────
+        case "$key" in
+            ctrl-o)
+                # Smart open each selected token
+                local item
+                for item in "${items[@]}"; do
+                    local ttype="${item%%	*}"
+                    local token="${item#*	}"
+                    "$SCRIPT_DIR/actions.sh" smart-open "$ttype" "$token" "$PANE_ID" "$PANE_EDITOR"
+                done
+                ;;
+            *)
+                # Copy token values (strip type prefix) to clipboard
+                local tokens=""
+                local item
+                for item in "${items[@]}"; do
+                    local token="${item#*	}"
+                    tokens="${tokens:+${tokens}
+}${token}"
+                done
+                printf '%s' "$tokens" | tmux load-buffer -w -
+                tmux display-message "Copied ${#items[@]} token(s)"
+                ;;
+        esac
+    else
+        # ─── Lines view ───────────────────────────────────────────────────
+        case "$key" in
+            ctrl-o)
+                # Paste to originating pane
+                if [[ -n "$PANE_ID" ]]; then
+                    local text
+                    text=$(printf '%s\n' "${items[@]}")
+                    tmux send-keys -t "$PANE_ID" -- "$text"
+                    tmux display-message "Sent ${#items[@]} line(s) to pane"
+                fi
+                ;;
+            *)
+                # Default: copy to clipboard
+                printf '%s\n' "${items[@]}" | tmux load-buffer -w -
+                tmux display-message "Copied ${#items[@]} line(s)"
+                ;;
+        esac
     fi
-
-    local become_files_empty="$BECOME_FILES"
-
-    # Capture scrollback, extract URLs, dedup (most recent first)
-    local scrollback_file url_file
-    scrollback_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-scrollback-XXXXXX")
-    url_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-urls-XXXXXX")
-    trap 'command rm -f "$scrollback_file" "$url_file"' EXIT
-
-    tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null > "$scrollback_file"
-
-    # Extract URLs: reverse scrollback (most recent first), grep URLs, strip trailing punctuation, dedup
-    awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' "$scrollback_file" \
-        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' \
-        | sed "s/[.,;:!?)'\"\`]*$//" \
-        | awk '!seen[$0]++' > "$url_file"
-
-    if [[ ! -s "$url_file" ]]; then
-        _dispatch_error "no URLs found in scrollback"
-        command rm -f "$scrollback_file" "$url_file"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
-    fi
-
-    local sq_scrollback_file
-    sq_scrollback_file=$(_sq_escape "$scrollback_file")
-
-    # Preview: show URL header + surrounding context with the URL highlighted
-    local preview_cmd="printf '\033[1;36m%s\033[0m\n\033[38;5;244m─────────────────────────────────────────\033[0m\n' '{}'; grep --color=always -F -B2 -A2 -- '{}' '$sq_scrollback_file' | head -20"
-
-    local result
-    result=$(fzf < "$url_file" \
-        "${BASE_FZF_OPTS[@]}" \
-        --multi \
-        --query "$QUERY" \
-        --prompt 'urls & ' \
-        --ansi \
-        --no-sort \
-        --border-label ' urls & · ? help · enter copy · ^o open · tab select · ⌫ files ' \
-        --border-label-pos 'center:bottom' \
-        --preview "$preview_cmd" \
-        --bind "ctrl-o:execute-silent('$SQ_SCRIPT_DIR/actions.sh' open-url '{}')" \
-        --bind "backward-eof:$become_files_empty" \
-        --bind "?:preview:printf '%b' '$SQ_HELP_URLS'" \
-    ) || exit 0
-
-    handle_urls_result "$result"
-}
-
-handle_urls_result() {
-    local result="$1"
-    local -a urls
-
-    mapfile -t urls <<< "$result"
-    [[ ${#urls[@]} -eq 0 ]] && exit 0
-
-    # Default: copy to clipboard
-    printf '%s\n' "${urls[@]}" | tmux load-buffer -w -
-    tmux display-message "Copied ${#urls[@]} URL(s)"
 }
 
 # Create default commands.conf with starter recipes
@@ -1547,6 +1573,37 @@ run_marks_mode() {
     esac
 }
 
+# ─── Token extraction ──────────────────────────────────────────────────────
+# Extracts structured tokens (URLs, file:line, git hashes, IPs) from scrollback.
+# Input: path to raw scrollback file. Output: type\ttoken lines, deduped.
+
+_extract_tokens() {
+    local file="$1"
+    local reversed
+    reversed=$(mktemp "${TMPDIR:-/tmp}/dispatch-reversed-XXXXXX")
+    # Strip ANSI escapes, then reverse (most recent first)
+    sed 's/\x1b\[[0-9;]*m//g' "$file" \
+        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$reversed"
+    {
+        # URLs (existing proven regex)
+        grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' "$reversed" \
+            | sed "s/[.,;:!?)'\"\`]*$//" \
+            | awk '{print "url\t" $0}' || true
+        # File paths with line numbers (require extension before :linenum)
+        grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' "$reversed" \
+            | grep -v '^//' \
+            | awk '{print "path\t" $0}' || true
+        # Git commit hashes (7-40 hex chars, word-bounded, exclude all-digit)
+        grep -oEw '[0-9a-f]{7,40}' "$reversed" \
+            | grep -v '^[0-9]*$' \
+            | awk '{print "hash\t" $0}' || true
+        # IPv4 addresses with optional port
+        grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]{1,5})?' "$reversed" \
+            | awk '{print "ip\t" $0}' || true
+    } | awk '!seen[$0]++'
+    command rm -f "$reversed"
+}
+
 # Strip mode prefix character from query (used when switching via prefix typing)
 _strip_mode_prefix() {
     case "$MODE" in
@@ -1556,7 +1613,6 @@ _strip_mode_prefix() {
         git)        QUERY="${QUERY#!}" ;;
         scrollback) QUERY="${QUERY#\$}" ;;
         commands)   QUERY="${QUERY#:}" ;;
-        urls)       QUERY="${QUERY#&}" ;;
     esac
 }
 _strip_mode_prefix
@@ -1580,5 +1636,4 @@ case "$MODE" in
     scrollback)     run_scrollback_mode ;;
     commands)       run_commands_mode ;;
     marks)          run_marks_mode ;;
-    urls)           run_urls_mode ;;
 esac

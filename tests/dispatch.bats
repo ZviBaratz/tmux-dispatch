@@ -975,7 +975,7 @@ BASH
     run bash -c '
         MODE="scrollback"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1105,7 +1105,7 @@ line3"
     run bash -c '
         MODE="commands"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1347,7 +1347,7 @@ line3"
         HELP_SCROLLBACK
         HELP_COMMANDS
         HELP_MARKS
-        HELP_URLS
+        HELP_EXTRACT
     )
     local missing=()
     local var
@@ -1375,7 +1375,7 @@ line3"
         SQ_HELP_SCROLLBACK
         SQ_HELP_COMMANDS
         SQ_HELP_MARKS
-        SQ_HELP_URLS
+        SQ_HELP_EXTRACT
     )
     local missing=()
     local var
@@ -1446,7 +1446,7 @@ line3"
     run bash -c '
         MODE="resume"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1457,7 +1457,7 @@ line3"
     run bash -c '
         MODE="marks"
         case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
+            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) echo "valid" ;;
             *) echo "invalid" ;;
         esac
     '
@@ -1494,17 +1494,16 @@ line3"
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-# ─── URLs mode ────────────────────────────────────────────────────────────
+# ─── Extract mode (tokens) ────────────────────────────────────────────────
 
-@test "urls: URL regex matches https URLs" {
-    # Use the exact same regex pattern as dispatch.sh (single-quoted, no bash -c wrapper)
+@test "extract: URL regex matches https URLs" {
     local result
     result=$(echo "Visit https://example.com/path?q=1#frag for info" \
         | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
     [ "$result" = "https://example.com/path?q=1#frag" ]
 }
 
-@test "urls: URL regex matches http and ftp URLs" {
+@test "extract: URL regex matches http and ftp URLs" {
     local result
     result=$(printf "http://localhost:8080/api\nftp://files.example.com/pub\n" \
         | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
@@ -1514,7 +1513,7 @@ line3"
     [ "${lines[1]}" = "ftp://files.example.com/pub" ]
 }
 
-@test "urls: trailing punctuation stripped from URLs" {
+@test "extract: trailing punctuation stripped from URLs" {
     run bash -c '
         printf "https://example.com.\nhttps://x.com,\nhttps://y.com)\nhttps://z.com;\nhttps://w.com:\n" \
             | sed "s/[.,;:!?)'"'"'\"'\'']*$//"
@@ -1527,7 +1526,7 @@ line3"
     [ "${lines[4]}" = "https://w.com" ]
 }
 
-@test "urls: deduplication preserves first occurrence only" {
+@test "extract: deduplication preserves first occurrence only" {
     run bash -c '
         printf "https://a.com\nhttps://b.com\nhttps://a.com\nhttps://c.com\nhttps://b.com\n" \
             | awk "!seen[\$0]++"
@@ -1539,7 +1538,7 @@ line3"
     [ "${#lines[@]}" -eq 3 ]
 }
 
-@test "urls: most-recent-first ordering via awk reverse" {
+@test "extract: most-recent-first ordering via awk reverse" {
     local result
     result=$(printf "line1 https://first.com\nline2\nline3 https://last.com\n" \
         | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' \
@@ -1550,102 +1549,7 @@ line3"
     [ "${result_lines[1]}" = "https://first.com" ]
 }
 
-@test "urls: & prefix triggers mode switch in transform pattern" {
-    run bash -c '
-        query="&github"
-        if [[ "$query" == "&"* ]]; then
-            echo "urls"
-        else
-            echo "other"
-        fi
-    '
-    [ "$output" = "urls" ]
-}
-
-@test "urls: & prefix present in dispatch.sh change_transform" {
-    run bash -c '
-        grep -c "mode=urls" "'"$SCRIPT_DIR"'/dispatch.sh"
-    '
-    [ "$status" -eq 0 ]
-    [[ "${lines[0]}" -ge 2 ]]
-}
-
-@test "urls: mode strips leading & from query" {
-    run bash -c '
-        QUERY="&github.com"
-        QUERY="${QUERY#&}"
-        echo "$QUERY"
-    '
-    [ "$output" = "github.com" ]
-}
-
-@test "dispatch: urls is a valid mode" {
-    run bash -c '
-        MODE="urls"
-        case "$MODE" in
-            files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|urls|resume) echo "valid" ;;
-            *) echo "invalid" ;;
-        esac
-    '
-    [ "$output" = "valid" ]
-}
-
-@test "urls: dispatch.sh contains run_urls_mode function" {
-    run bash -c '
-        grep -c "run_urls_mode()" "'"$SCRIPT_DIR"'/dispatch.sh"
-    '
-    [[ "${lines[0]}" -ge 1 ]]
-}
-
-@test "urls: dispatch case includes urls mode" {
-    run bash -c '
-        grep -c "urls).*run_urls_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
-    '
-    [[ "${lines[0]}" -ge 1 ]]
-}
-
-@test "urls: HELP_URLS defined in dispatch.sh" {
-    run bash -c '
-        grep -c "HELP_URLS" "'"$SCRIPT_DIR"'/dispatch.sh"
-    '
-    [[ "${lines[0]}" -ge 2 ]]
-}
-
-@test "urls: fzf args include --multi --no-sort and ctrl-o binding" {
-    run bash -c '
-        src="'"$SCRIPT_DIR"'/dispatch.sh"
-        ok=0
-        # Verify urls mode uses --multi, --no-sort, and ctrl-o execute-silent binding
-        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "\-\-multi" && ok=$((ok+1))
-        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "\-\-no-sort" && ok=$((ok+1))
-        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "ctrl-o:execute-silent" && ok=$((ok+1))
-        echo "$ok"
-    '
-    [[ "${lines[0]}" -ge 3 ]]
-}
-
-@test "urls: browser detection uses BROWSER then xdg-open then open" {
-    run bash -c '
-        src="'"$SCRIPT_DIR"'/actions.sh"
-        ok=0
-        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "BROWSER" && ok=$((ok+1))
-        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "xdg-open" && ok=$((ok+1))
-        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "open" && ok=$((ok+1))
-        echo "$ok"
-    '
-    [[ "${lines[0]}" -ge 3 ]]
-}
-
-@test "urls: empty URL list falls back to files mode" {
-    # Verify the empty state pattern: check -s url_file, show error, exec fallback
-    run bash -c '
-        src="'"$SCRIPT_DIR"'/dispatch.sh"
-        sed -n "/run_urls_mode/,/^}/p" "$src" | grep -q "no URLs found" && echo "has-error"
-    '
-    [ "$output" = "has-error" ]
-}
-
-@test "urls: full extraction pipeline works end-to-end" {
+@test "extract: full URL extraction pipeline works end-to-end" {
     local input="old line with https://old.com
 some text
 check https://example.com/path for info.
@@ -1663,4 +1567,125 @@ more at https://new.com/page?q=1,"
     [ "${result_lines[1]}" = "https://example.com/path" ]
     [ "${result_lines[2]}" = "https://old.com" ]
     [ "${#result_lines[@]}" -eq 3 ]
+}
+
+@test "extract: file path regex matches path:line and path:line:col" {
+    local result
+    result=$(printf 'error in src/main.rs:42\nwarning at lib/utils.js:10:5\n' \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' \
+        | grep -v '^//')
+    local -a lines
+    mapfile -t lines <<< "$result"
+    [ "${lines[0]}" = "src/main.rs:42" ]
+    [ "${lines[1]}" = "lib/utils.js:10:5" ]
+}
+
+@test "extract: file path regex excludes URL fragments (//...)" {
+    local result
+    result=$(printf 'https://example.com:8080/path\n' \
+        | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' \
+        | grep -v '^//' || true)
+    # The example.com:8080 match should pass through, but //example... should not
+    # since the URL itself has https:// which starts with //
+    [[ -z "$result" || "$result" != "//"* ]]
+}
+
+@test "extract: git hash regex matches 7-40 hex chars" {
+    local result
+    # SHA-1 is exactly 40 hex chars; test with 7-char short and 40-char full
+    result=$(printf 'commit abc1234\nfull hash abc1234567890abcdef1234567890abcdef1234\n' \
+        | grep -oEw '[0-9a-f]{7,40}' \
+        | grep -v '^[0-9]*$')
+    local -a lines
+    mapfile -t lines <<< "$result"
+    [ "${lines[0]}" = "abc1234" ]
+    [ "${lines[1]}" = "abc1234567890abcdef1234567890abcdef1234" ]
+}
+
+@test "extract: git hash regex excludes all-digit strings" {
+    local result
+    result=$(printf '1234567\n1234567890\nabc1234\n' \
+        | grep -oEw '[0-9a-f]{7,40}' \
+        | grep -v '^[0-9]*$')
+    # Only abc1234 should survive (all-digit strings filtered out)
+    [ "$result" = "abc1234" ]
+}
+
+@test "extract: IPv4 regex matches addresses with optional port" {
+    local result
+    result=$(printf 'server at 192.168.1.1\nlistening on 10.0.0.1:8080\n' \
+        | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]{1,5})?')
+    local -a lines
+    mapfile -t lines <<< "$result"
+    [ "${lines[0]}" = "192.168.1.1" ]
+    [ "${lines[1]}" = "10.0.0.1:8080" ]
+}
+
+@test "extract: Ctrl+T toggle binding present in scrollback mode" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -c "ctrl-t:transform" "'"$src"'"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "extract: --view=tokens parameter supported" {
+    run bash -c '
+        SCROLLBACK_VIEW=""
+        arg="--view=tokens"
+        case "$arg" in
+            --view=*) SCROLLBACK_VIEW="${arg#--view=}" ;;
+        esac
+        echo "$SCROLLBACK_VIEW"
+    '
+    [ "$output" = "tokens" ]
+}
+
+@test "extract: HELP_EXTRACT defined in dispatch.sh" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -c "^HELP_EXTRACT=" "'"$src"'"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "extract: _extract_tokens function defined in dispatch.sh" {
+    local src="$SCRIPT_DIR/dispatch.sh"
+    run bash -c 'grep -c "_extract_tokens()" "'"$src"'"'
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "extract: full pipeline deduplicates across types" {
+    # Same value appearing as different types should both appear (different type prefix)
+    # Same type+value should be deduped
+    run bash -c '
+        printf "url\thttps://a.com\nurl\thttps://b.com\nurl\thttps://a.com\n" \
+            | awk "!seen[\$0]++"
+    '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "url	https://a.com" ]
+    [ "${lines[1]}" = "url	https://b.com" ]
+    [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "extract: ANSI escapes stripped before extraction" {
+    # _extract_tokens strips ANSI before regex extraction
+    local input=$'\033[32mhttps://example.com\033[0m and \033[31m192.168.1.1\033[0m'
+    local tmp
+    tmp=$(mktemp)
+    printf '%s\n' "$input" > "$tmp"
+    # Simulate the ANSI strip step
+    local result
+    result=$(sed 's/\x1b\[[0-9;]*m//g' "$tmp" \
+        | grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+')
+    command rm -f "$tmp"
+    [ "$result" = "https://example.com" ]
+}
+
+@test "extract: browser detection uses BROWSER then xdg-open then open" {
+    run bash -c '
+        src="'"$SCRIPT_DIR"'/actions.sh"
+        ok=0
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "BROWSER" && ok=$((ok+1))
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "xdg-open" && ok=$((ok+1))
+        sed -n "/action_open_url/,/^}/p" "$src" | grep -q "open" && ok=$((ok+1))
+        echo "$ok"
+    '
+    [[ "${lines[0]}" -ge 3 ]]
 }

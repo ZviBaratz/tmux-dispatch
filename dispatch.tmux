@@ -35,7 +35,7 @@ session_key=$(get_tmux_option "@dispatch-session-key" "M-w")
 prefix_key=$(get_tmux_option "@dispatch-prefix-key" "e")
 session_prefix_key=$(get_tmux_option "@dispatch-session-prefix-key" "none")
 git_key=$(get_tmux_option "@dispatch-git-key" "none")
-url_key=$(get_tmux_option "@dispatch-url-key" "none")
+extract_key=$(get_tmux_option "@dispatch-extract-key" "none")
 resume_key=$(get_tmux_option "@dispatch-resume-key" "none")
 popup_size=$(get_tmux_option "@dispatch-popup-size" "85%")
 
@@ -45,11 +45,12 @@ bind_finder() {
     local key_flag="$1"  # "-n" for prefix-free, "" for prefix
     local key="$2"
     local mode="$3"
+    local extra="${4:-}"  # optional extra args (e.g., --view=tokens)
     # display-popup does not expand #{...} formats in -e or the shell-command.
     # run-shell is the only tmux command documented to expand formats before
     # passing to the shell, so we use it to stash the pane ID in a global
     # option, then read it back inside the popup script.
-    local cmd="$DISPATCH --mode=$mode"
+    local cmd="$DISPATCH --mode=$mode${extra:+ $extra}"
 
     if tmux_version_at_least "3.2"; then
         # tmux 3.2+: run-shell (foreground) sets the pane ID, then display-popup opens
@@ -74,7 +75,7 @@ bind_finder() {
 [[ "$grep_key" != "none" ]] && bind_finder "-n" "$grep_key" "grep"
 [[ "$session_key" != "none" ]] && bind_finder "-n" "$session_key" "sessions"
 [[ "$git_key" != "none" ]] && bind_finder "-n" "$git_key" "git"
-[[ "$url_key" != "none" ]] && bind_finder "-n" "$url_key" "urls"
+[[ "$extract_key" != "none" ]] && bind_finder "-n" "$extract_key" "scrollback" "--view=tokens"
 [[ "$resume_key" != "none" ]] && bind_finder "-n" "$resume_key" "resume"
 
 # Prefix keybindings for discoverability
