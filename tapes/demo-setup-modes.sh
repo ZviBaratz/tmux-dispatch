@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─── Setup for per-mode VHS demo tapes ──────────────────────────────────────
-# Extended version of demo-setup.sh with git state, extra sessions, bookmarks,
+# Shared setup for all VHS demo tapes — provides git state, extra sessions, bookmarks,
 # and history for mode-specific recordings.
 # Run from the repo root: bash tapes/demo-setup-modes.sh
 set -euo pipefail
@@ -166,15 +166,21 @@ tmux -L "$TMUX_SOCKET" run-shell "$PLUGIN_DIR/dispatch.tmux"
 tmux -L "$TMUX_SOCKET" set-option -g @dispatch-popup-editor "vim"
 tmux -L "$TMUX_SOCKET" set-option -g @dispatch-pane-editor "vim"
 
-# Second session with 4 windows (api-server)
+# Second session with 4 windows (api-server) — mix of 1- and 2-pane layouts
 tmux -L "$TMUX_SOCKET" new-session -d -s api-server -c /tmp
 tmux -L "$TMUX_SOCKET" send-keys -t api-server "echo 'API server running on :8080'" Enter
+tmux -L "$TMUX_SOCKET" split-window -h -t api-server
+tmux -L "$TMUX_SOCKET" send-keys -t api-server "echo 'Health: OK — uptime 4d 12h'" Enter
 tmux -L "$TMUX_SOCKET" new-window -t api-server -n logs
-tmux -L "$TMUX_SOCKET" send-keys -t api-server:logs "echo 'Watching logs...'" Enter
+tmux -L "$TMUX_SOCKET" send-keys -t api-server:logs "echo '[INFO] GET /api/users 200 12ms'" Enter
+tmux -L "$TMUX_SOCKET" split-window -h -t api-server:logs
+tmux -L "$TMUX_SOCKET" send-keys -t api-server:logs "echo '[ACCESS] 10.0.0.1 — 200 /api/users'" Enter
 tmux -L "$TMUX_SOCKET" new-window -t api-server -n tests
 tmux -L "$TMUX_SOCKET" send-keys -t api-server:tests "echo 'Running test suite — 42 passed, 0 failed'" Enter
 tmux -L "$TMUX_SOCKET" new-window -t api-server -n db
 tmux -L "$TMUX_SOCKET" send-keys -t api-server:db "echo 'PostgreSQL 16.2 — connected to api_dev'" Enter
+tmux -L "$TMUX_SOCKET" split-window -h -t api-server:db
+tmux -L "$TMUX_SOCKET" send-keys -t api-server:db "echo 'Migrations: 23 applied, 0 pending'" Enter
 
 # Third session with 1 window (frontend)
 tmux -L "$TMUX_SOCKET" new-session -d -s frontend -c /tmp

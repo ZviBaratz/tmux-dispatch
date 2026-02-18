@@ -1,6 +1,6 @@
 # VHS recording script for tmux-dispatch demo
-# Run with: vhs demo.tape
-# Produces: assets/demo.gif
+# Run with: vhs tapes/demo.tape
+# Produces: assets/demo.gif (run from repo root)
 # Requires: vhs (https://github.com/charmbracelet/vhs), tmux, fzf, fd, bat, rg
 
 Output assets/demo.gif

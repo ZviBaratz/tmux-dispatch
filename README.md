@@ -17,7 +17,7 @@
 
 <p align="center"><i>Like VS Code's Cmd+P for tmux — type <code>&gt;</code> to grep, <code>@</code> for sessions, <code>!</code> for git — all without closing the popup</i></p>
 
-<!-- Re-record: vhs demo.tape (requires https://github.com/charmbracelet/vhs) -->
+<!-- Re-record: vhs tapes/demo.tape (requires https://github.com/charmbracelet/vhs) -->
 
 ## Features
 
