@@ -458,7 +458,43 @@ MOCK
     [ "$status" -eq 0 ]
 }
 
-# ─── unknown action ──────────────────────────────────────────────────────────
+# ─── delete-history ──────────────────────────────────────────────────────────
+
+@test "delete-history: removes matching line from history file" {
+    local histfile="$BATS_TEST_TMPDIR/test_history"
+    printf 'ls -la\ncd /tmp\ngit status\nls -la\n' > "$histfile"
+    HISTFILE="$histfile" run "$ACTIONS" delete-history "cd /tmp"
+    [ "$status" -eq 0 ]
+    run cat "$histfile"
+    [[ "$output" != *"cd /tmp"* ]]
+    [[ "$output" == *"ls -la"* ]]
+    [[ "$output" == *"git status"* ]]
+}
+
+@test "delete-history: no-op when line not in history" {
+    local histfile="$BATS_TEST_TMPDIR/test_history"
+    printf 'ls -la\ngit status\n' > "$histfile"
+    local before
+    before=$(cat "$histfile")
+    HISTFILE="$histfile" run "$ACTIONS" delete-history "not here"
+    [ "$status" -eq 0 ]
+    local after
+    after=$(cat "$histfile")
+    [ "$before" = "$after" ]
+}
+
+@test "delete-history: handles empty HISTFILE gracefully" {
+    HISTFILE="" run "$ACTIONS" delete-history "anything"
+    [ "$status" -eq 0 ]
+}
+
+@test "delete-history: removes all occurrences of duplicate line" {
+    local histfile="$BATS_TEST_TMPDIR/test_history"
+    printf 'ls\ncd /tmp\nls\ngit status\ncd /tmp\n' > "$histfile"
+    HISTFILE="$histfile" run "$ACTIONS" delete-history "cd /tmp"
+    run grep -c "cd /tmp" "$histfile"
+    [ "$output" = "0" ]
+}
 
 # ─── unknown action ──────────────────────────────────────────────────────────
 

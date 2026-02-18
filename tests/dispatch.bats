@@ -982,6 +982,22 @@ BASH
     [ "$output" = "valid" ]
 }
 
+@test "scrollback dedup: removes duplicate lines preserving order" {
+    run bash -c '
+        input="line1
+line2
+line1
+line3
+line2
+line3"
+        echo "$input" | awk "!seen[\$0]++"
+    '
+    expected="line1
+line2
+line3"
+    [ "$output" = "$expected" ]
+}
+
 # ─── Commands mode ───────────────────────────────────────────────────────
 
 @test "commands mode strips leading : from query" {

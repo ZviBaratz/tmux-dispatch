@@ -90,6 +90,7 @@ esac
 # One tmux subprocess instead of separate show-option calls.
 POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
 HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
+SCROLLBACK_LINES="10000"
 while IFS= read -r line; do
     key="${line%% *}"
     val="${line#* }"
@@ -104,6 +105,7 @@ while IFS= read -r line; do
         @dispatch-file-types)      FILE_TYPES="$val" ;;
         @dispatch-git-indicators)  GIT_INDICATORS="$val" ;;
         @dispatch-theme)           DISPATCH_THEME="$val" ;;
+        @dispatch-scrollback-lines) SCROLLBACK_LINES="$val" ;;
     esac
 done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
 POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
@@ -286,9 +288,8 @@ HELP_COMMANDS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
-# shellcheck disable=SC2034  # used when scrollback/commands modes are fully implemented
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
-# shellcheck disable=SC2034  # used when scrollback/commands modes are fully implemented
+# shellcheck disable=SC2034  # used when commands mode is fully implemented
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
@@ -1187,8 +1188,84 @@ handle_git_result() {
 }
 
 run_scrollback_mode() {
-    _dispatch_error "scrollback mode: not yet implemented"
-    exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    if [[ -z "$PANE_ID" ]]; then
+        _dispatch_error "scrollback requires a pane — use keybinding, not direct invocation"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    local become_files_empty="$BECOME_FILES"
+
+    # Capture scrollback from originating pane, dedup, reverse (most recent first)
+    local scrollback_file
+    scrollback_file=$(mktemp "${TMPDIR:-/tmp}/dispatch-scrollback-XXXXXX")
+    trap 'command rm -f "$scrollback_file"' EXIT
+
+    tmux capture-pane -t "$PANE_ID" -p -S "-${SCROLLBACK_LINES}" 2>/dev/null \
+        | awk 'NF && !seen[$0]++' \
+        | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$scrollback_file"
+
+    if [[ ! -s "$scrollback_file" ]]; then
+        _dispatch_error "scrollback is empty"
+        command rm -f "$scrollback_file"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+    fi
+
+    local sq_scrollback_file
+    sq_scrollback_file=$(_sq_escape "$scrollback_file")
+
+    # Preview: show surrounding context (5 lines) around the selected line
+    local preview_cmd="n=\$(grep -nFx -- '{}' '$sq_scrollback_file' | head -1 | cut -d: -f1); "
+    preview_cmd+="[ -n \"\$n\" ] && awk -v n=\"\$n\" 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_scrollback_file' || echo '(no context)'"
+
+    # HISTFILE for Ctrl+X deletion
+    local sq_histfile
+    sq_histfile=$(_sq_escape "${HISTFILE:-}")
+
+    local result
+    result=$(fzf < "$scrollback_file" \
+        "${BASE_FZF_OPTS[@]}" \
+        --expect=ctrl-o \
+        --multi \
+        --query "$QUERY" \
+        --prompt 'scrollback $ ' \
+        --ansi \
+        --no-sort \
+        --border-label ' scrollback $ · ? help · enter copy · ^o paste · ^x delete · S-tab select · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
+        --preview "$preview_cmd" \
+        --bind "ctrl-x:execute-silent(HISTFILE='$sq_histfile' '$SQ_SCRIPT_DIR/actions.sh' delete-history '{}')+reload(cat '$sq_scrollback_file')" \
+        --bind "backward-eof:$become_files_empty" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_SCROLLBACK'" \
+    ) || exit 0
+
+    handle_scrollback_result "$result"
+}
+
+handle_scrollback_result() {
+    local result="$1"
+    local key
+    local -a lines
+
+    key=$(head -1 <<< "$result")
+    mapfile -t lines < <(tail -n +2 <<< "$result")
+    [[ ${#lines[@]} -eq 0 ]] && exit 0
+
+    case "$key" in
+        ctrl-o)
+            # Paste to originating pane
+            if [[ -n "$PANE_ID" ]]; then
+                local text
+                text=$(printf '%s\n' "${lines[@]}")
+                tmux send-keys -t "$PANE_ID" -- "$text"
+                tmux display-message "Sent ${#lines[@]} line(s) to pane"
+            fi
+            ;;
+        *)
+            # Default: copy to clipboard
+            printf '%s\n' "${lines[@]}" | tmux load-buffer -w -
+            tmux display-message "Copied ${#lines[@]} line(s)"
+            ;;
+    esac
 }
 
 run_commands_mode() {
