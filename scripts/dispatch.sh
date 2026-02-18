@@ -399,7 +399,7 @@ run_files_mode() {
     fi
 
     # Welcome cheat sheet shown when query is empty
-    local welcome_preview="echo -e '\\n  Type to search files\\n\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename file\\n  \\033[38;5;103m^X\\033[0m     delete file'"
+    local welcome_preview="echo -e '\\n  \\033[1mLike Cmd+P — type to find files\\033[0m\\n\\n  \\033[1mMODE SWITCHING\\033[0m  \\033[90m(type a prefix)\\033[0m\\n  \\033[38;5;103m>\\033[0m  grep code\\n  \\033[38;5;103m@\\033[0m  switch sessions\\n  \\033[38;5;103m!\\033[0m  git status\\n  \\033[38;5;103m#\\033[0m  directories\\n\\n  \\033[1mACTIONS\\033[0m\\n  \\033[38;5;103menter\\033[0m  open in editor\\n  \\033[38;5;103m^O\\033[0m     send to pane\\n  \\033[38;5;103m^Y\\033[0m     copy path\\n  \\033[38;5;103m^B\\033[0m     toggle bookmark\\n  \\033[38;5;103m^H\\033[0m     toggle hidden\\n  \\033[38;5;103m^R\\033[0m     rename\\n  \\033[38;5;103m^X\\033[0m     delete\\n\\n  \\033[90mpress ? for help in any mode\\033[0m'"
 
     # Flag file: preview shows welcome on first run (flag exists), file preview after
     local welcome_flag
