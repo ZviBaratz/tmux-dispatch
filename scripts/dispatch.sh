@@ -512,8 +512,8 @@ fi"
 
 run_grep_mode() {
     if [[ -z "$RG_CMD" ]]; then
-        tmux display-message "ripgrep (rg) required for grep mode — install: brew/apt install ripgrep"
-        exit 1
+        _dispatch_error "grep requires ripgrep (rg) — install: brew/apt install ripgrep"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
     # Preview command: preview.sh handles bat-or-head fallback internally
@@ -1041,8 +1041,8 @@ run_windows_mode() {
 
 run_git_mode() {
     if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-        tmux display-message "Not a git repository"
-        exit 1
+        _dispatch_error "git mode requires a repository — switch to a project with git init"
+        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
     # Git status: porcelain v1 → colored icons (ICON<tab>filepath)
