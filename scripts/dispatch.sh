@@ -62,6 +62,7 @@ FILE=""
 SESSION=""
 SCROLLBACK_VIEW=""
 GIT_VIEW=""
+ORIG_CWD=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -72,6 +73,7 @@ for arg in "$@"; do
         --session=*)   SESSION="${arg#--session=}" ;;
         --view=*)      SCROLLBACK_VIEW="${arg#--view=}" ;;
         --git-view=*)  GIT_VIEW="${arg#--git-view=}" ;;
+        --orig-cwd=*)  ORIG_CWD="${arg#--orig-cwd=}" ;;
     esac
 done
 
@@ -90,9 +92,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|resume) ;;
+    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|pathfind|_path-reload|resume) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, resume)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, pathfind, resume)"
         exit 1
         ;;
 esac
@@ -318,6 +320,11 @@ SQ_HISTORY=$(_sq_escape "$HISTORY_ENABLED")
 
 # Shared become string used by grep, sessions, dirs, git to switch back to files
 BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')"
+# When orig-cwd is set (home files context), propagate through sub-mode returns
+if [[ -n "$ORIG_CWD" ]]; then
+    SQ_ORIG_CWD=$(_sq_escape "$ORIG_CWD")
+    BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID' --orig-cwd='$SQ_ORIG_CWD')"
+fi
 
 # ─── Empty state helper ───────────────────────────────────────────────────
 # Show a minimal fzf with the error as --header so the user sees it in context
@@ -729,25 +736,34 @@ run_files_mode() {
     trap 'command rm -f "$hidden_flag"' EXIT
 
     # change:transform: prefix detection → become mode switch
+    # orig_cwd_arg: propagate --orig-cwd through sub-mode transitions (set when in home context)
+    # home_orig_cwd_arg: for the ~ become specifically — sets orig-cwd to current PWD if not already set
+    local orig_cwd_arg="" home_orig_cwd_arg=""
+    if [[ -n "$ORIG_CWD" ]]; then
+        orig_cwd_arg=" --orig-cwd='${SQ_ORIG_CWD:-}'"
+        home_orig_cwd_arg="$orig_cwd_arg"
+    else
+        home_orig_cwd_arg=" --orig-cwd='$SQ_PWD'"
+    fi
     local change_transform
     change_transform="if [[ {q} == '>'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=grep --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '@'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '!'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '#'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=dirs --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '\$'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '&'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == ':'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '/'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=pathfind --pane='$SQ_PANE_ID' --query={q})\"
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=pathfind --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '~'* ]]; then
-  echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')\"
+  echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID'$home_orig_cwd_arg)\"
 fi"
 
     # ─── Reload command construction ────────────────────────────────────────────
@@ -795,6 +811,15 @@ fi"
         files_border_label=' files ~/ · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^g marks · ^h hidden · ^r rename · ^x delete '
     fi
 
+    # backward-eof: return to original CWD when in home files context
+    local -a backward_eof_args=()
+    if [[ -n "$ORIG_CWD" ]] && [[ "$PWD" != "$ORIG_CWD" ]]; then
+        local sq_orig_cwd_become
+        sq_orig_cwd_become=$(_sq_escape "$ORIG_CWD")
+        backward_eof_args=(--bind "backward-eof:become(cd '$sq_orig_cwd_become' && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')")
+        files_border_label="${files_border_label% } · ⌫ back "
+    fi
+
     local result
     result=$(
         if [[ "$HISTORY_ENABLED" == "on" ]]; then
@@ -822,6 +847,7 @@ fi"
         --bind "ctrl-h:execute-silent(if [ -f '$sq_hidden_flag' ]; then command rm -f '$sq_hidden_flag'; else touch '$sq_hidden_flag'; fi)+reload:$file_list_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_files)" \
         --bind "?:preview:printf '%b' '$SQ_HELP_FILES'" \
+        "${backward_eof_args[@]}" \
     ) || exit 0
 
     # Strip indicator (+ icon) prefix from fzf output.

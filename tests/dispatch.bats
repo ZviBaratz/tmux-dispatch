@@ -3048,3 +3048,70 @@ more at https://new.com/page?q=1,"
 @test "pathfind: / hint in files mode help" {
     grep -q "/\.\.\." "$SCRIPT_DIR/dispatch.sh"
 }
+
+# ─── Home files backward-eof (~ mode backspace) ───────────────────────────
+
+@test "home-files: --orig-cwd arg is parsed" {
+    run bash -c '
+        ORIG_CWD=""
+        for arg in --mode=files --orig-cwd=/projects/foo; do
+            case "$arg" in
+                --orig-cwd=*) ORIG_CWD="${arg#--orig-cwd=}" ;;
+            esac
+        done
+        echo "$ORIG_CWD"
+    '
+    [ "$output" = "/projects/foo" ]
+}
+
+@test "home-files: ~ become passes --orig-cwd in dispatch.sh" {
+    grep -q "cd ~ && .*--mode=files.*home_orig_cwd_arg" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "home-files: BECOME_FILES includes --orig-cwd when set" {
+    grep -q 'BECOME_FILES=.*--orig-cwd=' "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "home-files: backward-eof binding added when ORIG_CWD differs from PWD" {
+    grep -q 'backward-eof:become(cd.*dispatch.sh.*--mode=files' "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "home-files: border label shows back hint when orig-cwd is set" {
+    grep -q '⌫ back' "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "home-files: backward-eof skipped when PWD equals ORIG_CWD" {
+    run bash -c '
+        PWD="/home/user"
+        ORIG_CWD="/home/user"
+        backward_eof=false
+        if [[ -n "$ORIG_CWD" ]] && [[ "$PWD" != "$ORIG_CWD" ]]; then
+            backward_eof=true
+        fi
+        echo "$backward_eof"
+    '
+    [ "$output" = "false" ]
+}
+
+@test "home-files: backward-eof enabled when PWD differs from ORIG_CWD" {
+    run bash -c '
+        PWD="/home/user"
+        ORIG_CWD="/projects/foo"
+        backward_eof=false
+        if [[ -n "$ORIG_CWD" ]] && [[ "$PWD" != "$ORIG_CWD" ]]; then
+            backward_eof=true
+        fi
+        echo "$backward_eof"
+    '
+    [ "$output" = "true" ]
+}
+
+@test "home-files: orig-cwd propagated through sub-mode becomes" {
+    # Verify that prefix becomes (>, @, !, etc.) include orig_cwd_arg
+    grep -q "mode=grep.*orig_cwd_arg" "$SCRIPT_DIR/dispatch.sh"
+    grep -q "mode=sessions.*orig_cwd_arg" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind and _path-reload in mode validation" {
+    grep -q 'pathfind|_path-reload' "$SCRIPT_DIR/dispatch.sh"
+}
