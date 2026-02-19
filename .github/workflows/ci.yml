@@ -42,9 +42,9 @@ jobs:
           bash --version | head -1
           perl --version | head -2 | tail -1
 
-      - name: Install ShellCheck (macOS)
+      - name: Install tools (macOS)
         if: runner.os == 'macOS'
-        run: brew install shellcheck
+        run: brew install shellcheck bash
 
       - name: ShellCheck
         run: shellcheck -x -e SC1091 dispatch.tmux scripts/*.sh
