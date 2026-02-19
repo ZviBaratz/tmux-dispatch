@@ -41,11 +41,13 @@ Session mode provides access to three sub-modes, each launched from within the s
 
 ### Project Launcher (Ctrl+N)
 
-Opens a directory picker showing subdirectories from configured project paths. Select a directory to create a new session named after it (dots and colons are sanitized to hyphens). If a session with that name already exists, switches to it instead.
+Opens a git-aware project picker that scans configured directories for git repositories (up to `@dispatch-session-depth` levels deep, default 3) and non-git subdirectories. Select a directory to create a new session named after it (dots and colons are sanitized to hyphens). If a session with that name already exists, switches to it instead.
 
-Project directories are configured via `@dispatch-session-dirs` (colon-separated paths, default: `$HOME/Projects`).
+**Listing format:** Each entry shows the tilde-collapsed path with `★` (green) marking directories that already have a tmux session. Non-git directories show `(directory)` after the path. Branch information is shown in the preview pane.
 
-The preview shows `tree -C -L 2` or `ls -la` of each directory.
+**Preview:** Git repos show branch name with remote tracking info (ahead/behind), dirty file count with the first 5 changed files, and the 10 most recent commits. Non-git directories show `tree -C -L 2` or `ls -la`.
+
+Project directories are configured via `@dispatch-session-dirs` (colon-separated paths, default: `$HOME/Projects`). Overlapping paths are deduplicated automatically.
 
 ### Window Picker (Ctrl+W)
 
@@ -68,6 +70,7 @@ Escape cancels and returns to session mode.
 | `@dispatch-session-key` | `M-w` | Keybinding to open sessions directly |
 | `@dispatch-session-prefix-key` | `none` | Prefix keybinding for sessions |
 | `@dispatch-session-dirs` | `$HOME/Projects` | Colon-separated directories for Ctrl+N project picker |
+| `@dispatch-session-depth` | `3` | Max depth for git repo discovery in project picker |
 
 ## Tips
 

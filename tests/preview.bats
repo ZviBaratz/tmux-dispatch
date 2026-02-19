@@ -182,3 +182,72 @@ teardown() {
     '
     [[ "$output" == "highlight=[5]" ]]
 }
+
+# ─── session-new-preview.sh ──────────────────────────────────────────────────
+
+@test "session-new-preview: nonexistent directory shows error" {
+    run "$SCRIPT_DIR/session-new-preview.sh" "/nonexistent/dir/xyz"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Directory not found"* ]]
+}
+
+@test "session-new-preview: non-git directory shows listing" {
+    mkdir -p "$BATS_TEST_TMPDIR/plaindir/subdir"
+    printf 'hello\n' > "$BATS_TEST_TMPDIR/plaindir/file.txt"
+
+    run "$SCRIPT_DIR/session-new-preview.sh" "$BATS_TEST_TMPDIR/plaindir"
+    [[ "$status" -eq 0 ]]
+    # Should show directory contents (tree or ls output)
+    [[ "$output" == *"file.txt"* ]] || [[ "$output" == *"subdir"* ]]
+}
+
+@test "session-new-preview: git repo shows branch and commits heading" {
+    # Create a real git repo with a commit
+    mkdir -p "$BATS_TEST_TMPDIR/gitrepo"
+    git -C "$BATS_TEST_TMPDIR/gitrepo" init -b main 2>/dev/null
+    git -C "$BATS_TEST_TMPDIR/gitrepo" config user.email "test@test.com"
+    git -C "$BATS_TEST_TMPDIR/gitrepo" config user.name "Test"
+    printf 'hello\n' > "$BATS_TEST_TMPDIR/gitrepo/file.txt"
+    git -C "$BATS_TEST_TMPDIR/gitrepo" add file.txt
+    git -C "$BATS_TEST_TMPDIR/gitrepo" commit -m "initial" --no-gpg-sign 2>/dev/null
+
+    run "$SCRIPT_DIR/session-new-preview.sh" "$BATS_TEST_TMPDIR/gitrepo"
+    [[ "$status" -eq 0 ]]
+    # Should show branch name
+    [[ "$output" == *"main"* ]]
+    # Should show commits heading
+    [[ "$output" == *"Recent commits"* ]]
+    # Should show the commit message
+    [[ "$output" == *"initial"* ]]
+}
+
+@test "session-new-preview: git repo with dirty files shows count" {
+    # Create a git repo with uncommitted changes
+    mkdir -p "$BATS_TEST_TMPDIR/dirtyrepo"
+    git -C "$BATS_TEST_TMPDIR/dirtyrepo" init -b main 2>/dev/null
+    git -C "$BATS_TEST_TMPDIR/dirtyrepo" config user.email "test@test.com"
+    git -C "$BATS_TEST_TMPDIR/dirtyrepo" config user.name "Test"
+    printf 'hello\n' > "$BATS_TEST_TMPDIR/dirtyrepo/file.txt"
+    git -C "$BATS_TEST_TMPDIR/dirtyrepo" add file.txt
+    git -C "$BATS_TEST_TMPDIR/dirtyrepo" commit -m "initial" --no-gpg-sign 2>/dev/null
+    printf 'modified\n' > "$BATS_TEST_TMPDIR/dirtyrepo/file.txt"
+
+    run "$SCRIPT_DIR/session-new-preview.sh" "$BATS_TEST_TMPDIR/dirtyrepo"
+    [[ "$status" -eq 0 ]]
+    # Should show changed file count
+    [[ "$output" == *"changed file"* ]]
+}
+
+@test "session-new-preview: clean git repo shows clean message" {
+    mkdir -p "$BATS_TEST_TMPDIR/cleanrepo"
+    git -C "$BATS_TEST_TMPDIR/cleanrepo" init -b main 2>/dev/null
+    git -C "$BATS_TEST_TMPDIR/cleanrepo" config user.email "test@test.com"
+    git -C "$BATS_TEST_TMPDIR/cleanrepo" config user.name "Test"
+    printf 'hello\n' > "$BATS_TEST_TMPDIR/cleanrepo/file.txt"
+    git -C "$BATS_TEST_TMPDIR/cleanrepo" add file.txt
+    git -C "$BATS_TEST_TMPDIR/cleanrepo" commit -m "initial" --no-gpg-sign 2>/dev/null
+
+    run "$SCRIPT_DIR/session-new-preview.sh" "$BATS_TEST_TMPDIR/cleanrepo"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"clean working tree"* ]]
+}

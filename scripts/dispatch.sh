@@ -102,7 +102,7 @@ fi
 # One tmux subprocess instead of separate show-option calls.
 POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
 HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" ICONS_ENABLED="on" DISPATCH_THEME="default"
-SCROLLBACK_LINES="10000" SCROLLBACK_VIEW_DEFAULT="lines"
+SCROLLBACK_LINES="10000" SCROLLBACK_VIEW_DEFAULT="lines" SESSION_DEPTH="3"
 COMMANDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/commands.conf"
 while IFS= read -r line; do
     key="${line%% *}"
@@ -122,6 +122,7 @@ while IFS= read -r line; do
         @dispatch-scrollback-lines) SCROLLBACK_LINES="$val" ;;
         @dispatch-scrollback-view) SCROLLBACK_VIEW_DEFAULT="$val" ;;
         @dispatch-commands-file) COMMANDS_FILE="$val" ;;
+        @dispatch-session-depth)       SESSION_DEPTH="$val" ;;
     esac
 done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
 POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
@@ -451,8 +452,10 @@ HELP_WINDOWS="$(printf '%b' '
 HELP_SESSION_NEW="$(printf '%b' '
   \033[1mNEW SESSION\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
-  enter     create session
+  enter     create / switch session
   ⌫ empty   back to sessions
+
+  git repos show branch · \033[32m★\033[0m = session exists
 
   ^D/^U     scroll preview
 ')"
@@ -1012,6 +1015,114 @@ handle_session_result() {
     esac
 }
 
+# ─── Session-new helpers ───────────────────────────────────────────────────
+
+# Discover git repos (deep) + non-git dirs (depth 1) from session dirs.
+# Output: full-path\tshort-name\tbranch [★]  (3 tab-delimited fields)
+# Field 1 (hidden): absolute path for preview/selection
+# Field 2 (displayed): tilde-collapsed path + ★ indicator (branch shown in preview only)
+_discover_session_targets() {
+    local -a valid_dirs=("$@")
+    local -A seen_paths=()
+
+    # Phase 1: Git repos (deep scan up to SESSION_DEPTH)
+    local dir repo_path indicator line short_name
+    for dir in "${valid_dirs[@]}"; do
+        local git_dirs=""
+        if [[ -n "$FD_CMD" ]]; then
+            git_dirs=$("$FD_CMD" --hidden --no-ignore --glob '.git' --type d \
+                --max-depth "$SESSION_DEPTH" "$dir" 2>/dev/null) || true
+        else
+            git_dirs=$(find "$dir" -maxdepth "$SESSION_DEPTH" -name .git -type d 2>/dev/null) || true
+        fi
+
+        [[ -z "$git_dirs" ]] && continue
+
+        while IFS= read -r line; do
+            # Strip trailing slash (fd outputs dir/) then /.git suffix
+            line="${line%/}"
+            repo_path="${line%/.git}"
+            [[ -d "$repo_path" ]] || continue
+            [[ -v seen_paths["$repo_path"] ]] && continue
+            seen_paths["$repo_path"]=1
+
+            # Check if session already exists
+            local session_name
+            session_name=$(basename "$repo_path")
+            session_name=$(printf '%s' "$session_name" | sed 's/[^a-zA-Z0-9_-]/-/g')
+            session_name="${session_name#-}"
+            session_name="${session_name%-}"
+            indicator=""
+            if tmux has-session -t "=$session_name" 2>/dev/null; then
+                indicator=$' \033[32m★\033[0m'
+            fi
+
+            # Short display: tilde-collapse HOME prefix
+            # shellcheck disable=SC2088
+            short_name="${repo_path/#"$HOME"/"~"}"
+
+            printf '%s\t%s%s\n' "$repo_path" "$short_name" "$indicator"
+        done <<< "$git_dirs"
+    done
+
+    # Phase 2: Non-git depth-1 dirs (backward compat fallback)
+    for dir in "${valid_dirs[@]}"; do
+        local subdirs=""
+        if [[ -n "$FD_CMD" ]]; then
+            subdirs=$("$FD_CMD" --type d --max-depth 1 --min-depth 1 . "$dir" 2>/dev/null) || true
+        else
+            subdirs=$(find "$dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null) || true
+        fi
+
+        [[ -z "$subdirs" ]] && continue
+
+        while IFS= read -r line; do
+            line="${line%/}"  # strip trailing slash from fd output
+            [[ -d "$line" ]] || continue
+            [[ -v seen_paths["$line"] ]] && continue
+            seen_paths["$line"]=1
+
+            # Check if session already exists
+            local session_name
+            session_name=$(basename "$line")
+            session_name=$(printf '%s' "$session_name" | sed 's/[^a-zA-Z0-9_-]/-/g')
+            session_name="${session_name#-}"
+            session_name="${session_name%-}"
+            indicator=""
+            if tmux has-session -t "=$session_name" 2>/dev/null; then
+                indicator=$' \033[32m★\033[0m'
+            fi
+
+            # shellcheck disable=SC2088
+            short_name="${line/#"$HOME"/"~"}"
+
+            printf '%s\t%s  \033[38;5;244m(directory)\033[0m%s\n' "$line" "$short_name" "$indicator"
+        done <<< "$subdirs"
+    done
+}
+
+# Sanitize basename → check has-session → create with -c or switch.
+_create_or_switch_session() {
+    local selected="$1"
+    local session_name
+    session_name=$(basename "$selected")
+
+    # Sanitize: replace any character not in [a-zA-Z0-9_-] with a dash
+    session_name=$(printf '%s' "$session_name" | sed 's/[^a-zA-Z0-9_-]/-/g')
+    # Trim leading/trailing dashes
+    session_name="${session_name#-}"
+    session_name="${session_name%-}"
+
+    [[ -z "$session_name" ]] && return
+
+    if tmux has-session -t "=$session_name" 2>/dev/null; then
+        tmux switch-client -t "=$session_name"
+    else
+        tmux new-session -d -s "$session_name" -c "$selected" && \
+            tmux switch-client -t "=$session_name"
+    fi
+}
+
 # ─── Mode: session-new ──────────────────────────────────────────────────────
 
 run_session_new_mode() {
@@ -1027,61 +1138,43 @@ run_session_new_mode() {
     done
 
     if [[ ${#valid_dirs[@]} -eq 0 ]]; then
-        tmux display-message "No session dirs found — set @dispatch-session-dirs '/path/one:/path/two'"
-        exit 1
+        _show_empty_state \
+            "no session dirs found — set @dispatch-session-dirs '/path/one:/path/two'" \
+            "new session " \
+            " new session · ⌫ sessions "
     fi
 
-    # List subdirectories from all configured dirs (avoids eval)
-    _run_dir_cmd() {
-        local dir
-        for dir in "${valid_dirs[@]}"; do
-            if [[ -n "$FD_CMD" ]]; then
-                "$FD_CMD" --type d --max-depth 1 --min-depth 1 . "$dir"
-            else
-                find "$dir" -mindepth 1 -maxdepth 1 -type d
-            fi
-        done
-    }
+    local targets
+    targets=$(_discover_session_targets "${valid_dirs[@]}")
 
-    # Preview with ls or tree (ls -G for macOS BSD, --color for GNU)
-    local preview_cmd
-    if command -v tree &>/dev/null; then
-        preview_cmd="tree -C -L 2 {}"
-    elif ls --color=always /dev/null 2>/dev/null; then
-        preview_cmd="ls -la --color=always {}"
-    else
-        preview_cmd="ls -laG {}"
+    if [[ -z "$targets" ]]; then
+        _show_empty_state \
+            "no projects found in session dirs" \
+            "new session " \
+            " new session · ⌫ sessions "
     fi
 
     local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
 
     local selected
-    selected=$(_run_dir_cmd | sort | fzf \
+    selected=$(printf '%s\n' "$targets" | fzf \
         "${BASE_FZF_OPTS[@]}" \
+        --ansi \
+        --delimiter=$'\t' \
+        --with-nth=2.. \
         --border-label=' new session · ? help · enter create · ⌫ sessions ' \
         --border-label-pos 'center:bottom' \
-        --preview "$preview_cmd" \
+        --preview "'$SQ_SCRIPT_DIR/session-new-preview.sh' '{1}'" \
+        --query "$QUERY" \
         --bind "backward-eof:$become_sessions" \
         --bind "?:preview:printf '%b' '$SQ_HELP_SESSION_NEW'" \
     ) || exit 0
 
     [[ -z "$selected" ]] && exit 0
 
-    local session_name
-    session_name=$(basename "$selected")
-
-    # Sanitize: replace any character not in [a-zA-Z0-9_-] with a dash
-    session_name=$(printf '%s' "$session_name" | sed 's/[^a-zA-Z0-9_-]/-/g')
-    # Trim leading/trailing dashes
-    session_name="${session_name#-}"
-    session_name="${session_name%-}"
-
-    if tmux has-session -t "=$session_name" 2>/dev/null; then
-        tmux switch-client -t "=$session_name"
-    else
-        tmux new-session -d -s "$session_name" -c "$selected" && \
-            tmux switch-client -t "=$session_name"
-    fi
+    # Extract path (first field before tab)
+    local path="${selected%%$'\t'*}"
+    _create_or_switch_session "$path"
 }
 
 # ─── Mode: rename ─────────────────────────────────────────────────────────

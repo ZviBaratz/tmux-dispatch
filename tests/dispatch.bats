@@ -2279,3 +2279,125 @@ more at https://new.com/page?q=1,"
     src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
     grep 'extract_key.*bind_finder' "$src" | grep -q '\-\-view=tokens'
 }
+
+# ─── session-new: _discover_session_targets ────────────────────────────────
+
+@test "session-new: git repo discovery via find (phase 1)" {
+    # Verify find locates .git dirs and we can strip to repo path
+    mkdir -p "$BATS_TEST_TMPDIR/projects/myrepo/.git"
+
+    local result
+    result=$(find "$BATS_TEST_TMPDIR/projects" -maxdepth 3 -name .git -type d 2>/dev/null)
+    [[ -n "$result" ]]
+    local repo_path="${result%/.git}"
+    [[ "$repo_path" == *"myrepo" ]]
+}
+
+@test "session-new: branch detection cascade (symbolic-ref → rev-parse → unknown)" {
+    # Create a real git repo for branch detection
+    mkdir -p "$BATS_TEST_TMPDIR/branchtest"
+    git -C "$BATS_TEST_TMPDIR/branchtest" init -b testbranch 2>/dev/null
+    git -C "$BATS_TEST_TMPDIR/branchtest" config user.email "test@test.com"
+    git -C "$BATS_TEST_TMPDIR/branchtest" config user.name "Test"
+    printf 'x\n' > "$BATS_TEST_TMPDIR/branchtest/f.txt"
+    git -C "$BATS_TEST_TMPDIR/branchtest" add f.txt
+    git -C "$BATS_TEST_TMPDIR/branchtest" commit -m "init" --no-gpg-sign 2>/dev/null
+
+    # Normal branch: symbolic-ref works
+    local branch
+    branch=$(git -C "$BATS_TEST_TMPDIR/branchtest" symbolic-ref --short HEAD 2>/dev/null)
+    [[ "$branch" == "testbranch" ]]
+
+    # Detached HEAD: symbolic-ref fails, rev-parse works
+    git -C "$BATS_TEST_TMPDIR/branchtest" checkout --detach HEAD 2>/dev/null
+    branch=$(git -C "$BATS_TEST_TMPDIR/branchtest" symbolic-ref --short HEAD 2>/dev/null) || \
+        branch=$(git -C "$BATS_TEST_TMPDIR/branchtest" rev-parse --short HEAD 2>/dev/null) || \
+        branch="unknown"
+    # Should be a short SHA (7 chars), not "unknown"
+    [[ ${#branch} -ge 7 ]]
+    [[ "$branch" != "unknown" ]]
+}
+
+@test "session-new: trailing slash stripped from fd .git output" {
+    # fd outputs directories with trailing slash: path/.git/
+    # The stripping must handle both /.git and /.git/
+    run bash -c '
+        line="/home/user/Projects/myrepo/.git/"
+        line="${line%/}"
+        repo_path="${line%/.git}"
+        echo "$repo_path"
+    '
+    [[ "$output" == "/home/user/Projects/myrepo" ]]
+}
+
+@test "session-new: trailing slash stripped from fd depth-1 output" {
+    # fd outputs directories with trailing slash
+    run bash -c '
+        line="/home/user/Projects/plaindir/"
+        line="${line%/}"
+        echo "$line"
+    '
+    [[ "$output" == "/home/user/Projects/plaindir" ]]
+}
+
+@test "session-new: non-git dirs found by depth-1 find (phase 2)" {
+    mkdir -p "$BATS_TEST_TMPDIR/projects/plaindir"
+
+    local result
+    result=$(find "$BATS_TEST_TMPDIR/projects" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+    [[ "$result" == *"plaindir"* ]]
+}
+
+@test "session-new: dedup via associative array" {
+    # Test that declare -A seen_paths prevents duplicates
+    run bash -c '
+        declare -A seen_paths=()
+        items=("/a/repo" "/b/other" "/a/repo")
+        output=""
+        for p in "${items[@]}"; do
+            [[ -v seen_paths["$p"] ]] && continue
+            seen_paths["$p"]=1
+            output+="$p "
+        done
+        echo "$output"
+    '
+    [[ "$status" -eq 0 ]]
+    # /a/repo should appear exactly once
+    local count
+    count=$(echo "$output" | grep -o '/a/repo' | wc -l)
+    [[ "$count" -eq 1 ]]
+    # /b/other should appear
+    [[ "$output" == *"/b/other"* ]]
+}
+
+@test "session-new: nested git repo found at depth 3" {
+    mkdir -p "$BATS_TEST_TMPDIR/projects/org/nested-repo/.git"
+
+    local result
+    result=$(find "$BATS_TEST_TMPDIR/projects" -maxdepth 3 -name .git -type d 2>/dev/null)
+    [[ -n "$result" ]]
+    local repo_path="${result%/.git}"
+    [[ "$repo_path" == *"nested-repo" ]]
+}
+
+@test "session-new: _create_or_switch_session sanitizes path correctly" {
+    # Test that session name extraction and sanitization works
+    run bash -c '
+        session_name=$(basename "/home/user/my.project")
+        session_name=$(printf "%s" "$session_name" | sed "s/[^a-zA-Z0-9_-]/-/g")
+        session_name="${session_name#-}"
+        session_name="${session_name%-}"
+        echo "$session_name"
+    '
+    [[ "$output" == "my-project" ]]
+}
+
+@test "session-new: tab-delimited result extraction gets path" {
+    # Test the ${selected%%$'\t'*} extraction pattern
+    run bash -c '
+        selected="/home/user/projects/myapp	  main ★"
+        path="${selected%%	*}"
+        echo "$path"
+    '
+    [[ "$output" == "/home/user/projects/myapp" ]]
+}

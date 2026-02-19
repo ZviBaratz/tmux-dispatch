@@ -94,8 +94,9 @@ Configure which directories are scanned for the Ctrl+N project launcher in sessi
 | Option | Default | Description |
 |--------|---------|-------------|
 | `@dispatch-session-dirs` | `$HOME/Projects` | Colon-separated list of directories to scan for project directories |
+| `@dispatch-session-depth` | `3` | Maximum depth to scan for git repositories within session dirs |
 
-Each path in the list is scanned for immediate subdirectories, which are presented as candidates for new tmux sessions. For example, if you have `~/Projects/app` and `~/Projects/api`, both appear as session creation options.
+Each path in the list is scanned for git repositories (up to `@dispatch-session-depth` levels deep) and immediate subdirectories. Git repos show their current branch name in the listing, and directories with existing tmux sessions are marked with `★`. Non-git directories at depth 1 still appear as fallback candidates.
 
 ## Example configuration
 
@@ -143,4 +144,5 @@ set -g @dispatch-commands-file "$HOME/.config/tmux-dispatch/commands.conf"
 
 # Session directories
 set -g @dispatch-session-dirs "$HOME/Projects:$HOME/work"
+set -g @dispatch-session-depth "3"
 ```
