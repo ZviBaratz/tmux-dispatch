@@ -1046,7 +1046,7 @@ _discover_session_targets() {
             line="${line%/}"
             repo_path="${line%/.git}"
             [[ -d "$repo_path" ]] || continue
-            [[ -v seen_paths["$repo_path"] ]] && continue
+            [[ -v "seen_paths[$repo_path]" ]] && continue
             seen_paths["$repo_path"]=1
 
             # Check if session already exists
@@ -1082,7 +1082,7 @@ _discover_session_targets() {
         while IFS= read -r line; do
             line="${line%/}"  # strip trailing slash from fd output
             [[ -d "$line" ]] || continue
-            [[ -v seen_paths["$line"] ]] && continue
+            [[ -v "seen_paths[$line]" ]] && continue
             seen_paths["$line"]=1
 
             # Check if session already exists
