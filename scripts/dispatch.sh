@@ -1303,9 +1303,12 @@ run_scrollback_mode() {
     local sq_bat=""
     [[ -n "$BAT_CMD" ]] && sq_bat=$(_sq_escape "$BAT_CMD")
 
+    # Use fzf field placeholders '{1}' and '{2}' instead of '{}' + cut.
+    # With --delimiter=\t and --ansi, {1} gives ANSI-stripped type, {2} gives token.
+    # This avoids quoting issues when '{}' text contains quotes/special chars.
     local preview_cmd="if [ -f '$sq_view_flag' ]; then \
-token=\$(printf '%s' '{}' | cut -f2); \
-ttype=\$(printf '%s' '{}' | cut -f1 | sed 's/\\x1b\\[[0-9;]*m//g'); \
+token='{2}'; \
+ttype='{1}'; \
 printf '\\033[1;36m%s\\033[0m  \\033[38;5;244m(%s)\\033[0m\\n\\033[38;5;244m─────────────────────────────────────────\\033[0m\\n' \"\$token\" \"\$ttype\"; \
 if [ \"\$ttype\" = hash ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git cat-file -t \"\$token\" >/dev/null 2>&1; then \
 git show --stat --format='%h %s%n%an  %ci' \"\$token\" 2>/dev/null | head -40; \
@@ -1676,9 +1679,10 @@ _extract_tokens() {
         grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$reversed" \
             | awk '{print "\033[34muuid\033[0m\t" $0}' || true
         # Diff paths (--- a/file and +++ b/file from git diff output)
-        # Strip leading/trailing quotes (git C-style quoting, or bash strings in scrollback)
+        # Strip prefix, then remove quotes (from git C-style quoting or bash strings in scrollback)
         grep -oE '[-+]{3} [ab]/[^ ]+' "$reversed" \
-            | sed 's/^[-+]* [ab]\///; s/^"//; s/"$//' \
+            | sed 's/^[-+]* [ab]\///' \
+            | tr -d "\"'" \
             | awk '{print "\033[31mdiff\033[0m\t" $0}' || true
     } | awk '!seen[$0]++'
     command rm -f "$reversed"

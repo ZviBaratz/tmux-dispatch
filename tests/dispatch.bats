@@ -1797,11 +1797,18 @@ more at https://new.com/page?q=1,"
     [ "$result" = "lib/utils.js" ]
 }
 
-@test "extract: diff path strips trailing quote from scrollback strings" {
+@test "extract: diff path strips trailing quotes from scrollback strings" {
     local result
-    result=$(echo '+++ b/src/main.rs"' \
-        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///; s/^"//; s/"$//')
+    result=$(echo '+++ b/src/main.rs"'"'" \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'")
     [ "$result" = "src/main.rs" ]
+}
+
+@test "extract: diff path strips trailing double quote only" {
+    local result
+    result=$(echo '+++ b/lib/utils.js"' \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'")
+    [ "$result" = "lib/utils.js" ]
 }
 
 @test "extract: diff path regex rejects non-diff lines" {
