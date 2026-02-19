@@ -146,6 +146,24 @@ SQ_HISTORY=$(_sq_escape "$HISTORY_ENABLED")
 # Shared become string used by grep, sessions, dirs, git to switch back to files
 BECOME_FILES="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')"
 
+# ─── Empty state helper ───────────────────────────────────────────────────
+# Show a minimal fzf with the error as --header so the user sees it in context
+# (prompt, border-label) instead of a fleeting tmux status-bar message.
+# Backspace → files mode; Esc → close popup.
+_show_empty_state() {
+    local message="$1"
+    local prompt="$2"
+    local border_label="$3"
+    printf '' | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --header "$message" \
+        --prompt "$prompt" \
+        --border-label "$border_label" \
+        --border-label-pos 'center:bottom' \
+        --bind "backward-eof:$BECOME_FILES"
+    exit 0
+}
+
 # ─── Require fzf ────────────────────────────────────────────────────────────
 
 command -v fzf &>/dev/null || {
@@ -601,8 +619,10 @@ fi"
 
 run_grep_mode() {
     if [[ -z "$RG_CMD" ]]; then
-        _dispatch_error "grep requires ripgrep (rg) — install: brew/apt install ripgrep"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "grep requires ripgrep (rg) — install: brew/apt install ripgrep" \
+            "grep > " \
+            " grep > · ⌫ files "
     fi
 
     # Preview command: preview.sh handles bat-or-head fallback internally
@@ -1026,12 +1046,13 @@ run_directory_mode() {
     dir_output=$(_run_dir_cmd)
 
     if [[ -z "$dir_output" ]]; then
+        local dir_msg
         if [[ -z "$ZOXIDE_CMD" ]]; then
-            _dispatch_error "no directories found — install zoxide for frecency: brew install zoxide"
+            dir_msg="no directories found — install zoxide for frecency: brew install zoxide"
         else
-            _dispatch_error "no directories in zoxide — cd around first to build history"
+            dir_msg="no directories in zoxide — cd around first to build history"
         fi
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state "$dir_msg" "dirs # " " dirs # · ⌫ files "
     fi
 
     local become_files="$BECOME_FILES"
@@ -1150,8 +1171,10 @@ run_windows_mode() {
 
 run_git_mode() {
     if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-        _dispatch_error "git mode requires a repository — switch to a project with git init"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "git mode requires a repository — switch to a project with git init" \
+            "git ! " \
+            " git ! · ⌫ files "
     fi
 
     # Git status: porcelain v1 → colored icons (ICON<tab>filepath)
@@ -1178,8 +1201,10 @@ run_git_mode() {
     git_output=$(_run_git_status)
 
     if [[ -z "$git_output" ]]; then
-        _dispatch_error "working tree clean — nothing to stage"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "working tree clean — nothing to stage" \
+            "git ! " \
+            " git ! · ⌫ files "
     fi
 
     local become_files="$BECOME_FILES"
@@ -1269,9 +1294,11 @@ run_scrollback_mode() {
         | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$lines_file"
 
     if [[ ! -s "$lines_file" ]]; then
-        _dispatch_error "scrollback is empty — pane has no output yet"
         command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag" "$filter_file"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "scrollback is empty — pane has no output yet" \
+            "scrollback $ " \
+            " scrollback $ · ⌫ files "
     fi
 
     # Build tokens file via _extract_tokens
@@ -1512,8 +1539,10 @@ run_commands_mode() {
     entries=$(grep -v '^#' "$conf" | grep -v '^[[:space:]]*$') || true
 
     if [[ -z "$entries" ]]; then
-        _dispatch_error "commands.conf is empty — press : then ^E to add commands"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "commands.conf is empty — press : then ^E to add commands" \
+            "commands : " \
+            " commands : · ⌫ files "
     fi
 
     # Preview: show the command part (fields after first |)
@@ -1568,8 +1597,10 @@ run_marks_mode() {
     marks=$(all_bookmarks)
 
     if [[ -z "$marks" ]]; then
-        _dispatch_error "no bookmarks yet — press ^B in files mode to bookmark"
-        exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
+        _show_empty_state \
+            "no bookmarks yet — press ^B in files mode to bookmark" \
+            "marks ★ " \
+            " marks · ⌫ files "
     fi
 
     # Preview: expand tilde for bat/head, use absolute path
