@@ -4,3 +4,4 @@
 .DS_Store
 _dispatch_test/
 docs/plans/
+.worktrees/
