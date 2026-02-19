@@ -2288,8 +2288,9 @@ run_marks_mode() {
 # Takes path from QUERY, walks up with dirname to find deepest valid dir,
 # uses remaining text as filter pattern for fd/find.
 _path_reload_output() {
-    local query="$QUERY"
-    [[ -z "$query" ]] && return
+    # Prefix is stripped by _strip_mode_prefix (and fzf query doesn't include it),
+    # so prepend / to reconstruct the absolute path.
+    local query="/$QUERY"
 
     # Walk up to find deepest valid directory
     local search_dir="$query"
@@ -2504,6 +2505,7 @@ _strip_mode_prefix() {
         git)        QUERY="${QUERY#!}" ;;
         scrollback) QUERY="${QUERY#\$}"; QUERY="${QUERY#&}" ;;
         commands)   QUERY="${QUERY#:}" ;;
+        pathfind)   QUERY="${QUERY#/}" ;;
     esac
 }
 _strip_mode_prefix
