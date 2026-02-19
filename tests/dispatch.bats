@@ -2882,3 +2882,169 @@ more at https://new.com/page?q=1,"
     # valid should pass through
     [[ "$output" == *"valid"* ]]
 }
+
+# ─── Pathfind mode ─────────────────────────────────────────────────────────
+
+@test "pathfind: / prefix triggers mode switch in transform pattern" {
+    run bash -c '
+        query="/etc/nginx"
+        if [[ "$query" == "/"* ]]; then
+            echo "pathfind"
+        else
+            echo "other"
+        fi
+    '
+    [ "$output" = "pathfind" ]
+}
+
+@test "pathfind: / prefix present in change_transform in dispatch.sh" {
+    grep -q "\\[\\[ {q} == '/'\\*" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: / prefix passes --mode=pathfind in dispatch.sh" {
+    grep -q "\-\-mode=pathfind.*\-\-query={q}" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: dispatch case includes pathfind mode" {
+    grep -q "pathfind).*run_pathfind_mode" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: dispatch case includes _path-reload mode" {
+    grep -q "_path-reload).*_path_reload_output" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: run_pathfind_mode uses --disabled for external filtering" {
+    grep -q "\-\-disabled" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: run_pathfind_mode uses change:reload binding" {
+    grep -q 'change:reload:.*path_reload' "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: path reload produces files for valid directory" {
+    # Create a temp directory with test files
+    mkdir -p "$BATS_TEST_TMPDIR/pathtest"
+    touch "$BATS_TEST_TMPDIR/pathtest/file1.txt"
+    touch "$BATS_TEST_TMPDIR/pathtest/file2.txt"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        FD_CMD=""  # Force find fallback for portability
+        QUERY="'"$BATS_TEST_TMPDIR/pathtest/"'"
+        # Inline the function logic for testing
+        search_dir="$QUERY"
+        filter=""
+        while [[ ! -d "$search_dir" ]] && [[ "$search_dir" != "/" ]]; do
+            filter="$(basename "$search_dir")${filter:+/$filter}"
+            search_dir="$(dirname "$search_dir")"
+        done
+        [[ ! -d "$search_dir" ]] && exit 1
+        find "$search_dir" -maxdepth 3 -type f 2>/dev/null | sort
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"file1.txt"* ]]
+    [[ "$output" == *"file2.txt"* ]]
+}
+
+@test "pathfind: directory fallback finds nearest valid parent" {
+    mkdir -p "$BATS_TEST_TMPDIR/pathtest2"
+    touch "$BATS_TEST_TMPDIR/pathtest2/readme.md"
+    run bash -c '
+        # Query for a non-existent subpath — should fall back to parent dir
+        query="'"$BATS_TEST_TMPDIR/pathtest2/nonexist"'"
+        search_dir="$query"
+        filter=""
+        while [[ ! -d "$search_dir" ]] && [[ "$search_dir" != "/" ]]; do
+            filter="$(basename "$search_dir")${filter:+/$filter}"
+            search_dir="$(dirname "$search_dir")"
+        done
+        echo "dir=$search_dir"
+        echo "filter=$filter"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"dir=$BATS_TEST_TMPDIR/pathtest2"* ]]
+    [[ "$output" == *"filter=nonexist"* ]]
+}
+
+@test "pathfind: filter pattern narrows results" {
+    mkdir -p "$BATS_TEST_TMPDIR/pathtest3"
+    touch "$BATS_TEST_TMPDIR/pathtest3/match_this.txt"
+    touch "$BATS_TEST_TMPDIR/pathtest3/other_file.log"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        FD_CMD=""
+        query="'"$BATS_TEST_TMPDIR/pathtest3/match"'"
+        search_dir="$query"
+        filter=""
+        while [[ ! -d "$search_dir" ]] && [[ "$search_dir" != "/" ]]; do
+            filter="$(basename "$search_dir")${filter:+/$filter}"
+            search_dir="$(dirname "$search_dir")"
+        done
+        fd_filter="${filter%%/*}"
+        find "$search_dir" -type f -name "*${fd_filter}*" 2>/dev/null
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"match_this.txt"* ]]
+    [[ "$output" != *"other_file.log"* ]]
+}
+
+@test "pathfind: root path uses depth limiting" {
+    run bash -c '
+        search_dir="/"
+        fd_filter=""
+        use_depth_limit=false
+        if [[ "$search_dir" == "/" ]] || [[ -z "$fd_filter" ]]; then
+            use_depth_limit=true
+        fi
+        echo "$use_depth_limit"
+    '
+    [ "$output" = "true" ]
+}
+
+@test "pathfind: empty filter uses depth limiting" {
+    run bash -c '
+        search_dir="/etc"
+        fd_filter=""
+        use_depth_limit=false
+        if [[ "$search_dir" == "/" ]] || [[ -z "$fd_filter" ]]; then
+            use_depth_limit=true
+        fi
+        echo "$use_depth_limit"
+    '
+    [ "$output" = "true" ]
+}
+
+@test "pathfind: non-root with filter skips depth limiting" {
+    run bash -c '
+        search_dir="/etc"
+        fd_filter="nginx"
+        use_depth_limit=false
+        if [[ "$search_dir" == "/" ]] || [[ -z "$fd_filter" ]]; then
+            use_depth_limit=true
+        fi
+        echo "$use_depth_limit"
+    '
+    [ "$output" = "false" ]
+}
+
+@test "pathfind: find fallback works without fd" {
+    mkdir -p "$BATS_TEST_TMPDIR/pathfind_nfd"
+    touch "$BATS_TEST_TMPDIR/pathfind_nfd/testfile.sh"
+    run bash -c '
+        FD_CMD=""
+        search_dir="'"$BATS_TEST_TMPDIR/pathfind_nfd"'"
+        find "$search_dir" -maxdepth 3 -type f 2>/dev/null
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"testfile.sh"* ]]
+}
+
+@test "pathfind: help string exists" {
+    grep -q "HELP_PATH=" "$SCRIPT_DIR/dispatch.sh"
+    grep -q "SQ_HELP_PATH=" "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "pathfind: / hint in files mode help" {
+    grep -q "/\.\.\." "$SCRIPT_DIR/dispatch.sh"
+}

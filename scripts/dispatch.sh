@@ -11,6 +11,7 @@
 #   --mode=sessions       tmux session picker/creator
 #   --mode=session-new    directory-based session creation
 #   --mode=windows        tmux window picker for a session
+#   --mode=pathfind       absolute path file browsing (/ prefix)
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
 #   --mode=scrollback     search tmux scrollback (lines + token extraction)
@@ -390,6 +391,7 @@ HELP_FILES="$(printf '%b' '
   &...      extract tokens
   :...      custom commands
   ~...      files from home
+  /...      browse by path
 ')"
 
 HELP_GREP="$(printf '%b' '
@@ -540,9 +542,23 @@ HELP_MARKS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
+HELP_PATH="$(printf '%b' '
+  \033[1mPATH\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     open in editor
+  ^O        send to pane
+  ^Y        copy path
+  ⌫ empty   back to files
+
+  Type absolute path to find files.
+
+  ^D/^U     scroll preview
+')"
+
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
+SQ_HELP_PATH=$(_sq_escape "$HELP_PATH")
 # SQ_HELP_EXTRACT is built lazily in run_scrollback_mode() to include custom types
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
@@ -728,6 +744,8 @@ elif [[ {q} == '&'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID' --query={q})\"
+elif [[ {q} == '/'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=pathfind --pane='$SQ_PANE_ID' --query={q})\"
 elif [[ {q} == '~'* ]]; then
   echo \"become(cd ~ && '$SQ_SCRIPT_DIR/dispatch.sh' --mode=files --pane='$SQ_PANE_ID')\"
 fi"
@@ -2237,6 +2255,125 @@ run_marks_mode() {
     esac
 }
 
+# ─── Mode: pathfind (absolute path browsing) ─────────────────────────────────
+
+# Produces file listings for pathfind mode's change:reload binding.
+# Also invoked as _path-reload mode from fzf's reload command.
+# Takes path from QUERY, walks up with dirname to find deepest valid dir,
+# uses remaining text as filter pattern for fd/find.
+_path_reload_output() {
+    local query="$QUERY"
+    [[ -z "$query" ]] && return
+
+    # Walk up to find deepest valid directory
+    local search_dir="$query"
+    local filter=""
+    while [[ ! -d "$search_dir" ]] && [[ "$search_dir" != "/" ]]; do
+        filter="$(basename "$search_dir")${filter:+/$filter}"
+        search_dir="$(dirname "$search_dir")"
+    done
+    [[ ! -d "$search_dir" ]] && return
+
+    # Only keep the first segment as the filter pattern (for fd regex matching)
+    # e.g., /etc/ngx → dir=/etc, filter=ngx
+    # e.g., /etc/nginx/ → dir=/etc/nginx, filter=""
+    local fd_filter=""
+    if [[ -n "$filter" ]]; then
+        # Use only the first path component as fd filter
+        fd_filter="${filter%%/*}"
+    fi
+
+    # Depth limit: restrict when browsing root or no filter (avoid scanning entire FS)
+    local use_depth_limit=false
+    if [[ "$search_dir" == "/" ]] || [[ -z "$fd_filter" ]]; then
+        use_depth_limit=true
+    fi
+
+    if [[ -n "$FD_CMD" ]]; then
+        local -a fd_args=(--type f --follow)
+        [[ "$use_depth_limit" == true ]] && fd_args+=(--max-depth 3)
+        if [[ -n "$fd_filter" ]]; then
+            "$FD_CMD" "${fd_args[@]}" -- "$fd_filter" "$search_dir" 2>/dev/null | head -500
+        else
+            "$FD_CMD" "${fd_args[@]}" . "$search_dir" 2>/dev/null | head -500
+        fi
+    else
+        local -a find_args=("$search_dir")
+        [[ "$use_depth_limit" == true ]] && find_args+=(-maxdepth 3)
+        if [[ -n "$fd_filter" ]]; then
+            find "${find_args[@]}" -type f -name "*${fd_filter}*" 2>/dev/null | head -500
+        else
+            find "${find_args[@]}" -type f 2>/dev/null | head -500
+        fi
+    fi
+}
+
+run_pathfind_mode() {
+    local become_files_empty="$BECOME_FILES"
+
+    # Preview command: bat or head fallback
+    local preview_cmd
+    if [[ -n "$BAT_CMD" ]]; then
+        local sq_bat
+        sq_bat=$(_sq_escape "$BAT_CMD")
+        preview_cmd="'$sq_bat' --color=always --style=numbers --line-range=:500 {}"
+    else
+        preview_cmd="head -500 {}"
+    fi
+
+    # Reload command: re-invoke dispatch.sh in _path-reload mode
+    local path_reload="'$SQ_SCRIPT_DIR/dispatch.sh' --mode=_path-reload --query={q} || true"
+
+    local result
+    result=$(_path_reload_output | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --expect=ctrl-o,ctrl-y \
+        --disabled \
+        --query "$QUERY" \
+        --prompt '/ ' \
+        --ansi \
+        --bind "change:reload:$path_reload" \
+        --preview "$preview_cmd" \
+        --preview-label=" preview " \
+        --border-label ' path · ? help · enter open · ^o pane · ^y copy · ⌫ files ' \
+        --border-label-pos 'center:bottom' \
+        --bind "backward-eof:$become_files_empty" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '' '$SQ_HISTORY' {})" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_PATH'" \
+    ) || exit 0
+
+    handle_pathfind_result "$result"
+}
+
+handle_pathfind_result() {
+    local result="$1"
+    local key selected
+
+    key=$(head -1 <<< "$result")
+    selected=$(tail -1 <<< "$result")
+    [[ -z "$selected" ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            printf '%s' "$selected" | tmux load-buffer -w -
+            tmux display-message "Copied: $selected"
+            ;;
+        ctrl-o)
+            if [[ -n "$PANE_ID" ]]; then
+                local qfile
+                qfile=$(printf '%q' "$selected")
+                tmux send-keys -t "$PANE_ID" "$PANE_EDITOR $qfile" Enter
+                tmux display-message "Sent to pane: $selected"
+            else
+                tmux display-message "No target pane — use Ctrl+Y to copy instead"
+            fi
+            ;;
+        *)
+            # Enter is handled by fzf execute() binding
+            ;;
+    esac
+}
+
 # ─── Token extraction ──────────────────────────────────────────────────────
 # Extracts structured tokens (URLs, file:line, git hashes, IPs) from scrollback.
 # Input: path to raw scrollback file. Output: type\ttoken lines, deduped.
@@ -2364,4 +2501,6 @@ case "$MODE" in
     scrollback)     run_scrollback_mode ;;
     commands)       run_commands_mode ;;
     marks)          run_marks_mode ;;
+    pathfind)       run_pathfind_mode ;;
+    _path-reload)   _path_reload_output; exit 0 ;;
 esac
