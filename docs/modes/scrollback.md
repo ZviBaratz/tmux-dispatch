@@ -8,7 +8,7 @@ nav_order: 7
 Scrollback mode captures content from your tmux pane's scrollback buffer and presents it in fzf for fuzzy searching. It has two views that you can toggle between with `Ctrl+T`:
 
 - **Lines view** -- deduplicated scrollback lines, most-recent-first. Use this to search for commands, output, or error messages.
-- **Tokens view** (extract) -- structured tokens extracted from scrollback: URLs, file paths with line numbers, git commit hashes, and IP addresses. Use this to quickly act on specific items from your terminal output.
+- **Tokens view** (extract) -- structured tokens extracted from scrollback: URLs, file paths with line numbers, git commit hashes, IP addresses, UUIDs, and diff paths. Use this to quickly act on specific items from your terminal output.
 
 ## How to access
 
@@ -40,20 +40,24 @@ Scrollback mode captures content from your tmux pane's scrollback buffer and pre
 | `Ctrl+T` | Switch to lines view |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `Backspace` on empty | Return to files (home) |
+| `Ctrl+/` | Filter by token type (cycles: all → url → path → ...) |
 | `Ctrl+D` / `Ctrl+U` | Scroll preview down/up |
 | `?` | Show help cheat sheet in preview |
 | `Escape` | Close popup |
 
 ## Token types
 
-The tokens view extracts four types of structured data from your scrollback:
+The tokens view extracts seven types of structured data from your scrollback:
 
 | Type | Example | Smart open action |
 |------|---------|-------------------|
 | `url` | `https://example.com/path` | Open in browser |
 | `path` | `src/main.rs:42` or `lib/utils.js:10:5` | Open file at line in editor |
-| `hash` | `abc1234` (7-40 hex chars) | Copy to clipboard |
+| `file` | `README.md` (bare file, must exist on disk) | Open file in editor |
+| `hash` | `abc1234` (7-40 hex chars) | `git show` in pane (or copy) |
 | `ip` | `192.168.1.1` or `10.0.0.1:8080` | Copy to clipboard |
+| `uuid` | `550e8400-e29b-41d4-a716-446655440000` | Copy to clipboard |
+| `diff` | `src/main.rs` (from `+++ b/` lines) | Open file in editor |
 
 ## Features
 

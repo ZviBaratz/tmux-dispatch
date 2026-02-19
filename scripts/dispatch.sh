@@ -329,7 +329,7 @@ HELP_EXTRACT="$(printf '%b' '
   ⌫ empty   back to files
 
   \033[36murl\033[0m \033[33mpath\033[0m \033[35mhash\033[0m \033[32mip\033[0m \033[34muuid\033[0m \033[31mdiff\033[0m \033[33mfile\033[0m
-  ^F        filter by type
+  ^/        filter by type
   ^D/^U     scroll preview
 ')"
 
@@ -1270,7 +1270,7 @@ run_scrollback_mode() {
 
     if [[ ! -s "$lines_file" ]]; then
         _dispatch_error "scrollback is empty — pane has no output yet"
-        command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag"
+        command rm -f "$raw_file" "$lines_file" "$tokens_file" "$view_flag" "$filter_file"
         exec "$SCRIPT_DIR/dispatch.sh" --mode=files --pane="$PANE_ID"
     fi
 
@@ -1303,16 +1303,24 @@ run_scrollback_mode() {
     local sq_bat=""
     [[ -n "$BAT_CMD" ]] && sq_bat=$(_sq_escape "$BAT_CMD")
 
-    # Use fzf field placeholders '{1}' and '{2}' instead of '{}' + cut.
+    # Use fzf field placeholders {1} and {2} instead of {} + cut.
     # With --delimiter=\t and --ansi, {1} gives ANSI-stripped type, {2} gives token.
-    # This avoids quoting issues when '{}' text contains quotes/special chars.
+    # IMPORTANT: Do NOT wrap {1}/{2} in extra quotes — fzf already single-quotes
+    # placeholder values. Adding quotes creates collisions: token='{2}' becomes
+    # token=''value'' which breaks on backticks and single quotes in values.
     local preview_cmd="if [ -f '$sq_view_flag' ]; then \
-token='{2}'; \
-ttype='{1}'; \
+token={2}; \
+ttype={1}; \
 printf '\\033[1;36m%s\\033[0m  \\033[38;5;244m(%s)\\033[0m\\n\\033[38;5;244m─────────────────────────────────────────\\033[0m\\n' \"\$token\" \"\$ttype\"; \
 if [ \"\$ttype\" = hash ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git cat-file -t \"\$token\" >/dev/null 2>&1; then \
 git show --stat --format='%h %s%n%an  %ci' \"\$token\" 2>/dev/null | head -40; \
-elif [ \"\$ttype\" = path ] || [ \"\$ttype\" = diff ] || [ \"\$ttype\" = file ]; then \
+elif [ \"\$ttype\" = diff ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+diff_out=\$(git diff HEAD --color=always -- \"\$token\" 2>/dev/null); \
+if [ -z \"\$diff_out\" ]; then diff_out=\$(git log -1 -p --color=always --format='%C(yellow)%h%C(reset) %s%n%C(dim)%an  %ci%C(reset)%n' -- \"\$token\" 2>/dev/null); fi; \
+if [ -n \"\$diff_out\" ]; then printf '%s\\n' \"\$diff_out\" | head -80; \
+elif [ -f \"\$token\" ]; then ${sq_bat:+"'$sq_bat' --color=always --style=numbers --line-range=:50 \"\$token\" 2>/dev/null ||"} head -50 \"\$token\"; \
+else printf 'no changes (clean)\\n'; fi; \
+elif [ \"\$ttype\" = path ] || [ \"\$ttype\" = file ]; then \
 file=\"\${token%%:*}\"; line=\"\${token#*:}\"; line=\"\${line%%:*}\"; \
 case \"\$line\" in *[!0-9]*) line=1;; esac; \
 [ -z \"\$line\" ] && line=1; \
@@ -1337,7 +1345,7 @@ fi"
     # fzf's --bind parser, which interprets single quotes during transform: parsing.
     # Since the outer definition is double-quoted, variables are expanded inline.
     local lines_label_inner=" scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files "
-    local tokens_label_inner=" extract \$ · ? help · ^t lines · ^f filter · enter copy · ^o open · tab select · ⌫ files "
+    local tokens_label_inner=" extract \$ · ? help · ^t lines · ^/ filter · enter copy · ^o open · tab select · ⌫ files "
     local lines_label="'$lines_label_inner'"
     local tokens_label="'$tokens_label_inner'"
     local toggle_cmd="if [ -f '$sq_view_flag' ]; then \
@@ -1394,7 +1402,7 @@ fi"
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-t:transform:$toggle_cmd" \
-        --bind "ctrl-f:transform:$filter_cmd" \
+        --bind "ctrl-/:transform:$filter_cmd" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:$help_cmd" \
     ) || exit 0
@@ -1664,7 +1672,7 @@ _extract_tokens() {
             done || true
         # Bare file paths — only if file actually exists (eliminates false positives)
         grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' "$reversed" \
-            | grep -v '^//' | sort -u \
+            | grep -v '^//' | awk '!seen[$0]++' \
             | while IFS= read -r match; do
                 [[ -f "$match" ]] && printf '\033[33mfile\033[0m\t%s\n' "$match"
             done || true
@@ -1679,11 +1687,14 @@ _extract_tokens() {
         grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$reversed" \
             | awk '{print "\033[34muuid\033[0m\t" $0}' || true
         # Diff paths (--- a/file and +++ b/file from git diff output)
-        # Strip prefix, then remove quotes (from git C-style quoting or bash strings in scrollback)
+        # Strip prefix, remove quotes/backticks, validate file exists on disk
         grep -oE '[-+]{3} [ab]/[^ ]+' "$reversed" \
             | sed 's/^[-+]* [ab]\///' \
-            | tr -d "\"'" \
-            | awk '{print "\033[31mdiff\033[0m\t" $0}' || true
+            | tr -d "\"'\`" \
+            | awk '!seen[$0]++' \
+            | while IFS= read -r match; do
+                [[ -f "$match" ]] && printf '\033[31mdiff\033[0m\t%s\n' "$match"
+            done || true
     } | awk '!seen[$0]++'
     command rm -f "$reversed"
 }

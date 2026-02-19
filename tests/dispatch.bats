@@ -728,7 +728,7 @@ session-name	extra-info"
         | grep -v 'preview-label' \
         | grep -v 'change:transform' \
         | grep -v 'backward-eof' \
-        | grep -v 'ctrl-f:transform' \
+        | grep -v 'ctrl-/:transform' \
         | grep -v 'ctrl-h:' \
         | grep -v 'start:' \
         | grep -v 'focus:' \
@@ -1797,18 +1797,42 @@ more at https://new.com/page?q=1,"
     [ "$result" = "lib/utils.js" ]
 }
 
-@test "extract: diff path strips trailing quotes from scrollback strings" {
+@test "extract: diff path strips trailing quotes and validates file exists" {
+    touch "$BATS_TEST_TMPDIR/main.rs"
     local result
-    result=$(echo '+++ b/src/main.rs"'"'" \
-        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'")
-    [ "$result" = "src/main.rs" ]
+    result=$(cd "$BATS_TEST_TMPDIR" && echo '+++ b/main.rs"'"'" \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'\`" \
+        | awk '!seen[$0]++' \
+        | while IFS= read -r match; do [[ -f "$match" ]] && printf 'diff\t%s\n' "$match"; done)
+    [ "$result" = "diff	main.rs" ]
 }
 
-@test "extract: diff path strips trailing double quote only" {
+@test "extract: diff path strips backticks and validates file exists" {
+    touch "$BATS_TEST_TMPDIR/file.txt"
     local result
-    result=$(echo '+++ b/lib/utils.js"' \
-        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'")
-    [ "$result" = "lib/utils.js" ]
+    result=$(cd "$BATS_TEST_TMPDIR" && echo '+++ b/file.txt`' \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'\`" \
+        | awk '!seen[$0]++' \
+        | while IFS= read -r match; do [[ -f "$match" ]] && printf 'diff\t%s\n' "$match"; done)
+    [ "$result" = "diff	file.txt" ]
+}
+
+@test "extract: diff path rejects non-existent files" {
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && printf '+++ b/path\n+++ b/nonexistent.xyz\n' \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'\`" \
+        | awk '!seen[$0]++' \
+        | while IFS= read -r match; do [[ -f "$match" ]] && printf 'diff\t%s\n' "$match"; done || true)
+    [ -z "$result" ]
+}
+
+@test "extract: diff path rejects pure punctuation (lone backtick)" {
+    local result
+    result=$(cd "$BATS_TEST_TMPDIR" && printf '+++ b/`\n' \
+        | grep -oE '[-+]{3} [ab]/[^ ]+' | sed 's/^[-+]* [ab]\///' | tr -d "\"'\`" \
+        | awk '!seen[$0]++' \
+        | while IFS= read -r match; do [[ -f "$match" ]] && printf 'diff\t%s\n' "$match"; done || true)
+    [ -z "$result" ]
 }
 
 @test "extract: diff path regex rejects non-diff lines" {
@@ -1868,7 +1892,7 @@ more at https://new.com/page?q=1,"
     local result
     result=$(cd "$BATS_TEST_TMPDIR" && echo "see utils.js for details" \
         | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' \
-        | grep -v '^//' | sort -u \
+        | grep -v '^//' | awk '!seen[$0]++' \
         | while IFS= read -r match; do
             [[ -f "$match" ]] && printf 'file\t%s\n' "$match"
         done)
@@ -1879,16 +1903,16 @@ more at https://new.com/page?q=1,"
     local result
     result=$(cd "$BATS_TEST_TMPDIR" && echo "see phantom.xyz for details" \
         | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' \
-        | grep -v '^//' | sort -u \
+        | grep -v '^//' | awk '!seen[$0]++' \
         | while IFS= read -r match; do
             [[ -f "$match" ]] && printf 'file\t%s\n' "$match"
         done || true)
     [ -z "$result" ]
 }
 
-@test "extract: ctrl-f filter binding present in scrollback mode" {
+@test "extract: ctrl-/ filter binding present in scrollback mode" {
     local src="$SCRIPT_DIR/dispatch.sh"
-    run bash -c 'grep -c "ctrl-f:transform" "'"$src"'"'
+    run bash -c 'grep -c "ctrl-/:transform" "'"$src"'"'
     [[ "${lines[0]}" -ge 1 ]]
 }
 
@@ -1960,13 +1984,13 @@ more at https://new.com/page?q=1,"
     command rm -f "$tokens_file"
 }
 
-@test "extract: ^f filter hint in tokens border label" {
+@test "extract: ^/ filter hint in tokens border label" {
     local src="$SCRIPT_DIR/dispatch.sh"
-    run bash -c 'grep "tokens_label_inner" "'"$src"'" | grep -c "\\^f filter"'
+    run bash -c 'grep "tokens_label_inner" "'"$src"'" | grep -c "\\^/ filter"'
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-@test "extract: ^f filter hint in HELP_EXTRACT" {
+@test "extract: ^/ filter hint in HELP_EXTRACT" {
     local src="$SCRIPT_DIR/dispatch.sh"
     run bash -c 'grep -A20 "HELP_EXTRACT=" "'"$src"'" | grep -c "filter"'
     [[ "${lines[0]}" -ge 1 ]]

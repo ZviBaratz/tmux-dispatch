@@ -147,6 +147,7 @@ Search and copy text from your terminal's scrollback buffer. Two views toggle wi
 | `Enter` | Copy selected token(s) to tmux buffer + system clipboard |
 | `Ctrl+O` | Smart open: browser for URLs, editor for file:line, clipboard for others |
 | `Ctrl+T` | Switch to lines view |
+| `Ctrl+/` | Filter by token type (cycles: all → url → path → hash → ip → uuid → diff → file) |
 | `Tab` / `Shift+Tab` | Toggle selection (multi-select) |
 | `Backspace` on empty | Return to files (home) |
 
@@ -180,6 +181,7 @@ View and manage all bookmarked files across all directories.
 | Send to pane | Ctrl+O | Ctrl+O | Ctrl+O | — | — | — | Ctrl+O | — | Ctrl+O |
 | Copy | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Ctrl+Y | Enter | — | Ctrl+Y |
 | Toggle view | — | Ctrl+F | — | — | — | — | Ctrl+T | — | — |
+| Filter type | — | — | — | — | — | — | Ctrl+/ | — | — |
 | Rename | Ctrl+R | Ctrl+R | Ctrl+R | — | Ctrl+R | — | — | — | — |
 | Delete | Ctrl+X | Ctrl+X | Ctrl+X | — | — | — | — | — | — |
 | Bookmark | Ctrl+B | — | — | — | — | — | — | — | Ctrl+B* |
