@@ -282,7 +282,7 @@ _parse_custom_patterns() {
         # Validate type name: lowercase, hyphens, digits, max 10 chars
         [[ "$ptype" =~ ^[a-z][a-z0-9-]{0,9}$ ]] || continue
         # Reject built-in type names
-        case "$ptype" in url|path|file|hash|ip|uuid|diff) continue ;; esac
+        case "$ptype" in url|path|file|hash|ip|uuid|diff|email|semver|color) continue ;; esac
         # Skip empty regex
         [[ -z "$pregex" ]] && continue
         # Default action
@@ -291,6 +291,20 @@ _parse_custom_patterns() {
         local color="${palette[$((idx % ${#palette[@]}))]}"
         idx=$((idx + 1))
         printf '%s\t%s\t%s\t%s\n' "$ptype" "$color" "$pregex" "$paction"
+    done < "$file"
+}
+
+# Parse disabled type names from patterns.conf.
+# Lines starting with ! (after optional whitespace) disable the named type.
+# Returns one type name per line.
+_parse_disabled_types() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+    local line dtype
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*!([a-z][a-z0-9-]*) ]] || continue
+        dtype="${BASH_REMATCH[1]}"
+        printf '%s\n' "$dtype"
     done < "$file"
 }
 

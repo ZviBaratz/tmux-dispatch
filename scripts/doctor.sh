@@ -206,8 +206,13 @@ fi
 # ── patterns.conf ────────────────────────────────────────────────────────
 patterns_file="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/patterns.conf"
 if [[ -f "$patterns_file" ]]; then
-    pat_count=$(grep -v '^#' "$patterns_file" | grep -cv '^[[:space:]]*$' || true)
-    _count_ok "patterns.conf found (${pat_count} custom patterns)"
+    pat_count=$(grep -v '^#' "$patterns_file" | grep -v '^[[:space:]]*!' | grep -cv '^[[:space:]]*$' || true)
+    disabled_count=$(grep -c '^[[:space:]]*!' "$patterns_file" || true)
+    if [[ "$disabled_count" -gt 0 ]]; then
+        _count_ok "patterns.conf found (${pat_count} custom patterns, ${disabled_count} types disabled)"
+    else
+        _count_ok "patterns.conf found (${pat_count} custom patterns)"
+    fi
     dim "$patterns_file"
 else
     dim "patterns.conf not found (optional — for custom token types in extract mode)"

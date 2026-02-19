@@ -1582,7 +1582,9 @@ line3"
     local missing=()
     local var
     for var in "${expected[@]}"; do
-        if ! grep -q "^${var}=" "$SCRIPT_DIR/dispatch.sh"; then
+        # HELP_EXTRACT is built dynamically inside run_scrollback_mode (local),
+        # so match with optional leading whitespace
+        if ! grep -qE "^[[:space:]]*${var}=" "$SCRIPT_DIR/dispatch.sh"; then
             missing+=("$var")
         fi
     done
@@ -1610,7 +1612,9 @@ line3"
     local missing=()
     local var
     for var in "${expected[@]}"; do
-        if ! grep -q "^${var}=" "$SCRIPT_DIR/dispatch.sh"; then
+        # SQ_HELP_EXTRACT is built dynamically inside run_scrollback_mode (local),
+        # so match with optional leading whitespace
+        if ! grep -qE "^[[:space:]]*${var}=" "$SCRIPT_DIR/dispatch.sh"; then
             missing+=("$var")
         fi
     done
@@ -1628,7 +1632,7 @@ line3"
     for var in $help_binds; do
         # SQ_HELP_FOO → HELP_FOO should exist as a definition
         local base="${var#SQ_}"
-        if ! grep -q "^${base}=" "$SCRIPT_DIR/dispatch.sh"; then
+        if ! grep -qE "^[[:space:]]*${base}=" "$SCRIPT_DIR/dispatch.sh"; then
             echo "Used $var in bind but $base is not defined"
             return 1
         fi
@@ -1871,7 +1875,8 @@ more at https://new.com/page?q=1,"
 
 @test "extract: HELP_EXTRACT defined in dispatch.sh" {
     local src="$SCRIPT_DIR/dispatch.sh"
-    run bash -c 'grep -c "^HELP_EXTRACT=" "'"$src"'"'
+    # HELP_EXTRACT is now built dynamically inside run_scrollback_mode (local)
+    run bash -c 'grep -cE "^[[:space:]]*HELP_EXTRACT=" "'"$src"'"'
     [[ "${lines[0]}" -ge 1 ]]
 }
 
@@ -2694,13 +2699,14 @@ more at https://new.com/page?q=1,"
 
 @test "extract: filter cycle includes custom types" {
     local conf="$BATS_TEST_TMPDIR/patterns.conf"
-    printf 'jira | [A-Z]+-[0-9]+\nemail | [a-z]+@[a-z]+\n' > "$conf"
+    printf 'jira | [A-Z]+-[0-9]+\nticket | TICKET-[0-9]+\n' > "$conf"
     # Test that the filter cycle case body is built with custom types
+    # Uses updated all_known_types that includes email/semver/color
     run bash -c '
         tmux() { echo ""; }; export -f tmux
         source "'"$SCRIPT_DIR"'/helpers.sh"
         PATTERNS_FILE="'"$conf"'"
-        local -a filter_types=(url path hash ip uuid diff file)
+        local -a filter_types=(url path hash ip uuid diff file email semver color)
         while IFS=$'"'"'\t'"'"' read -r ptype _rest; do
             filter_types+=("$ptype")
         done < <(_parse_custom_patterns "$PATTERNS_FILE")
@@ -2720,11 +2726,15 @@ more at https://new.com/page?q=1,"
     [ "$status" -eq 0 ]
     # Custom types should be in the cycle
     [[ "$output" == *"jira)"* ]]
+    [[ "$output" == *"ticket)"* ]]
+    # New built-in types should be present
     [[ "$output" == *"email)"* ]]
-    # file→jira (transition from last built-in to first custom)
-    [[ "$output" == *"file) next=jira"* ]]
-    # email→all (last custom wraps to all)
-    [[ "$output" == *"email) next=all"* ]]
+    [[ "$output" == *"semver)"* ]]
+    [[ "$output" == *"color)"* ]]
+    # color→jira (transition from last built-in to first custom)
+    [[ "$output" == *"color) next=jira"* ]]
+    # ticket→all (last custom wraps to all)
+    [[ "$output" == *"ticket) next=all"* ]]
 }
 
 @test "extract: PATTERNS_FILE option read from tmux options block" {
@@ -2733,4 +2743,142 @@ more at https://new.com/page?q=1,"
     '
     [ "$status" -eq 0 ]
     [[ "$output" == *"PATTERNS_FILE"* ]]
+}
+
+# ─── Disable types + new built-in types ──────────────────────────────────────
+
+@test "extract: email tokens matched" {
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Contact user@example.com for help\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"email"* ]]
+    [[ "$output" == *"user@example.com"* ]]
+}
+
+@test "extract: semver tokens matched" {
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Upgraded to v1.2.3 and 2.0.0-beta.1\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"semver"* ]]
+    [[ "$output" == *"v1.2.3"* ]]
+    [[ "$output" == *"2.0.0-beta.1"* ]]
+}
+
+@test "extract: color tokens matched" {
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Background: #aabbcc foreground: #11223344\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"color"* ]]
+    [[ "$output" == *"#aabbcc"* ]]
+    [[ "$output" == *"#11223344"* ]]
+}
+
+@test "extract: disabled built-in type is skipped" {
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Visit https://example.com and 192.168.1.1\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        declare -A disabled_types=([url]=1)
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    # url should be absent, ip should still be present
+    [[ "$output" != *"url"* ]]
+    [[ "$output" == *"ip"* ]]
+    [[ "$output" == *"192.168.1.1"* ]]
+}
+
+@test "extract: disabled custom type is skipped" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+\n' > "$conf"
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Working on PROJ-123\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        declare -A disabled_types=([jira]=1)
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"jira"* ]]
+    [[ "$output" != *"PROJ-123"* ]]
+}
+
+@test "extract: filter cycle excludes disabled types" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+\n' > "$conf"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        declare -A disabled_types=([ip]=1 [uuid]=1)
+        local -a all_known_types=(url path hash ip uuid diff file email semver color)
+        local -a filter_types=()
+        for t in "${all_known_types[@]}"; do
+            [[ -v "disabled_types[$t]" ]] || filter_types+=("$t")
+        done
+        while IFS=$'"'"'\t'"'"' read -r ptype _rest; do
+            [[ -v "disabled_types[$ptype]" ]] || filter_types+=("$ptype")
+        done < <(_parse_custom_patterns "$PATTERNS_FILE")
+        cycle_cases="all) next=${filter_types[0]};; "
+        for ((i = 0; i < ${#filter_types[@]}; i++)); do
+            if ((i + 1 < ${#filter_types[@]})); then
+                nxt="${filter_types[$((i+1))]}"
+            else
+                nxt="all"
+            fi
+            cycle_cases+="${filter_types[$i]}) next=${nxt};; "
+        done
+        cycle_cases+="*) next=all;;"
+        echo "$cycle_cases"
+    '
+    [ "$status" -eq 0 ]
+    # ip and uuid should be absent from the cycle
+    [[ "$output" != *"ip)"* ]]
+    [[ "$output" != *"uuid)"* ]]
+    # New types should be present
+    [[ "$output" == *"email)"* ]]
+    [[ "$output" == *"semver)"* ]]
+    [[ "$output" == *"color)"* ]]
+    # Custom type jira should be present
+    [[ "$output" == *"jira)"* ]]
+}
+
+@test "extract: new built-in names rejected from custom patterns" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'email | [a-z]+@[a-z]+\nsemver | v[0-9]+\ncolor | #[0-9a-f]+\nvalid | foo[0-9]+\n' > "$conf"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        _parse_custom_patterns "'"$conf"'"
+    '
+    [ "$status" -eq 0 ]
+    # email, semver, color should be rejected as built-in names
+    [[ "$output" != *"email"* ]]
+    [[ "$output" != *"semver"* ]]
+    [[ "$output" != *"color"* ]]
+    # valid should pass through
+    [[ "$output" == *"valid"* ]]
 }

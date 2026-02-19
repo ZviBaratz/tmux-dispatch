@@ -432,7 +432,7 @@ teardown() {
 
 @test "parse_custom_patterns: rejects built-in type names" {
     local conf="$BATS_TEST_TMPDIR/patterns.conf"
-    printf 'url | http://[^ ]+\npath | /[^ ]+\nhash | [a-f0-9]+\nip | [0-9.]+\nuuid | [a-f0-9-]+\ndiff | [-+]+\nfile | [^ ]+\n' > "$conf"
+    printf 'url | http://[^ ]+\npath | /[^ ]+\nhash | [a-f0-9]+\nip | [0-9.]+\nuuid | [a-f0-9-]+\ndiff | [-+]+\nfile | [^ ]+\nemail | [^ ]+\nsemver | [0-9.]+\ncolor | #[0-9a-f]+\n' > "$conf"
     local result
     result=$(_parse_custom_patterns "$conf")
     [[ -z "$result" ]]
@@ -465,6 +465,56 @@ teardown() {
     local ptype
     ptype=$(echo "$result" | cut -f1)
     [[ "$ptype" == "jira" ]]
+}
+
+# ─── _parse_disabled_types ───────────────────────────────────────────────────
+
+@test "parse_disabled_types: extracts disabled type names" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '!ip\n!uuid\n' > "$conf"
+    local result
+    result=$(_parse_disabled_types "$conf")
+    [[ "$result" == *"ip"* ]]
+    [[ "$result" == *"uuid"* ]]
+    local count
+    count=$(echo "$result" | wc -l)
+    [[ "$count" -eq 2 ]]
+}
+
+@test "parse_disabled_types: ignores comment lines and blank lines" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '# this is a comment\n\n!ip\n# another comment\n\n' > "$conf"
+    local result
+    result=$(_parse_disabled_types "$conf")
+    [[ "$result" == "ip" ]]
+}
+
+@test "parse_disabled_types: handles leading whitespace before !" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '  !ip\n\t!uuid\n' > "$conf"
+    local result
+    result=$(_parse_disabled_types "$conf")
+    [[ "$result" == *"ip"* ]]
+    [[ "$result" == *"uuid"* ]]
+}
+
+@test "parse_disabled_types: handles missing file gracefully" {
+    local result
+    result=$(_parse_disabled_types "/nonexistent/patterns.conf")
+    [[ -z "$result" ]]
+}
+
+@test "parse_disabled_types: rejects invalid type names after !" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '!UPPER\n!valid-name\n!123start\n!ok\n' > "$conf"
+    local result
+    result=$(_parse_disabled_types "$conf")
+    # UPPER rejected (uppercase), 123start rejected (starts with digit)
+    # valid-name and ok should pass
+    [[ "$result" == *"valid-name"* ]]
+    [[ "$result" == *"ok"* ]]
+    [[ "$result" != *"UPPER"* ]]
+    [[ "$result" != *"123start"* ]]
 }
 
 @test "parse_custom_patterns: assigns cycling colors" {

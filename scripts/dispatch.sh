@@ -1786,6 +1786,15 @@ run_scrollback_mode() {
             " scrollback $ · ⌫ files "
     fi
 
+    # Build disabled types set (accessed by _extract_tokens via dynamic scoping)
+    local -A disabled_types=()
+    if [[ -f "${PATTERNS_FILE:-}" ]]; then
+        local dtype
+        while IFS= read -r dtype; do
+            disabled_types["$dtype"]=1
+        done < <(_parse_disabled_types "$PATTERNS_FILE")
+    fi
+
     # Build tokens file via _extract_tokens
     _extract_tokens "$raw_file" > "$tokens_file"
 
@@ -1848,10 +1857,22 @@ else \
 awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_lines_file'; \
 fi"
 
-    # Build HELP_EXTRACT dynamically to include custom types from patterns.conf
-    local type_list="\033[36murl\033[0m \033[33mpath\033[0m \033[35mhash\033[0m \033[32mip\033[0m \033[34muuid\033[0m \033[31mdiff\033[0m \033[33mfile\033[0m"
+    # Build HELP_EXTRACT dynamically — include new types, exclude disabled ones
+    local -A builtin_colors=(
+        [url]="36" [path]="33" [hash]="35" [ip]="32"
+        [uuid]="34" [diff]="31" [file]="33"
+        [email]="38;5;208" [semver]="38;5;147" [color]="38;5;219"
+    )
+    local -a builtin_order=(url path hash ip uuid diff file email semver color)
+    local type_list="" t
+    for t in "${builtin_order[@]}"; do
+        [[ -v "disabled_types[$t]" ]] && continue
+        [[ -n "$type_list" ]] && type_list+=" "
+        type_list+="\033[${builtin_colors[$t]}m${t}\033[0m"
+    done
     if [[ -f "${PATTERNS_FILE:-}" ]]; then
         while IFS=$'\t' read -r ptype pcolor _rest; do
+            [[ -v "disabled_types[$ptype]" ]] && continue
             type_list+=" \033[${pcolor}m${ptype}\033[0m"
         done < <(_parse_custom_patterns "$PATTERNS_FILE")
     fi
@@ -1899,12 +1920,16 @@ fi"
     # Uses grep with ESC-byte anchor to match type label in first field reliably.
     # Token lines are \033[XXmTYPE\033[0m\tVALUE — grepping for "mTYPE\033" is unique
     # because token values never contain ESC bytes (ANSI stripped during extraction).
-    # Cycle is built dynamically to include custom types from patterns.conf.
+    # Cycle is built dynamically — includes new types, excludes disabled ones.
     local esc=$'\033'
-    local -a filter_types=(url path hash ip uuid diff file)
+    local -a all_known_types=(url path hash ip uuid diff file email semver color)
+    local -a filter_types=()
+    for t in "${all_known_types[@]}"; do
+        [[ -v "disabled_types[$t]" ]] || filter_types+=("$t")
+    done
     if [[ -f "${PATTERNS_FILE:-}" ]]; then
         while IFS=$'\t' read -r ptype _rest; do
-            filter_types+=("$ptype")
+            [[ -v "disabled_types[$ptype]" ]] || filter_types+=("$ptype")
         done < <(_parse_custom_patterns "$PATTERNS_FILE")
     fi
     # Build case body: all→first, first→second, ..., last→all
@@ -2202,6 +2227,11 @@ run_marks_mode() {
 
 _extract_tokens() {
     local file="$1"
+    # disabled_types may be set by caller (run_scrollback_mode) via dynamic scoping.
+    # If not set, default to empty — all types enabled.
+    if ! declare -p disabled_types &>/dev/null; then
+        local -A disabled_types=()
+    fi
     local reversed
     reversed=$(mktemp "${TMPDIR:-/tmp}/dispatch-reversed-XXXXXX")
     # Strip ANSI escapes, then reverse (most recent first)
@@ -2209,6 +2239,7 @@ _extract_tokens() {
         | awk '{lines[NR]=$0} END {for(i=NR;i>=1;i--) print lines[i]}' > "$reversed"
     {
         # URLs — balanced-paren logic for Wikipedia-style URLs like Bash_(Unix_shell)
+        [[ -v "disabled_types[url]" ]] || \
         grep -oE '(https?|ftp)://[^][:space:]"<>{}|\\^`[]+' "$reversed" \
             | while IFS= read -r url; do
                 # Balance parentheses: strip trailing ) only if unmatched
@@ -2224,29 +2255,35 @@ _extract_tokens() {
             done \
             | awk '{print "\033[36murl\033[0m\t" $0}' || true
         # File paths with line numbers — validate file exists on disk
+        [[ -v "disabled_types[path]" ]] || \
         grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}:[0-9]+(:[0-9]+)?' "$reversed" \
             | grep -v '^//' \
             | while IFS= read -r match; do
                 [[ -f "${match%%:*}" ]] && printf '\033[33mpath\033[0m\t%s\n' "$match"
             done || true
         # Bare file paths — only if file actually exists (eliminates false positives)
+        [[ -v "disabled_types[file]" ]] || \
         grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,10}' "$reversed" \
             | grep -v '^//' | awk '!seen[$0]++' \
             | while IFS= read -r match; do
                 [[ -f "$match" ]] && printf '\033[33mfile\033[0m\t%s\n' "$match"
             done || true
         # Git commit hashes (7-40 hex chars, word-bounded, exclude all-digit)
+        [[ -v "disabled_types[hash]" ]] || \
         grep -oEw '[0-9a-f]{7,40}' "$reversed" \
             | grep -v '^[0-9]*$' \
             | awk '{print "\033[35mhash\033[0m\t" $0}' || true
         # IPv4 addresses with optional port
+        [[ -v "disabled_types[ip]" ]] || \
         grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]{1,5})?' "$reversed" \
             | awk '{print "\033[32mip\033[0m\t" $0}' || true
         # UUIDs (8-4-4-4-12 hex format — common in AWS, Docker, K8s, DB keys)
+        [[ -v "disabled_types[uuid]" ]] || \
         grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$reversed" \
             | awk '{print "\033[34muuid\033[0m\t" $0}' || true
         # Diff paths (--- a/file and +++ b/file from git diff output)
         # Strip prefix, remove quotes/backticks, validate file exists on disk
+        [[ -v "disabled_types[diff]" ]] || \
         grep -oE '[-+]{3} [ab]/[^ ]+' "$reversed" \
             | sed 's/^[-+]* [ab]\///' \
             | tr -d "\"'\`" \
@@ -2254,9 +2291,22 @@ _extract_tokens() {
             | while IFS= read -r match; do
                 [[ -f "$match" ]] && printf '\033[31mdiff\033[0m\t%s\n' "$match"
             done || true
+        # Email addresses
+        [[ -v "disabled_types[email]" ]] || \
+        grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' "$reversed" \
+            | awk '{print "\033[38;5;208memail\033[0m\t" $0}' || true
+        # Semantic versions (v1.2.3, 1.2.3-beta.1)
+        [[ -v "disabled_types[semver]" ]] || \
+        grep -oEw 'v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' "$reversed" \
+            | awk '{print "\033[38;5;147msemver\033[0m\t" $0}' || true
+        # Hex color codes (#aabbcc, #aabbccdd)
+        [[ -v "disabled_types[color]" ]] || \
+        grep -oE '#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?' "$reversed" \
+            | awk '{print "\033[38;5;219mcolor\033[0m\t" $0}' || true
         # Custom patterns from patterns.conf
         if [[ -f "${PATTERNS_FILE:-}" ]]; then
             while IFS=$'\t' read -r ptype pcolor pregex _paction; do
+                [[ -v "disabled_types[$ptype]" ]] && continue
                 grep -oE -- "$pregex" "$reversed" \
                     | awk -v t="$ptype" -v c="$pcolor" \
                         '{print "\033[" c "m" t "\033[0m\t" $0}' || true
