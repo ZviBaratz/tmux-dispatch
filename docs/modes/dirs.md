@@ -9,7 +9,7 @@ nav_order: 4
 
 Directory jump mode lets you quickly navigate to any directory. It uses zoxide's frecency-ranked directory list when available, falling back to fd or find. Selecting a directory sends `cd <path>` to your originating pane.
 
-**How to access:** Type `#` from files mode, or set a direct keybinding.
+**How to access:** Type `#` from files mode, or bind a dedicated key via `@dispatch-dirs-key`.
 
 ## Keybindings
 
@@ -31,7 +31,9 @@ Directory jump mode lets you quickly navigate to any directory. It uses zoxide's
 
 ## Configuration
 
-There are no mode-specific configuration options for directory jump. The directory listing tool is auto-detected.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `@dispatch-dirs-key` | `none` | Direct keybinding (disabled by default; use `#` prefix from files mode) |
 
 ## Tips
 

@@ -36,6 +36,9 @@ prefix_key=$(get_tmux_option "@dispatch-prefix-key" "e")
 session_prefix_key=$(get_tmux_option "@dispatch-session-prefix-key" "none")
 git_key=$(get_tmux_option "@dispatch-git-key" "none")
 extract_key=$(get_tmux_option "@dispatch-extract-key" "none")
+dirs_key=$(get_tmux_option "@dispatch-dirs-key" "none")
+scrollback_key=$(get_tmux_option "@dispatch-scrollback-key" "none")
+commands_key=$(get_tmux_option "@dispatch-commands-key" "none")
 resume_key=$(get_tmux_option "@dispatch-resume-key" "none")
 popup_size=$(get_tmux_option "@dispatch-popup-size" "85%")
 
@@ -76,6 +79,9 @@ bind_finder() {
 [[ "$session_key" != "none" ]] && bind_finder "-n" "$session_key" "sessions"
 [[ "$git_key" != "none" ]] && bind_finder "-n" "$git_key" "git"
 [[ "$extract_key" != "none" ]] && bind_finder "-n" "$extract_key" "scrollback" "--view=tokens"
+[[ "$dirs_key" != "none" ]] && bind_finder "-n" "$dirs_key" "dirs"
+[[ "$scrollback_key" != "none" ]] && bind_finder "-n" "$scrollback_key" "scrollback"
+[[ "$commands_key" != "none" ]] && bind_finder "-n" "$commands_key" "commands"
 [[ "$resume_key" != "none" ]] && bind_finder "-n" "$resume_key" "resume"
 
 # Prefix keybindings for discoverability

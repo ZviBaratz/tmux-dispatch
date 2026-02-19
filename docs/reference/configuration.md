@@ -19,6 +19,9 @@ Customize which keys open each mode. Set any key option to `"none"` to disable t
 | `@dispatch-session-key` | `M-w` | Prefix-free key to open session picker (Alt+w) |
 | `@dispatch-git-key` | `none` | Prefix-free key to open git status (disabled by default; use `!` prefix instead) |
 | `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback in tokens (extract) view (disabled by default; use `$` then `Ctrl+T` instead) |
+| `@dispatch-dirs-key` | `none` | Prefix-free key to open directory jump (disabled by default; use `#` prefix instead) |
+| `@dispatch-scrollback-key` | `none` | Prefix-free key to open scrollback search in default view (disabled by default; use `$` prefix instead) |
+| `@dispatch-commands-key` | `none` | Prefix-free key to open custom commands (disabled by default; use `:` prefix instead) |
 | `@dispatch-prefix-key` | `e` | Prefix key to open file finder (prefix+e) |
 | `@dispatch-session-prefix-key` | `none` | Prefix key to open session picker (disabled by default) |
 | `@dispatch-resume-key` | `none` | Prefix-free key to reopen last-used mode with last query (disabled by default) |
@@ -107,6 +110,9 @@ set -g @dispatch-git-key "none"
 set -g @dispatch-extract-key "none"
 set -g @dispatch-prefix-key "e"
 set -g @dispatch-session-prefix-key "none"
+set -g @dispatch-dirs-key "none"
+set -g @dispatch-scrollback-key "none"
+set -g @dispatch-commands-key "none"
 set -g @dispatch-resume-key "M-r"
 
 # Popup

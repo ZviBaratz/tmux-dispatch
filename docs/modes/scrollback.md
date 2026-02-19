@@ -15,6 +15,7 @@ Scrollback mode captures content from your tmux pane's scrollback buffer and pre
 - Type `$` from files mode to open the lines view -- the remainder of your query becomes the search term.
 - Type `&` from files mode to open the tokens (extract) view directly.
 - Or bind a dedicated key via `@dispatch-extract-key` to open tokens view without going through files mode.
+- Or bind a dedicated key via `@dispatch-scrollback-key` to open scrollback in the default view.
 
 ## Keybindings
 
@@ -78,6 +79,7 @@ The tokens view extracts seven types of structured data from your scrollback:
 | `@dispatch-scrollback-lines` | `10000` | Number of scrollback lines to capture from the originating pane |
 | `@dispatch-scrollback-view` | `lines` | Default view when entering scrollback mode: `lines` or `tokens` |
 | `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback directly in tokens view (disabled by default) |
+| `@dispatch-scrollback-key` | `none` | Prefix-free key to open scrollback in default view (disabled by default) |
 
 ## Tips
 

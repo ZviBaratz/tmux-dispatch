@@ -12,6 +12,7 @@ This is useful for workflows you repeat often: deploying, running test suites, t
 ## How to access
 
 - Type `:` from files mode -- the remainder of your query filters the command list.
+- Or bind a dedicated key via `@dispatch-commands-key` to open commands directly.
 
 ## Config file format
 
@@ -58,6 +59,7 @@ If no config file exists when you enter commands mode, the popup shows a helpful
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `@dispatch-commands-key` | `none` | Direct keybinding (disabled by default; use `:` prefix from files mode) |
 | `@dispatch-commands-file` | `~/.config/tmux-dispatch/commands.conf` | Path to the custom commands configuration file |
 
 ## Tips

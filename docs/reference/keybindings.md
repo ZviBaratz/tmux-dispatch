@@ -29,6 +29,9 @@ These keybindings are registered by the plugin and work from any tmux pane.
 | `Alt+s` | prefix-free | Open live grep popup |
 | `Alt+w` | prefix-free | Open session picker popup |
 | `prefix+e` | prefix | Open file finder popup |
+| _(configurable)_ | prefix-free | Open directory jump (`@dispatch-dirs-key`) |
+| _(configurable)_ | prefix-free | Open scrollback search in default view (`@dispatch-scrollback-key`) |
+| _(configurable)_ | prefix-free | Open custom commands (`@dispatch-commands-key`) |
 | _(configurable)_ | prefix-free | Reopen last-used mode with last query (`@dispatch-resume-key`) |
 
 All of these can be customized or disabled. See [Configuration](configuration) for details.

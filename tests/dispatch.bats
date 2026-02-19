@@ -2007,3 +2007,74 @@ more at https://new.com/page?q=1,"
     '
     [[ "${lines[0]}" -ge 3 ]]
 }
+
+# ─── dispatch.tmux source verification ──────────────────────────────────
+
+@test "dispatch.tmux: reads @dispatch-dirs-key option" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep -q '@dispatch-dirs-key' "$src"
+}
+
+@test "dispatch.tmux: reads @dispatch-scrollback-key option" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep -q '@dispatch-scrollback-key' "$src"
+}
+
+@test "dispatch.tmux: reads @dispatch-commands-key option" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep -q '@dispatch-commands-key' "$src"
+}
+
+@test "dispatch.tmux: dirs-key defaults to none" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep '@dispatch-dirs-key' "$src" | grep -q '"none"'
+}
+
+@test "dispatch.tmux: scrollback-key defaults to none" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep '@dispatch-scrollback-key' "$src" | grep -q '"none"'
+}
+
+@test "dispatch.tmux: commands-key defaults to none" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep '@dispatch-commands-key' "$src" | grep -q '"none"'
+}
+
+@test "dispatch.tmux: dirs_key binds to dirs mode" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep 'dirs_key' "$src" | grep 'bind_finder' | grep -q '"dirs"'
+}
+
+@test "dispatch.tmux: scrollback_key binds to scrollback mode" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep 'scrollback_key' "$src" | grep 'bind_finder' | grep -q '"scrollback"'
+}
+
+@test "dispatch.tmux: commands_key binds to commands mode" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep 'commands_key' "$src" | grep 'bind_finder' | grep -q '"commands"'
+}
+
+@test "dispatch.tmux: scrollback_key does NOT pass --view flag (distinct from extract_key)" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    # extract_key line has --view=tokens; scrollback_key line must NOT
+    local scrollback_bind
+    scrollback_bind=$(grep 'scrollback_key.*bind_finder' "$src")
+    [[ "$scrollback_bind" != *"--view"* ]]
+}
+
+@test "dispatch.tmux: extract_key still passes --view=tokens" {
+    local src
+    src="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/dispatch.tmux"
+    grep 'extract_key.*bind_finder' "$src" | grep -q '\-\-view=tokens'
+}
