@@ -39,6 +39,7 @@ extract_key=$(get_tmux_option "@dispatch-extract-key" "none")
 dirs_key=$(get_tmux_option "@dispatch-dirs-key" "none")
 scrollback_key=$(get_tmux_option "@dispatch-scrollback-key" "none")
 commands_key=$(get_tmux_option "@dispatch-commands-key" "none")
+panes_key=$(get_tmux_option "@dispatch-panes-key" "none")
 resume_key=$(get_tmux_option "@dispatch-resume-key" "none")
 popup_size=$(get_tmux_option "@dispatch-popup-size" "85%")
 
@@ -82,6 +83,7 @@ bind_finder() {
 [[ "$dirs_key" != "none" ]] && bind_finder "-n" "$dirs_key" "dirs"
 [[ "$scrollback_key" != "none" ]] && bind_finder "-n" "$scrollback_key" "scrollback"
 [[ "$commands_key" != "none" ]] && bind_finder "-n" "$commands_key" "commands"
+[[ "$panes_key" != "none" ]] && bind_finder "-n" "$panes_key" "panes"
 [[ "$resume_key" != "none" ]] && bind_finder "-n" "$resume_key" "resume"
 
 # Prefix keybindings for discoverability

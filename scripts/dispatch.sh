@@ -11,6 +11,7 @@
 #   --mode=sessions       tmux session picker/creator
 #   --mode=session-new    directory-based session creation
 #   --mode=windows        tmux window picker for a session
+#   --mode=panes          tmux pane picker across all sessions
 #   --mode=pathfind       absolute path file browsing (/ prefix)
 #   --mode=rename         inline file rename (fzf query = new name)
 #   --mode=rename-session inline session rename (fzf query = new name)
@@ -27,10 +28,11 @@
 #   $ prefix   — Files → scrollback search (remainder becomes query)
 #   & prefix   — Files → scrollback extract/tokens (remainder becomes query)
 #   : prefix   — Files → custom commands (remainder becomes query)
+#   % prefix   — Files → pane picker (remainder becomes query)
 #   ~ prefix   — Files → files from $HOME
 #   ⌫ on empty — Sub-modes → files (return to home)
 #
-# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks
+# Usage: dispatch.sh --mode=files|grep|git|dirs|sessions|session-new|windows|panes|rename|rename-session|scrollback|commands|marks
 #        [--pane=ID] [--query=TEXT] [--file=PATH] [--session=NAME] [--view=lines|tokens]
 # =============================================================================
 
@@ -92,9 +94,9 @@ fi
 # ─── Validate mode ──────────────────────────────────────────────────────────
 
 case "$MODE" in
-    files|grep|git|dirs|sessions|session-new|windows|rename|rename-session|scrollback|commands|marks|pathfind|_path-reload|resume) ;;
+    files|grep|git|dirs|sessions|session-new|windows|panes|rename|rename-session|scrollback|commands|marks|pathfind|_path-reload|resume) ;;
     *)
-        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, session-new, scrollback, commands, marks, pathfind, resume)"
+        echo "Unknown mode: $MODE (expected: files, grep, git, dirs, sessions, windows, panes, session-new, scrollback, commands, marks, pathfind, resume)"
         exit 1
         ;;
 esac
@@ -397,6 +399,7 @@ HELP_FILES="$(printf '%b' '
   $...      scrollback search
   &...      extract tokens
   :...      custom commands
+  %...      pane picker
   ~...      files from home
   /...      browse by path
 ')"
@@ -562,10 +565,25 @@ HELP_PATH="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
+HELP_PANES="$(printf '%b' '
+  \033[1mPANES\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     switch to pane
+  ^S        swap with current pane
+  ^J        move pane here (join)
+  ^W        break pane to new window
+  ^K        kill pane
+  ^Y        copy pane ref
+  ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
 SQ_HELP_PATH=$(_sq_escape "$HELP_PATH")
+SQ_HELP_PANES=$(_sq_escape "$HELP_PANES")
 # SQ_HELP_EXTRACT is built lazily in run_scrollback_mode() to include custom types
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
@@ -760,6 +778,8 @@ elif [[ {q} == '&'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
+elif [[ {q} == '%'* ]]; then
+  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=panes --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '/'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=pathfind --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '~'* ]]; then
@@ -1497,6 +1517,87 @@ run_windows_mode() {
         *)
             tmux select-window -t "=$SESSION:$win_idx"
             tmux switch-client -t "=$SESSION"
+            ;;
+    esac
+}
+
+# ─── Mode: panes ─────────────────────────────────────────────────────────────
+
+run_panes_mode() {
+    local pane_list
+    pane_list=$("$SCRIPT_DIR/actions.sh" list-panes "$PANE_ID")
+
+    if [[ -z "$pane_list" ]]; then
+        _show_empty_state \
+            "no panes found" \
+            "panes % " \
+            " panes % · ⌫ files "
+    fi
+
+    local pane_list_cmd="'$SQ_SCRIPT_DIR/actions.sh' list-panes '$SQ_PANE_ID'"
+
+    local result
+    result=$(
+        echo "$pane_list" |
+        fzf \
+            "${BASE_FZF_OPTS[@]}" \
+            --delimiter=$'\t' \
+            --nth=2.. \
+            --accept-nth=1 \
+            --ansi \
+            --no-sort \
+            --expect=ctrl-y,ctrl-s,ctrl-w \
+            --query "$QUERY" \
+            --prompt 'panes % ' \
+            --border-label ' panes % · ? help · enter switch · ^s swap · ^j move · ^w break · ^k kill · ^y copy · ⌫ files ' \
+            --border-label-pos 'center:bottom' \
+            --preview "'$SQ_SCRIPT_DIR/pane-preview.sh' {1}" \
+            --bind "ctrl-j:execute('$SQ_SCRIPT_DIR/actions.sh' join-pane '$SQ_PANE_ID' {1})+reload:$pane_list_cmd" \
+            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-pane '$SQ_PANE_ID' {1})+reload:$pane_list_cmd" \
+            --bind "backward-eof:$BECOME_FILES" \
+            --bind "?:preview:printf '%b' '$SQ_HELP_PANES'" \
+    ) || exit 0
+
+    [[ -z "$result" ]] && exit 0
+
+    local key selected
+    key=$(head -1 <<< "$result")
+    selected=$(tail -1 <<< "$result")
+    [[ -z "$selected" ]] && exit 0
+
+    local pane_id
+    pane_id="${selected%%	*}"  # strip tab-delimited suffix (tab literal)
+
+    [[ -z "$pane_id" || ! "$pane_id" =~ ^%[0-9]+$ ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            # Copy pane reference (session:window.pane) to clipboard
+            local pane_ref
+            pane_ref=$(tmux display-message -t "$pane_id" -p '#{session_name}:#{window_name}.#{pane_index}' 2>/dev/null)
+            echo -n "$pane_ref" | tmux load-buffer -w -
+            tmux display-message "Copied: $pane_ref"
+            ;;
+        ctrl-s)
+            # Swap origin pane with selected pane
+            if [[ "$pane_id" == "$PANE_ID" ]]; then
+                tmux display-message "Cannot swap pane with itself"
+            else
+                tmux swap-pane -s "$PANE_ID" -t "$pane_id"
+            fi
+            ;;
+        ctrl-w)
+            # Break pane to its own new window
+            tmux break-pane -s "$pane_id"
+            ;;
+        *)
+            # Switch to selected pane
+            local target_session target_window
+            target_session=$(tmux display-message -t "$pane_id" -p '#{session_name}' 2>/dev/null)
+            target_window=$(tmux display-message -t "$pane_id" -p '#{window_index}' 2>/dev/null)
+            tmux select-pane -t "$pane_id"
+            tmux select-window -t "=${target_session}:${target_window}"
+            tmux switch-client -t "=$target_session"
             ;;
     esac
 }
@@ -2505,6 +2606,7 @@ _strip_mode_prefix() {
         git)        QUERY="${QUERY#!}" ;;
         scrollback) QUERY="${QUERY#\$}"; QUERY="${QUERY#&}" ;;
         commands)   QUERY="${QUERY#:}" ;;
+        panes)      QUERY="${QUERY#%}" ;;
         pathfind)   QUERY="${QUERY#/}" ;;
     esac
 }
@@ -2524,6 +2626,7 @@ case "$MODE" in
     sessions)       run_session_mode ;;
     session-new)    run_session_new_mode ;;
     windows)        run_windows_mode ;;
+    panes)          run_panes_mode ;;
     rename)         run_rename_mode ;;
     rename-session) run_rename_session_mode ;;
     scrollback)     run_scrollback_mode ;;

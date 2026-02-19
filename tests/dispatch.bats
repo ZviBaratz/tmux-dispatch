@@ -3115,3 +3115,78 @@ more at https://new.com/page?q=1,"
 @test "pathfind and _path-reload in mode validation" {
     grep -q 'pathfind|_path-reload' "$SCRIPT_DIR/dispatch.sh"
 }
+
+# ─── Panes mode ──────────────────────────────────────────────────────────
+
+@test "panes: mode validation accepts panes" {
+    run bash -c '
+        MODE="panes"
+        case "$MODE" in
+            files|grep|git|dirs|sessions|session-new|windows|panes|rename|rename-session|scrollback|commands|marks|pathfind|_path-reload|resume) echo "valid" ;;
+            *) echo "invalid" ;;
+        esac
+    '
+    [ "$output" = "valid" ]
+}
+
+@test "panes: strip % prefix from query" {
+    run bash -c '
+        MODE="panes"
+        QUERY="%myquery"
+        case "$MODE" in
+            panes) QUERY="${QUERY#%}" ;;
+        esac
+        echo "$QUERY"
+    '
+    [ "$output" = "myquery" ]
+}
+
+@test "panes: % without remainder gives empty query" {
+    run bash -c '
+        MODE="panes"
+        QUERY="%"
+        case "$MODE" in
+            panes) QUERY="${QUERY#%}" ;;
+        esac
+        echo "$QUERY"
+    '
+    [ "$output" = "" ]
+}
+
+@test "panes: HELP_PANES defined in dispatch.sh" {
+    run bash -c '
+        grep -c "HELP_PANES" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "panes: help string contains key bindings" {
+    run bash -c '
+        grep "swap\|join\|break\|kill pane\|copy pane" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [ "$status" -eq 0 ]
+}
+
+@test "panes: pane_id extraction from tab-delimited result" {
+    run bash -c '
+        selected="%5	  main:vim.0  ~/proj  bash · 80×24"
+        pane_id="${selected%%	*}"
+        echo "$pane_id"
+    '
+    [ "$output" = "%5" ]
+}
+
+@test "panes: dispatch case includes panes mode" {
+    run bash -c '
+        grep -c "panes).*run_panes_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "panes: files mode help mentions % pane picker" {
+    grep -q '%\.\.\.' "$SCRIPT_DIR/dispatch.sh"
+}
+
+@test "panes: change transform detects % prefix" {
+    grep -q "== '%'" "$SCRIPT_DIR/dispatch.sh"
+}

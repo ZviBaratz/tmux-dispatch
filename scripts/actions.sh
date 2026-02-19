@@ -321,6 +321,71 @@ action_bookmark_remove() {
     tmux display-message "Unbookmarked: ${abs_path/#$HOME/\~}"
 }
 
+# ─── list-panes ──────────────────────────────────────────────────────────────
+
+action_list_panes() {
+    local current_pane="${1:-}"
+    tmux list-panes -a -F '#{pane_id}|#{session_name}|#{window_index}|#{pane_index}|#{pane_current_command}|#{pane_current_path}|#{pane_active}|#{window_active}|#{pane_width}|#{pane_height}|#{pane_dead}|#{window_name}' 2>/dev/null |
+    while IFS='|' read -r pid session _ pane_idx command path active win_active width height dead win_name; do
+        # shellcheck disable=SC2088
+        local short_path="${path/#"$HOME"/"~"}"
+        local ref="${session}:${win_name}.${pane_idx}"
+        local meta="\033[90m${command} · ${width}×${height}\033[0m"
+
+        # Indicators
+        local indicators=""
+        if [[ "$pid" == "$current_pane" ]]; then
+            indicators=" \033[32m(current)\033[0m"
+        elif [[ "$active" == "1" && "$win_active" == "1" ]]; then
+            indicators=" \033[33m*\033[0m"
+        fi
+        [[ "$dead" == "1" ]] && indicators="${indicators} \033[31m(dead)\033[0m"
+
+        printf '%s\t  %s  %s  %b%b\n' "$pid" "$ref" "$short_path" "$meta" "$indicators"
+    done
+}
+
+# ─── kill-pane ───────────────────────────────────────────────────────────────
+
+action_kill_pane() {
+    local current_pane="${1:-}"
+    local target_pane="${2:-}"
+    [[ -z "$target_pane" ]] && return 0
+
+    # Refuse to kill origin pane
+    if [[ "$target_pane" == "$current_pane" ]]; then
+        tmux display-message "Cannot kill current pane"
+        return 0
+    fi
+
+    # Verify pane exists
+    if ! tmux display-message -t "$target_pane" -p '#{pane_id}' &>/dev/null; then
+        tmux display-message "Pane not found: $target_pane"
+        return 0
+    fi
+
+    tmux kill-pane -t "$target_pane"
+    tmux display-message "Killed pane: $target_pane"
+}
+
+# ─── join-pane ───────────────────────────────────────────────────────────────
+
+action_join_pane() {
+    local current_pane="${1:-}"
+    local target_pane="${2:-}"
+    [[ -z "$target_pane" ]] && return 0
+
+    # Refuse self-join
+    if [[ "$target_pane" == "$current_pane" ]]; then
+        tmux display-message "Cannot join pane to itself"
+        return 0
+    fi
+
+    if ! tmux join-pane -s "$target_pane" -t "$current_pane" 2>/dev/null; then
+        tmux display-message "Cannot move pane (may be only pane in window)"
+    fi
+}
+
 # ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 action="${1:-}"
@@ -340,6 +405,9 @@ case "$action" in
     smart-open)             action_smart_open "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
     bookmark-remove)        action_bookmark_remove "$@" ;;
+    list-panes)             action_list_panes "$@" ;;
+    kill-pane)              action_kill_pane "$@" ;;
+    join-pane)              action_join_pane "$@" ;;
     *)
         echo "Unknown action: $action"
         echo "Usage: actions.sh <action> [args...]"

@@ -737,6 +737,106 @@ MOCK
     [[ "$output" == *"jira view PROJ-123"* ]]
 }
 
+# ─── list-panes ──────────────────────────────────────────────────────────────
+
+@test "list-panes: formats output with pane_id as first tab field" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    list-panes) echo "%0|main|0|0|bash|/home/user|1|1|80|24|0|vim" ;;
+    display-message) echo "main" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-panes "%99"
+    [ "$status" -eq 0 ]
+    # First tab-delimited field should be the pane ID
+    local first_field
+    first_field=$(echo "$output" | head -1 | cut -f1)
+    [ "$first_field" = "%0" ]
+}
+
+@test "list-panes: current pane shows (current) indicator" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    list-panes) echo "%5|main|0|0|bash|/home/user|1|1|80|24|0|vim" ;;
+    display-message) echo "main" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-panes "%5"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"current"* ]]
+}
+
+@test "list-panes: dead pane shows (dead) indicator" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    list-panes) echo "%3|work|1|0|bash|/tmp|0|0|80|24|1|code" ;;
+    display-message) echo "main" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" list-panes "%99"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"dead"* ]]
+}
+
+@test "kill-pane: refuses to kill current pane" {
+    local log="$BATS_TEST_TMPDIR/tmux.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$*" >> "$log"
+case "\$1" in
+    display-message) echo "Cannot kill current pane" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" kill-pane "%5" "%5"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Cannot kill current pane"* ]]
+}
+
+@test "kill-pane: empty target is no-op" {
+    run "$ACTIONS" kill-pane "%5" ""
+    [ "$status" -eq 0 ]
+}
+
+@test "join-pane: refuses to join pane to itself" {
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    display-message) echo "Cannot join pane to itself" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" join-pane "%5" "%5"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Cannot join pane to itself"* ]]
+}
+
+@test "join-pane: empty target is no-op" {
+    run "$ACTIONS" join-pane "%5" ""
+    [ "$status" -eq 0 ]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {

@@ -251,3 +251,34 @@ teardown() {
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"clean working tree"* ]]
 }
+
+# ─── pane-preview ────────────────────────────────────────────────────────────
+
+@test "pane-preview: nonexistent pane shows error message" {
+    # tmux stub that fails on display-message (pane doesn't exist)
+    cat > "$BATS_TEST_TMPDIR/tmux" <<'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    display-message) exit 1 ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$SCRIPT_DIR/pane-preview.sh" "%999"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Pane not found"* ]]
+}
+
+@test "pane-preview: empty argument shows error message" {
+    run "$SCRIPT_DIR/pane-preview.sh" ""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Pane not found"* ]]
+}
+
+@test "pane-preview: invalid pane id format shows error message" {
+    run "$SCRIPT_DIR/pane-preview.sh" "notapane"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Pane not found"* ]]
+}
