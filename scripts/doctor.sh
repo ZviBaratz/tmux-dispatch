@@ -150,6 +150,13 @@ else
     dim "Install: brew install zoxide / cargo install zoxide"
 fi
 
+# ── Nerd Font icons ──────────────────────────────────────────────────────
+icons_enabled=$(tmux show-option -gqv "@dispatch-icons" 2>/dev/null || true)
+if [[ "$icons_enabled" != "off" ]]; then
+    dim "File icons enabled (@dispatch-icons on) — requires a Nerd Font"
+    dim "Install: https://www.nerdfonts.com/ or brew install --cask font-*-nerd-font"
+fi
+
 # ── tree ──────────────────────────────────────────────────────────────────
 if command -v tree &>/dev/null; then
     tree_ver=$(tree --version 2>/dev/null | _extract_version)

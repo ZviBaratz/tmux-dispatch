@@ -470,6 +470,207 @@ _run_annotate_git() {
     [ "$clean_ind" = "  " ]
 }
 
+# ─── Nerd Font icons ──────────────────────────────────────────────────────
+
+# Self-contained icon awk builders for testing — uses a representative subset
+# of mappings to verify the column format and icon lookup logic without
+# needing to extract the full function from dispatch.sh.
+
+_build_icon_awk() {
+    # Generate a few representative Nerd Font characters
+    local nf_default nf_py nf_ts nf_docker nf_config i
+    printf -v i '\xEF\x80\x96'; nf_default="$i"    # U+F016
+    printf -v i '\xEE\x9C\xBC'; nf_py="$i"         # U+E73C
+    printf -v i '\xEE\x98\xA8'; nf_ts="$i"          # U+E628
+    printf -v i '\xEE\x9E\xB0'; nf_docker="$i"      # U+E7B0
+    printf -v i '\xEE\x98\x95'; nf_config="$i"      # U+E615
+
+    # Build awk with icon function + a few test mappings (single-quoted to protect $0)
+    local awk_prog='function get_icon(path,   name, ext) {
+    name = path; sub(/.*\//, "", name); sub(/^\.\//, "", name)
+    if (name in icon_name) return icon_name[name]
+    ext = name
+    if (match(ext, /\.[^.]+$/)) {
+        ext = tolower(substr(ext, RSTART + 1))
+        if (ext in icon_ext) return icon_ext[ext]
+    }
+    return def_icon
+}
+BEGIN {
+    def_icon = "\033[37m'"$nf_default"' \033[0m"
+    icon_ext["py"] = "\033[33m'"$nf_py"' \033[0m"
+    icon_ext["ts"] = "\033[34m'"$nf_ts"' \033[0m"
+    icon_ext["rs"] = "\033[31m'"$nf_default"' \033[0m"
+    icon_ext["md"] = "\033[37m'"$nf_default"' \033[0m"
+    icon_ext["json"] = "\033[33m'"$nf_default"' \033[0m"
+    icon_name["Dockerfile"] = "\033[34m'"$nf_docker"' \033[0m"
+    icon_name["Makefile"] = "\033[37m'"$nf_config"' \033[0m"
+    icon_name["README.md"] = "\033[33m'"$nf_default"' \033[0m"
+    icon_name["package.json"] = "\033[31m'"$nf_default"' \033[0m"
+}
+{
+    f = $0; sub(/^\.\//, "", f)
+    ind = " "
+    printf "%s\t%s\t%s\n", ind, get_icon(f), $0
+}'
+    echo "$awk_prog"
+}
+
+# Build icons-on git awk (git status icon + file icon + path)
+_build_icon_git_awk() {
+    local nf_default i
+    printf -v i '\xEF\x80\x96'; nf_default="$i"
+
+    local awk_prog='function get_icon(path,   name, ext) {
+    name = path; sub(/.*\//, "", name); sub(/^\.\//, "", name)
+    if (name in icon_name) return icon_name[name]
+    ext = name
+    if (match(ext, /\.[^.]+$/)) {
+        ext = tolower(substr(ext, RSTART + 1))
+        if (ext in icon_ext) return icon_ext[ext]
+    }
+    return def_icon
+}
+BEGIN {
+    def_icon = "\033[37m'"$nf_default"' \033[0m"
+    icon_ext["txt"] = "\033[37m'"$nf_default"' \033[0m"
+}
+{
+    xy = substr($0, 1, 2)
+    file = substr($0, 4)
+    x = substr(xy, 1, 1)
+    y = substr(xy, 2, 1)
+    if (x == "?" && y == "?")       icon = "\033[33m?\033[0m"
+    else if (x != " " && y != " ")  icon = "\033[35m✹\033[0m"
+    else if (x != " ")              icon = "\033[32m✚\033[0m"
+    else                            icon = "\033[31m●\033[0m"
+    printf "%s\t%s\t%s\n", icon, get_icon(file), file
+}'
+    echo "$awk_prog"
+}
+
+@test "icons: Python file gets python icon" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(echo "main.py" | awk "$awk_prog")
+    # Should have 3 tab-separated fields (indicator, icon, path)
+    local field_count
+    field_count=$(awk -F'\t' '{print NF}' <<< "$result")
+    [ "$field_count" = "3" ]
+    # Icon field (column 2) should contain the Python icon colored yellow (\033[33m)
+    local icon_field
+    icon_field=$(cut -f2 <<< "$result")
+    [[ "$icon_field" == *$'\033[33m'* ]]
+}
+
+@test "icons: unknown extension gets default icon" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(echo "data.xyz" | awk "$awk_prog")
+    # Should still have 3 fields
+    local field_count
+    field_count=$(awk -F'\t' '{print NF}' <<< "$result")
+    [ "$field_count" = "3" ]
+    # Icon field should contain gray color (\033[37m) for default
+    local icon_field
+    icon_field=$(cut -f2 <<< "$result")
+    [[ "$icon_field" == *$'\033[37m'* ]]
+}
+
+@test "icons: Dockerfile gets docker icon" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(echo "Dockerfile" | awk "$awk_prog")
+    # Icon field should contain blue color (\033[34m) for Docker
+    local icon_field
+    icon_field=$(cut -f2 <<< "$result")
+    [[ "$icon_field" == *$'\033[34m'* ]]
+}
+
+@test "icons: Makefile gets config icon" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(echo "Makefile" | awk "$awk_prog")
+    local icon_field
+    icon_field=$(cut -f2 <<< "$result")
+    # Makefile uses gray config icon (\033[37m)
+    [[ "$icon_field" == *$'\033[37m'* ]]
+}
+
+@test "icons: 3-column format when icons=on" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(printf '%s\n' "src/main.rs" "README.md" "package.json" | awk "$awk_prog")
+    # Every line should have exactly 3 tab-separated fields
+    local bad_lines
+    bad_lines=$(awk -F'\t' 'NF != 3' <<< "$result")
+    [ -z "$bad_lines" ]
+}
+
+@test "icons: path preserved in column 3" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(echo "src/main.rs" | awk "$awk_prog")
+    local path_field
+    path_field=$(cut -f3 <<< "$result")
+    [ "$path_field" = "src/main.rs" ]
+}
+
+@test "icons-off: 2-column format preserved" {
+    # When icons off, annotate_awk produces indicator\tpath (2 columns)
+    local result
+    result=$(echo "test.txt" | _run_annotate_git)
+    local field_count
+    field_count=$(awk -F'\t' '{print NF}' <<< "$result")
+    [ "$field_count" = "2" ]
+}
+
+@test "icons: git mode 3-column format" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local awk_prog
+    awk_prog=$(_build_icon_git_awk)
+    local result
+    result=$(git status --porcelain 2>/dev/null | awk "$awk_prog")
+    # Every line should have exactly 3 fields when icons on
+    local bad_lines
+    bad_lines=$(awk -F'\t' 'NF != 3' <<< "$result")
+    [ -z "$bad_lines" ]
+}
+
+@test "icons: git mode path in column 3" {
+    local repo
+    repo=$(_setup_git_repo)
+    cd "$repo"
+    local awk_prog
+    awk_prog=$(_build_icon_git_awk)
+    local result
+    result=$(git status --porcelain 2>/dev/null | awk "$awk_prog")
+    # Check that modified.txt appears in column 3
+    local mod_path
+    mod_path=$(grep "modified.txt" <<< "$result" | cut -f3)
+    [ "$mod_path" = "modified.txt" ]
+}
+
+@test "icons: cut -f3 extracts correct path from 3-column output" {
+    local awk_prog
+    awk_prog=$(_build_icon_awk)
+    local result
+    result=$(printf '%s\n' "src/app.ts" "lib/utils.go" | awk "$awk_prog")
+    # Simulate what handle_file_result does: cut -f3-
+    local paths
+    paths=$(cut -f3- <<< "$result")
+    [[ "$paths" == *"src/app.ts"* ]]
+    [[ "$paths" == *"lib/utils.go"* ]]
+}
+
 @test "FILE_TYPES: empty string produces no flags" {
     run bash -c '
         FILE_TYPES=""

@@ -101,7 +101,7 @@ fi
 # ─── Read tmux options (batched) ─────────────────────────────────────────────
 # One tmux subprocess instead of separate show-option calls.
 POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
-HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" DISPATCH_THEME="default"
+HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" ICONS_ENABLED="on" DISPATCH_THEME="default"
 SCROLLBACK_LINES="10000" SCROLLBACK_VIEW_DEFAULT="lines"
 COMMANDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/commands.conf"
 while IFS= read -r line; do
@@ -117,6 +117,7 @@ while IFS= read -r line; do
         @dispatch-history)         HISTORY_ENABLED="$val" ;;
         @dispatch-file-types)      FILE_TYPES="$val" ;;
         @dispatch-git-indicators)  GIT_INDICATORS="$val" ;;
+        @dispatch-icons)           ICONS_ENABLED="$val" ;;
         @dispatch-theme)           DISPATCH_THEME="$val" ;;
         @dispatch-scrollback-lines) SCROLLBACK_LINES="$val" ;;
         @dispatch-scrollback-view) SCROLLBACK_VIEW_DEFAULT="$val" ;;
@@ -132,6 +133,169 @@ PANE_EDITOR=$(detect_pane_editor "$PANE_EDITOR")
 FD_CMD=$(_dispatch_read_cached "@_dispatch-fd" detect_fd)
 BAT_CMD=$(_dispatch_read_cached "@_dispatch-bat" detect_bat)
 RG_CMD=$(_dispatch_read_cached "@_dispatch-rg" detect_rg)
+
+# ─── Nerd Font icon fragments (for awk pipelines) ────────────────────────────
+# Sets three awk code fragments via parent scope for splicing into annotate_awk
+# and git_awk: icon_func (function def), icon_begin (BEGIN block mappings),
+# icon_line (per-line printf format). When icons are off, all are no-ops.
+
+_icon_awk_fragments() {
+    if [[ "$ICONS_ENABLED" != "on" ]]; then
+        icon_func=""
+        icon_begin=""
+        # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+        icon_line='printf "%s\t%s\n", ind, $0'
+        # shellcheck disable=SC2016
+        icon_git_line='printf "%s\t%s\n", icon, file'
+        return
+    fi
+
+    # Generate Nerd Font characters from codepoints (keeps source readable)
+    local i
+    printf -v i '\xEF\x80\x96'; local nf_default="$i"    # U+F016
+    printf -v i '\xEE\x9C\xBC'; local nf_python="$i"     # U+E73C
+    printf -v i '\xEE\x9D\x8E'; local nf_js="$i"         # U+E74E
+    printf -v i '\xEE\x98\xA8'; local nf_ts="$i"          # U+E628
+    printf -v i '\xEE\x9E\xA8'; local nf_rust="$i"        # U+E7A8
+    printf -v i '\xEE\x98\xA7'; local nf_go="$i"          # U+E627
+    printf -v i '\xEE\x9E\x91'; local nf_ruby="$i"        # U+E791
+    printf -v i '\xEE\x98\xA0'; local nf_lua="$i"         # U+E620
+    printf -v i '\xEF\x92\x89'; local nf_term="$i"        # U+F489
+    printf -v i '\xEE\x9C\xBE'; local nf_md="$i"          # U+E73E
+    printf -v i '\xEE\x98\x8B'; local nf_json="$i"        # U+E60B
+    printf -v i '\xEE\x9C\xB6'; local nf_html="$i"        # U+E736
+    printf -v i '\xEE\x9D\x89'; local nf_css="$i"         # U+E749
+    printf -v i '\xEE\x98\x83'; local nf_sass="$i"        # U+E603
+    printf -v i '\xEE\x98\x9E'; local nf_c="$i"           # U+E61E
+    printf -v i '\xEE\x98\x9D'; local nf_cpp="$i"         # U+E61D
+    printf -v i '\xEE\x9C\xB8'; local nf_java="$i"        # U+E738
+    printf -v i '\xEE\x98\xB4'; local nf_kotlin="$i"      # U+E634
+    printf -v i '\xEE\x9D\x95'; local nf_swift="$i"       # U+E755
+    printf -v i '\xEE\x9C\xBD'; local nf_php="$i"         # U+E73D
+    printf -v i '\xEE\x9D\xA9'; local nf_perl="$i"        # U+E769
+    printf -v i '\xEE\x98\xAB'; local nf_vim="$i"         # U+E62B
+    printf -v i '\xEE\x98\x95'; local nf_config="$i"      # U+E615
+    printf -v i '\xEE\x9C\x86'; local nf_db="$i"          # U+E706
+    printf -v i '\xEF\x80\xA3'; local nf_lock="$i"        # U+F023
+    printf -v i '\xEF\x80\xBE'; local nf_image="$i"       # U+F03E
+    printf -v i '\xEF\x86\x87'; local nf_archive="$i"     # U+F187
+    printf -v i '\xEF\x87\x81'; local nf_pdf="$i"         # U+F1C1
+    printf -v i '\xEF\x85\x9C'; local nf_text="$i"        # U+F15C
+    printf -v i '\xEE\x9E\xB0'; local nf_docker="$i"      # U+E7B0
+    printf -v i '\xEE\x99\x9D'; local nf_git="$i"         # U+E65D
+    printf -v i '\xEE\x9C\x9E'; local nf_npm="$i"         # U+E71E
+    printf -v i '\xEE\x9D\xB7'; local nf_haskell="$i"     # U+E777
+    printf -v i '\xEE\x98\xAD'; local nf_elixir="$i"      # U+E62D
+    printf -v i '\xEF\x8C\x93'; local nf_nix="$i"         # U+F313
+    printf -v i '\xEE\x98\x8A'; local nf_license="$i"     # U+E60A
+    printf -v i '\xEF\x85\xAD'; local nf_r="$i"           # U+F16D
+    printf -v i '\xEE\x9C\xAA'; local nf_react="$i"       # U+E7BA
+
+    # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
+    icon_func='function get_icon(path,   name, ext) {
+    name = path; sub(/.*\//, "", name); sub(/^\.\//, "", name)
+    if (name in icon_name) return icon_name[name]
+    ext = name
+    if (match(ext, /\.[^.]+$/)) {
+        ext = tolower(substr(ext, RSTART + 1))
+        if (ext in icon_ext) return icon_ext[ext]
+    }
+    return def_icon
+}
+'
+
+    # BEGIN block: extension + filename mappings with ANSI colors
+    # Colors: 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan, 37=gray
+    icon_begin="def_icon = \"\033[37m${nf_default} \033[0m\"
+    icon_ext[\"py\"] = \"\033[33m${nf_python} \033[0m\"
+    icon_ext[\"js\"] = \"\033[33m${nf_js} \033[0m\"
+    icon_ext[\"jsx\"] = \"\033[36m${nf_react} \033[0m\"
+    icon_ext[\"ts\"] = \"\033[34m${nf_ts} \033[0m\"
+    icon_ext[\"tsx\"] = \"\033[34m${nf_react} \033[0m\"
+    icon_ext[\"rs\"] = \"\033[31m${nf_rust} \033[0m\"
+    icon_ext[\"go\"] = \"\033[36m${nf_go} \033[0m\"
+    icon_ext[\"rb\"] = \"\033[31m${nf_ruby} \033[0m\"
+    icon_ext[\"lua\"] = \"\033[34m${nf_lua} \033[0m\"
+    icon_ext[\"sh\"] = \"\033[32m${nf_term} \033[0m\"
+    icon_ext[\"bash\"] = \"\033[32m${nf_term} \033[0m\"
+    icon_ext[\"zsh\"] = \"\033[32m${nf_term} \033[0m\"
+    icon_ext[\"fish\"] = \"\033[32m${nf_term} \033[0m\"
+    icon_ext[\"md\"] = \"\033[37m${nf_md} \033[0m\"
+    icon_ext[\"json\"] = \"\033[33m${nf_json} \033[0m\"
+    icon_ext[\"yaml\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"yml\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"html\"] = \"\033[33m${nf_html} \033[0m\"
+    icon_ext[\"htm\"] = \"\033[33m${nf_html} \033[0m\"
+    icon_ext[\"css\"] = \"\033[34m${nf_css} \033[0m\"
+    icon_ext[\"scss\"] = \"\033[35m${nf_sass} \033[0m\"
+    icon_ext[\"sass\"] = \"\033[35m${nf_sass} \033[0m\"
+    icon_ext[\"c\"] = \"\033[34m${nf_c} \033[0m\"
+    icon_ext[\"h\"] = \"\033[34m${nf_c} \033[0m\"
+    icon_ext[\"cpp\"] = \"\033[34m${nf_cpp} \033[0m\"
+    icon_ext[\"hpp\"] = \"\033[34m${nf_cpp} \033[0m\"
+    icon_ext[\"cc\"] = \"\033[34m${nf_cpp} \033[0m\"
+    icon_ext[\"java\"] = \"\033[31m${nf_java} \033[0m\"
+    icon_ext[\"kt\"] = \"\033[35m${nf_kotlin} \033[0m\"
+    icon_ext[\"swift\"] = \"\033[33m${nf_swift} \033[0m\"
+    icon_ext[\"php\"] = \"\033[35m${nf_php} \033[0m\"
+    icon_ext[\"pl\"] = \"\033[36m${nf_perl} \033[0m\"
+    icon_ext[\"vim\"] = \"\033[32m${nf_vim} \033[0m\"
+    icon_ext[\"conf\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"cfg\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"ini\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"toml\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_ext[\"xml\"] = \"\033[33m${nf_html} \033[0m\"
+    icon_ext[\"sql\"] = \"\033[33m${nf_db} \033[0m\"
+    icon_ext[\"lock\"] = \"\033[37m${nf_lock} \033[0m\"
+    icon_ext[\"png\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"jpg\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"jpeg\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"gif\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"svg\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"ico\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"webp\"] = \"\033[35m${nf_image} \033[0m\"
+    icon_ext[\"ttf\"] = \"\033[37m${nf_default} \033[0m\"
+    icon_ext[\"otf\"] = \"\033[37m${nf_default} \033[0m\"
+    icon_ext[\"woff\"] = \"\033[37m${nf_default} \033[0m\"
+    icon_ext[\"woff2\"] = \"\033[37m${nf_default} \033[0m\"
+    icon_ext[\"zip\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"tar\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"gz\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"bz2\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"xz\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"7z\"] = \"\033[31m${nf_archive} \033[0m\"
+    icon_ext[\"pdf\"] = \"\033[31m${nf_pdf} \033[0m\"
+    icon_ext[\"txt\"] = \"\033[37m${nf_text} \033[0m\"
+    icon_ext[\"log\"] = \"\033[37m${nf_text} \033[0m\"
+    icon_ext[\"nix\"] = \"\033[34m${nf_nix} \033[0m\"
+    icon_ext[\"ex\"] = \"\033[35m${nf_elixir} \033[0m\"
+    icon_ext[\"exs\"] = \"\033[35m${nf_elixir} \033[0m\"
+    icon_ext[\"hs\"] = \"\033[35m${nf_haskell} \033[0m\"
+    icon_ext[\"r\"] = \"\033[34m${nf_r} \033[0m\"
+    icon_ext[\"zig\"] = \"\033[33m${nf_default} \033[0m\"
+    icon_ext[\"jl\"] = \"\033[35m${nf_default} \033[0m\"
+    icon_name[\"Dockerfile\"] = \"\033[34m${nf_docker} \033[0m\"
+    icon_name[\"Makefile\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_name[\"LICENSE\"] = \"\033[33m${nf_license} \033[0m\"
+    icon_name[\".gitignore\"] = \"\033[31m${nf_git} \033[0m\"
+    icon_name[\".gitconfig\"] = \"\033[31m${nf_git} \033[0m\"
+    icon_name[\".gitmodules\"] = \"\033[31m${nf_git} \033[0m\"
+    icon_name[\".env\"] = \"\033[33m${nf_config} \033[0m\"
+    icon_name[\".editorconfig\"] = \"\033[37m${nf_config} \033[0m\"
+    icon_name[\"package.json\"] = \"\033[31m${nf_npm} \033[0m\"
+    icon_name[\"Cargo.toml\"] = \"\033[31m${nf_rust} \033[0m\"
+    icon_name[\"go.mod\"] = \"\033[36m${nf_go} \033[0m\"
+    icon_name[\"docker-compose.yml\"] = \"\033[34m${nf_docker} \033[0m\"
+    icon_name[\"docker-compose.yaml\"] = \"\033[34m${nf_docker} \033[0m\"
+    icon_name[\"tsconfig.json\"] = \"\033[34m${nf_ts} \033[0m\"
+    icon_name[\"README.md\"] = \"\033[33m${nf_md} \033[0m\""
+
+    # Per-line output formats (3 columns: indicator, icon, path)
+    # shellcheck disable=SC2016
+    icon_line='printf "%s\t%s\t%s\n", ind, get_icon(f), $0'
+    # shellcheck disable=SC2016
+    icon_git_line='printf "%s\t%s\t%s\n", icon, get_icon(file), file'
+}
 
 # ─── Escape values for fzf bind strings ──────────────────────────────────────
 # fzf execute()/become() commands run via $SHELL -c. Variables embedded in
@@ -436,16 +600,26 @@ run_files_mode() {
         fi
     }
 
-    # ─── File indicators (bookmarks + git status) ──────────────────────────────
+    # ─── File indicators (bookmarks + git status + icons) ───────────────────────
     # Build the awk annotation script and define _annotate_files().
-    # Sets: fzf_file, fzf_files, annotate_awk, bf, do_git, git_prefix
+    # Sets: fzf_file, fzf_files, nth_field, cut_field, annotate_awk, bf, do_git, git_prefix
     # Defines: _annotate_files()
-    local fzf_file fzf_files bf do_git git_prefix annotate_awk
+    local fzf_file fzf_files nth_field cut_field bf do_git git_prefix annotate_awk
+    local icon_func icon_begin icon_line icon_git_line
 
     _build_annotate_awk() {
-        # Always tab-delimited: indicators\tfilename.
+        # Tab-delimited: indicators\t[icon\t]filename.
         # Indicator column: ★ for bookmarked, git icon for dirty files.
-        fzf_file="{2..}" fzf_files="{+2..}"
+        # Icon column: Nerd Font file-type icon (when icons=on).
+        _icon_awk_fragments
+        if [[ "$ICONS_ENABLED" == "on" ]]; then
+            fzf_file="{3..}" fzf_files="{+3..}"
+            nth_field="3.." cut_field="3-"
+        else
+            fzf_file="{2..}" fzf_files="{+2..}"
+            nth_field="2.." cut_field="2-"
+        fi
+
         bf=$(_dispatch_bookmark_file)
         local git_active=false
         git_prefix=""
@@ -457,44 +631,45 @@ run_files_mode() {
         $git_active && do_git=1
 
         # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
-        annotate_awk='BEGIN {
-        if (bfile != "") {
-            while ((getline line < bfile) > 0) {
-                n = split(line, a, "\t")
-                if (n >= 2 && a[1] == pwd) bm[a[2]] = 1
-            }
-            close(bfile)
+        annotate_awk="${icon_func}"'BEGIN {
+    '"${icon_begin}"'
+    if (bfile != "") {
+        while ((getline line < bfile) > 0) {
+            n = split(line, a, "\t")
+            if (n >= 2 && a[1] == pwd) bm[a[2]] = 1
         }
-        if (do_git) {
-            plen = length(prefix)
-            cmd = "git status --porcelain 2>/dev/null"
-            while ((cmd | getline line) > 0) {
-                xy = substr(line, 1, 2)
-                file = substr(line, 4)
-                if (plen > 0) {
-                    if (substr(file, 1, plen) != prefix) continue
-                    file = substr(file, plen + 1)
-                }
-                x = substr(xy, 1, 1)
-                y = substr(xy, 2, 1)
-                if (x == "?" && y == "?")       gs[file] = "\033[33m?\033[0m"
-                else if (x != " " && y != " ")  gs[file] = "\033[35m✹\033[0m"
-                else if (x != " ")              gs[file] = "\033[32m✚\033[0m"
-                else                            gs[file] = "\033[31m●\033[0m"
-            }
-            close(cmd)
-        }
+        close(bfile)
     }
-    {
-        f = $0; sub(/^\.\//, "", f)
-        if (f in bm) ind = "\033[33m★\033[0m"
-        else ind = " "
-        if (do_git) {
-            if (f in gs) ind = ind gs[f]
-            else ind = ind " "
+    if (do_git) {
+        plen = length(prefix)
+        cmd = "git status --porcelain 2>/dev/null"
+        while ((cmd | getline line) > 0) {
+            xy = substr(line, 1, 2)
+            file = substr(line, 4)
+            if (plen > 0) {
+                if (substr(file, 1, plen) != prefix) continue
+                file = substr(file, plen + 1)
+            }
+            x = substr(xy, 1, 1)
+            y = substr(xy, 2, 1)
+            if (x == "?" && y == "?")       gs[file] = "\033[33m?\033[0m"
+            else if (x != " " && y != " ")  gs[file] = "\033[35m✹\033[0m"
+            else if (x != " ")              gs[file] = "\033[32m✚\033[0m"
+            else                            gs[file] = "\033[31m●\033[0m"
         }
-        printf "%s\t%s\n", ind, $0
-    }'
+        close(cmd)
+    }
+}
+{
+    f = $0; sub(/^\.\//, "", f)
+    if (f in bm) ind = "\033[33m★\033[0m"
+    else ind = " "
+    if (do_git) {
+        if (f in gs) ind = ind gs[f]
+        else ind = ind " "
+    }
+    '"${icon_line}"'
+}'
 
         _annotate_files() {
             awk -v bfile="$bf" -v pwd="$PWD" -v do_git="$do_git" -v prefix="$git_prefix" "$annotate_awk"
@@ -586,7 +761,7 @@ fi"
         fi | _annotate_files | fzf \
         "${BASE_FZF_OPTS[@]}" \
         "${header_args[@]}" \
-        --ansi --delimiter=$'\t' --nth=2.. --tabstop=3 \
+        --ansi --delimiter=$'\t' --nth="$nth_field" --tabstop=3 \
         --expect=ctrl-o,ctrl-y \
         --multi \
         --query "$QUERY" \
@@ -606,10 +781,10 @@ fi"
         --bind "?:preview:printf '%b' '$SQ_HELP_FILES'" \
     ) || exit 0
 
-    # Strip indicator prefix from fzf output (indicator\tfile → file).
-    # cut -f2- is a no-op for lines without tabs (the --expect key line).
+    # Strip indicator (+ icon) prefix from fzf output.
+    # cut passes through lines without tabs (the --expect key line).
     if [[ -n "$result" ]]; then
-        result=$(cut -f2- <<< "$result")
+        result=$(cut -f"$cut_field" <<< "$result")
     fi
 
     handle_file_result "$result"
@@ -1177,10 +1352,29 @@ run_git_mode() {
             " git ! · ⌫ files "
     fi
 
-    # Git status: porcelain v1 → colored icons (ICON<tab>filepath)
+    # Icon support: conditional field references and awk fragments
+    local icon_func icon_begin icon_line icon_git_line
+    _icon_awk_fragments
+    local fzf_git_file fzf_git_files git_nth
+    if [[ "$ICONS_ENABLED" == "on" ]]; then
+        fzf_git_file="{3..}" fzf_git_files="{+3..}"
+        git_nth="3.."
+    else
+        fzf_git_file="{2..}" fzf_git_files="{+2..}"
+        git_nth="2.."
+    fi
+
+    # Git status: porcelain v1 → colored icons (ICON<tab>[file-icon<tab>]filepath)
     # Shared awk body used by both the initial load function and fzf reload string.
+    local git_awk_prefix=""
+    if [[ "$ICONS_ENABLED" == "on" ]]; then
+        git_awk_prefix="${icon_func}BEGIN {
+    ${icon_begin}
+}
+"
+    fi
     # shellcheck disable=SC2016  # $0 etc. are awk variables, not bash
-    local git_awk='{
+    local git_awk="${git_awk_prefix}"'{
         xy = substr($0, 1, 2)
         file = substr($0, 4)
         x = substr(xy, 1, 1)
@@ -1189,7 +1383,7 @@ run_git_mode() {
         else if (x != " " && y != " ")  icon = "\033[35m✹\033[0m"
         else if (x != " ")              icon = "\033[32m✚\033[0m"
         else                            icon = "\033[31m●\033[0m"
-        printf "%s\t%s\n", icon, file
+        '"${icon_git_line}"'
     }'
 
     _run_git_status() { git status --porcelain 2>/dev/null | awk "$git_awk"; }
@@ -1218,16 +1412,16 @@ run_git_mode() {
         --prompt 'git ! ' \
         --ansi \
         --delimiter=$'\t' \
-        --nth=2.. \
+        --nth="$git_nth" \
         --tabstop=3 \
-        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '{2..}' '{1}'" \
+        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '$fzf_git_file' '{1}'" \
         --preview-window 'right:60%:border-left' \
         --border-label ' git ! · ? help · tab stage · enter open · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
-        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '{2..}')+reload:$git_status_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{+2..}')" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{2..}')" \
-        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '{2..}')+reload:$git_status_cmd" \
+        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '$fzf_git_file')+reload:$git_status_cmd" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '$fzf_git_files')" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_git_file')" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_git_file')+reload:$git_status_cmd" \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GIT'" \
     ) || exit 0
@@ -1241,8 +1435,10 @@ handle_git_result() {
     local -a files
 
     key=$(head -1 <<< "$result")
-    # Extract file paths from tab-delimited lines (icon\tfile)
-    mapfile -t files < <(tail -n +2 <<< "$result" | cut -f2)
+    # Extract file paths from tab-delimited lines (icon\t[file-icon\t]file)
+    local git_cut_field=2
+    [[ "$ICONS_ENABLED" == "on" ]] && git_cut_field=3
+    mapfile -t files < <(tail -n +2 <<< "$result" | cut -f"$git_cut_field")
     [[ ${#files[@]} -eq 0 ]] && exit 0
 
     case "$key" in
