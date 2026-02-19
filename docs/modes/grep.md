@@ -14,7 +14,7 @@ Unlike files mode, grep mode runs fzf in `--disabled` mode: fzf does not filter 
 ## How to access
 
 - Type `>` from files mode -- the remainder of your query becomes the grep search term.
-- Press `Alt+s` directly from any tmux pane to open grep mode.
+- Set `@dispatch-grep-key` (e.g., `M-s`) in your `~/.tmux.conf` for a direct keybinding.
 
 ## Keybindings
 
@@ -45,7 +45,7 @@ Unlike files mode, grep mode runs fzf in `--disabled` mode: fzf does not filter 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `@dispatch-grep-key` | `M-s` | Keybinding to open grep directly |
+| `@dispatch-grep-key` | `none` | Prefix-free key to open grep directly (disabled by default; use `>` prefix instead) |
 | `@dispatch-rg-args` | `""` | Extra arguments passed to ripgrep |
 | `@dispatch-popup-editor` | auto-detect | Editor for popup (`nvim` > `vim` > `vi`) |
 | `@dispatch-pane-editor` | `$EDITOR` | Editor for send-to-pane (`Ctrl+O`) |

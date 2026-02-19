@@ -25,14 +25,16 @@ These keybindings are registered by the plugin and work from any tmux pane.
 
 | Key | Mode | Description |
 |-----|------|-------------|
-| `Alt+o` | prefix-free | Open file finder popup |
-| `Alt+s` | prefix-free | Open live grep popup |
-| `Alt+w` | prefix-free | Open session picker popup |
-| `prefix+e` | prefix | Open file finder popup |
-| _(configurable)_ | prefix-free | Open directory jump (`@dispatch-dirs-key`) |
-| _(configurable)_ | prefix-free | Open scrollback search in default view (`@dispatch-scrollback-key`) |
-| _(configurable)_ | prefix-free | Open custom commands (`@dispatch-commands-key`) |
-| _(configurable)_ | prefix-free | Reopen last-used mode with last query (`@dispatch-resume-key`) |
+| `Alt+o` | prefix-free | Open file finder popup (`@dispatch-find-key`) |
+| `prefix+e` | prefix | Open file finder popup (`@dispatch-prefix-key`) |
+| _(configurable)_ | prefix-free | Open live grep (`@dispatch-grep-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open session picker (`@dispatch-session-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open git status (`@dispatch-git-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open directory jump (`@dispatch-dirs-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open scrollback search (`@dispatch-scrollback-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open scrollback tokens view (`@dispatch-extract-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Open custom commands (`@dispatch-commands-key`, default: `none`) |
+| _(configurable)_ | prefix-free | Reopen last-used mode with last query (`@dispatch-resume-key`, default: `none`) |
 
 All of these can be customized or disabled. See [Configuration](configuration) for details.
 

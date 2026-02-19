@@ -30,8 +30,8 @@ DISPATCH="$CURRENT_DIR/scripts/dispatch.sh"
 # ─── Read user configuration ─────────────────────────────────────────────────
 
 find_key=$(get_tmux_option "@dispatch-find-key" "M-o")
-grep_key=$(get_tmux_option "@dispatch-grep-key" "M-s")
-session_key=$(get_tmux_option "@dispatch-session-key" "M-w")
+grep_key=$(get_tmux_option "@dispatch-grep-key" "none")
+session_key=$(get_tmux_option "@dispatch-session-key" "none")
 prefix_key=$(get_tmux_option "@dispatch-prefix-key" "e")
 session_prefix_key=$(get_tmux_option "@dispatch-session-prefix-key" "none")
 git_key=$(get_tmux_option "@dispatch-git-key" "none")

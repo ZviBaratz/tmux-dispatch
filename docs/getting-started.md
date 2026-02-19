@@ -87,19 +87,17 @@ sudo dnf install fzf fd-find bat ripgrep
 curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 ```
 
-## Your First 3 Keybindings
+## Your First Keybinding
 
-After installing, these keybindings work immediately with no configuration:
+After installing, one keybinding works immediately with no configuration:
 
 | Key | What it does |
 |-----|-------------|
-| `Alt+o` | Open the file finder |
-| `Alt+s` | Open live grep |
-| `Alt+w` | Open session picker |
+| `Alt+o` | Open the file finder (the unified entry point) |
 
-All keybindings are prefix-free -- you don't need to press the tmux prefix first.
+All modes are accessible from here by typing a prefix character. No additional keybindings are configured by default — all others are opt-in via `@dispatch-*` options.
 
-> **Tip:** If `Alt` keybindings don't work in your terminal, see the [FAQ](faq#alt-keys-alto-alts-altw-dont-work) or use the prefix keybinding `prefix + e` instead.
+> **Tip:** If `Alt+o` doesn't work in your terminal, see the [FAQ](faq#alt-key-alto-doesnt-work) or use the prefix keybinding `prefix + e` instead.
 
 ## First Steps Tutorial
 

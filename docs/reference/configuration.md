@@ -15,10 +15,10 @@ Customize which keys open each mode. Set any key option to `"none"` to disable t
 | Option | Default | Description |
 |--------|---------|-------------|
 | `@dispatch-find-key` | `M-o` | Prefix-free key to open file finder (Alt+o) |
-| `@dispatch-grep-key` | `M-s` | Prefix-free key to open live grep (Alt+s) |
-| `@dispatch-session-key` | `M-w` | Prefix-free key to open session picker (Alt+w) |
+| `@dispatch-grep-key` | `none` | Prefix-free key to open live grep (disabled by default; use `>` prefix instead) |
+| `@dispatch-session-key` | `none` | Prefix-free key to open session picker (disabled by default; use `@` prefix instead) |
 | `@dispatch-git-key` | `none` | Prefix-free key to open git status (disabled by default; use `!` prefix instead) |
-| `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback in tokens (extract) view (disabled by default; use `$` then `Ctrl+T` instead) |
+| `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback in tokens (extract) view (disabled by default; use `&` prefix instead) |
 | `@dispatch-dirs-key` | `none` | Prefix-free key to open directory jump (disabled by default; use `#` prefix instead) |
 | `@dispatch-scrollback-key` | `none` | Prefix-free key to open scrollback search in default view (disabled by default; use `$` prefix instead) |
 | `@dispatch-commands-key` | `none` | Prefix-free key to open custom commands (disabled by default; use `:` prefix instead) |
@@ -105,8 +105,8 @@ A complete example showing all available options:
 ```tmux
 # Keybindings
 set -g @dispatch-find-key "M-o"
-set -g @dispatch-grep-key "M-s"
-set -g @dispatch-session-key "M-w"
+set -g @dispatch-grep-key "none"         # use > prefix, or e.g. "M-s" for a direct key
+set -g @dispatch-session-key "none"      # use @ prefix, or e.g. "M-w" for a direct key
 set -g @dispatch-git-key "none"
 set -g @dispatch-extract-key "none"
 set -g @dispatch-prefix-key "e"

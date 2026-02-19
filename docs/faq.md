@@ -5,7 +5,7 @@ nav_order: 6
 
 # Frequently Asked Questions
 
-### Alt keys (Alt+o, Alt+s, Alt+w) don't work
+### Alt key (Alt+o) doesn't work
 
 This is the most common issue. Most terminal emulators need a setting change to send Alt as the correct escape sequence:
 
@@ -45,22 +45,22 @@ Yes, with reduced functionality:
 - **Without ripgrep**: Grep mode is unavailable (no fallback -- rg is required for live grep)
 - **Without zoxide**: Directory mode uses `fd`/`find` instead of frecency-ranked results
 
-### How do I change the default keybindings?
+### How do I add direct keybindings for grep and sessions?
 
-Add to your `~/.tmux.conf`:
+By default, only `Alt+o` (file finder) is bound. All other modes are accessible via prefix characters from inside the popup (`>` for grep, `@` for sessions, etc.). To add direct keybindings, set them in your `~/.tmux.conf`:
 
 ```tmux
-# Change file finder to Ctrl+f
-set -g @dispatch-find-key 'C-f'
+# Direct key for live grep
+set -g @dispatch-grep-key 'M-s'
 
-# Change grep to Ctrl+g
-set -g @dispatch-grep-key 'C-g'
+# Direct key for session picker
+set -g @dispatch-session-key 'M-w'
 
-# Disable a keybinding
-set -g @dispatch-session-key 'none'
+# Direct key to reopen last mode with last query
+set -g @dispatch-resume-key 'M-r'
 ```
 
-See [Configuration](reference/configuration) for all options.
+Set any key to `'none'` to disable it. See [Configuration](reference/configuration) for all options.
 
 ### How do I use VS Code or another non-vim editor?
 

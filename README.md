@@ -32,19 +32,25 @@
 
 ## Quick Start
 
-Start with `Alt+o` to browse files, then explore other modes by typing prefix characters:
+Press `Alt+o` to open the file finder. From there, type a prefix character to switch modes instantly:
 
-| Key | Action | Try it when... |
-|-----|--------|----------------|
-| `Alt+o` | Find files in the current directory | You want to quickly open or preview any file |
-| `Alt+s` | Live grep (search file contents) | You're looking for a specific string across your project |
-| `Alt+w` | Switch or create tmux sessions | You need to jump between projects or create a new workspace |
+| Prefix | Mode | What it does |
+|--------|------|--------------|
+| _(default)_ | Files | Fuzzy file finder with preview |
+| `>` | Grep | Live ripgrep across all files |
+| `@` | Sessions | Switch, create, or kill tmux sessions |
+| `!` | Git | Stage/unstage files, inline diff |
+| `#` | Dirs | Jump to directories via zoxide |
+| `$` | Scrollback | Search terminal history lines |
+| `&` | Tokens | Extract URLs, paths, hashes from scrollback |
+| `:` | Commands | Run your custom command palette |
+| `~` | Home files | File finder rooted at `$HOME` |
 
-Type `>` to switch to grep, `@` to sessions, `!` to git status, `#` to directories, `$` to scrollback, `:` to commands, `~` for home. Backspace on empty returns home to files — just like VSCode's command palette.
+Backspace on empty returns home to files — just like VSCode's command palette.
 
 **Tip:** Press `?` in any mode for context-sensitive help showing all available keybindings.
 
-> **Alt keys not working?** Some terminals need configuration for Alt keybindings.
+> **Alt+o not working?** Some terminals need configuration for Alt keybindings.
 > Use `prefix + e` as a fallback, or see [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) for setup guides.
 
 ## Installation
@@ -115,7 +121,7 @@ curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh 
 | tmux-which-key (commands) | `:` commands mode |
 | fzf + fd (file finding) | Default mode |
 | rg (project grep) | `>` grep mode |
-| **5 plugins, 5 keybindings** | **1 plugin, 3 keybindings** |
+| **5 plugins, 5 keybindings** | **1 plugin, 1 keybinding** |
 
 ## Documentation
 

@@ -9,7 +9,7 @@ nav_order: 5
 
 Session mode is the hub for tmux session management. Switch between sessions, create new ones by typing a name, kill sessions, launch project-based sessions, browse windows, and rename -- all from the same popup.
 
-**How to access:** Press `Alt+w` directly, type `@` from files mode, or set a custom keybinding.
+**How to access:** Type `@` from files mode, or set `@dispatch-session-key` (e.g., `M-w`) for a direct keybinding.
 
 **Session list format:** Each session shows: `name · Nw · age [· attached] [· current]` where N is the window count, age is relative time since last activity (e.g., "5m", "2h"), "attached" appears if a client is connected, and "current" (in green) marks the session you're in.
 
@@ -67,7 +67,7 @@ Escape cancels and returns to session mode.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `@dispatch-session-key` | `M-w` | Keybinding to open sessions directly |
+| `@dispatch-session-key` | `none` | Prefix-free key to open sessions directly (disabled by default; use `@` prefix instead) |
 | `@dispatch-session-prefix-key` | `none` | Prefix keybinding for sessions |
 | `@dispatch-session-dirs` | `$HOME/Projects` | Colon-separated directories for Ctrl+N project picker |
 | `@dispatch-session-depth` | `3` | Max depth for git repo discovery in project picker |
