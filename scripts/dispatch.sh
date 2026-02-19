@@ -60,15 +60,17 @@ QUERY=""
 FILE=""
 SESSION=""
 SCROLLBACK_VIEW=""
+GIT_VIEW=""
 
 for arg in "$@"; do
     case "$arg" in
-        --mode=*)    MODE="${arg#--mode=}" ;;
-        --pane=*)    PANE_ID="${arg#--pane=}" ;;
-        --query=*)   QUERY="${arg#--query=}" ;;
-        --file=*)    FILE="${arg#--file=}" ;;
-        --session=*) SESSION="${arg#--session=}" ;;
-        --view=*)    SCROLLBACK_VIEW="${arg#--view=}" ;;
+        --mode=*)      MODE="${arg#--mode=}" ;;
+        --pane=*)      PANE_ID="${arg#--pane=}" ;;
+        --query=*)     QUERY="${arg#--query=}" ;;
+        --file=*)      FILE="${arg#--file=}" ;;
+        --session=*)   SESSION="${arg#--session=}" ;;
+        --view=*)      SCROLLBACK_VIEW="${arg#--view=}" ;;
+        --git-view=*)  GIT_VIEW="${arg#--git-view=}" ;;
     esac
 done
 
@@ -411,7 +413,35 @@ HELP_GIT="$(printf '%b' '
   ^Y        copy path
   ^R        rename file
   ^X        delete file
+  ^L        log view
+  ^S        branch view
   ⌫ empty   back to files
+
+  ^D/^U     scroll preview
+')"
+
+HELP_GIT_LOG="$(printf '%b' '
+  \033[1mGIT LOG\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     copy commit hash
+  tab       select multiple
+  ^O        cherry-pick
+  ^Y        copy hash(es)
+  ^L        back to status
+  ^S        branches
+  ⌫ empty   back to status
+
+  ^D/^U     scroll preview
+')"
+
+HELP_GIT_BRANCH="$(printf '%b' '
+  \033[1mGIT BRANCHES\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     switch branch
+  ^Y        copy name
+  ^S        back to status
+  ^L        log
+  ⌫ empty   back to status
 
   ^D/^U     scroll preview
 ')"
@@ -467,6 +497,8 @@ HELP_SESSION_NEW="$(printf '%b' '
 SQ_HELP_FILES=$(_sq_escape "$HELP_FILES")
 SQ_HELP_GREP=$(_sq_escape "$HELP_GREP")
 SQ_HELP_GIT=$(_sq_escape "$HELP_GIT")
+SQ_HELP_GIT_LOG=$(_sq_escape "$HELP_GIT_LOG")
+SQ_HELP_GIT_BRANCH=$(_sq_escape "$HELP_GIT_BRANCH")
 SQ_HELP_SESSIONS=$(_sq_escape "$HELP_SESSIONS")
 SQ_HELP_DIRS=$(_sq_escape "$HELP_DIRS")
 SQ_HELP_WINDOWS=$(_sq_escape "$HELP_WINDOWS")
@@ -1448,6 +1480,14 @@ run_git_mode() {
             " git ! · ⌫ files "
     fi
 
+    case "${GIT_VIEW:-status}" in
+        log)    _run_git_log_view ;;
+        branch) _run_git_branch_view ;;
+        *)      _run_git_status_view ;;
+    esac
+}
+
+_run_git_status_view() {
     # Icon support: conditional field references and awk fragments
     local icon_func icon_begin icon_line icon_git_line
     _icon_awk_fragments
@@ -1487,17 +1527,27 @@ run_git_mode() {
     # fzf reload string — single quotes around $git_awk protect awk's $0 from sh
     local git_status_cmd="git status --porcelain 2>/dev/null | awk '${git_awk}'"
 
+    local become_files="$BECOME_FILES"
+    local become_log="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=log --pane='$SQ_PANE_ID' --query={q})"
+    local become_branch="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=branch --pane='$SQ_PANE_ID' --query={q})"
+
     local git_output
     git_output=$(_run_git_status)
 
     if [[ -z "$git_output" ]]; then
-        _show_empty_state \
-            "working tree clean — nothing to stage" \
-            "git ! " \
-            " git ! · ⌫ files "
+        # Custom empty state: keeps Ctrl+L/Ctrl+S so log/branch are reachable
+        printf '' | fzf \
+            "${BASE_FZF_OPTS[@]}" \
+            --header "working tree clean — nothing to stage" \
+            --prompt 'git ! ' \
+            --border-label ' git ! · ^l log · ^s branch · ⌫ files ' \
+            --border-label-pos 'center:bottom' \
+            --bind "ctrl-l:$become_log" \
+            --bind "ctrl-s:$become_branch" \
+            --bind "backward-eof:$become_files" \
+            --bind "?:preview:printf '%b' '$SQ_HELP_GIT'"
+        exit 0
     fi
-
-    local become_files="$BECOME_FILES"
 
     local result
     result=$(echo "$git_output" | fzf \
@@ -1512,20 +1562,22 @@ run_git_mode() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' $fzf_git_file {1}" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' git ! · ? help · tab stage · enter open · ^r rename · ^x delete · ⌫ files ' \
+        --border-label ' git ! · ? help · tab stage · ^l log · ^s branch · enter open · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle $fzf_git_file)+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_git_files)" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_git_file)" \
         --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_git_file)+reload:$git_status_cmd" \
+        --bind "ctrl-l:$become_log" \
+        --bind "ctrl-s:$become_branch" \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GIT'" \
     ) || exit 0
 
-    handle_git_result "$result"
+    _handle_git_status_result "$result"
 }
 
-handle_git_result() {
+_handle_git_status_result() {
     local result="$1"
     local key
     local -a files
@@ -1557,6 +1609,160 @@ handle_git_result() {
             ;;
         *)
             # Enter is handled by fzf execute() binding
+            ;;
+    esac
+}
+
+_run_git_log_view() {
+    local log_output
+    log_output=$(git log --oneline --graph --decorate --color=always --all -100 2>/dev/null)
+
+    if [[ -z "$log_output" ]]; then
+        _show_empty_state \
+            "no commits yet — make your first commit" \
+            "log ! " \
+            " log ! · ⌫ status "
+    fi
+
+    local become_status="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=status --pane='$SQ_PANE_ID' --query={q})"
+    local become_branch="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=branch --pane='$SQ_PANE_ID' --query={q})"
+
+    # Preview: extract hash from selected line, show commit details
+    local preview_cmd="hash=\$(echo {} | grep -oE '[0-9a-f]{7,}' | head -1); \
+if [ -n \"\$hash\" ]; then \
+git show --stat --color=always --format='%C(yellow)%H%C(reset)%n%C(bold)%s%C(reset)%n%C(dim)%an  %ci%C(reset)%n' \"\$hash\" 2>/dev/null | head -80; \
+else echo 'no commit hash on this line'; fi"
+
+    local result
+    result=$(echo "$log_output" | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --multi \
+        --expect=ctrl-o,ctrl-y \
+        --query "$QUERY" \
+        --prompt 'log ! ' \
+        --ansi --no-sort \
+        --preview "$preview_cmd" \
+        --preview-window 'right:60%:border-left' \
+        --border-label ' log ! · ? help · enter hash · ^o pick · ^y copy · ^l status · ^s branch · ⌫ status ' \
+        --border-label-pos 'center:bottom' \
+        --bind "ctrl-l:$become_status" \
+        --bind "ctrl-s:$become_branch" \
+        --bind "backward-eof:$become_status" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_GIT_LOG'" \
+    ) || exit 0
+
+    _handle_git_log_result "$result"
+}
+
+_handle_git_log_result() {
+    local result="$1"
+    local key
+    key=$(head -1 <<< "$result")
+
+    # Extract hashes from selected lines
+    local -a hashes=()
+    local line hash
+    while IFS= read -r line; do
+        hash=$(echo "$line" | grep -oE '[0-9a-f]{7,}' | head -1)
+        [[ -n "$hash" ]] && hashes+=("$hash")
+    done < <(tail -n +2 <<< "$result")
+    [[ ${#hashes[@]} -eq 0 ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            printf '%s\n' "${hashes[@]}" | tmux load-buffer -w -
+            tmux display-message "Copied ${#hashes[@]} hash(es)"
+            ;;
+        ctrl-o)
+            local h
+            for h in "${hashes[@]}"; do
+                if ! git cherry-pick "$h" 2>/dev/null; then
+                    tmux display-message "Cherry-pick conflict on $h — resolve manually"
+                    return
+                fi
+            done
+            tmux display-message "Cherry-picked ${#hashes[@]} commit(s)"
+            ;;
+        *)
+            # Enter: copy first hash
+            printf '%s' "${hashes[0]}" | tmux load-buffer -w -
+            tmux display-message "Copied: ${hashes[0]}"
+            ;;
+    esac
+}
+
+_run_git_branch_view() {
+    # Local branches sorted by most recently committed, with tracking info and date
+    local branch_output
+    branch_output=$(git branch --sort=-committerdate \
+        --format='%(if)%(HEAD)%(then)%(color:green)* %(else)  %(end)%(color:reset)%(refname:short)%(if)%(upstream:short)%(then) %(color:dim)-> %(upstream:short)%(color:reset)%(end)  %(color:dim)%(committerdate:relative)%(color:reset)' 2>/dev/null)
+
+    if [[ -z "$branch_output" ]]; then
+        _show_empty_state \
+            "no branches — create your first commit" \
+            "branch ! " \
+            " branch ! · ⌫ status "
+    fi
+
+    local become_status="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=status --pane='$SQ_PANE_ID' --query={q})"
+    local become_log="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=git --git-view=log --pane='$SQ_PANE_ID' --query={q})"
+
+    # Preview: extract branch name, show recent log
+    # Strip ANSI, leading "* " or "  ", take first word (branch name)
+    local preview_cmd="branch=\$(echo {} | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print \$1}'); \
+if [ -n \"\$branch\" ]; then \
+printf '\\033[1m%s\\033[0m\\n\\n' \"\$branch\"; \
+git log --oneline --graph --decorate --color=always -15 \"\$branch\" 2>/dev/null; \
+else echo 'no branch'; fi"
+
+    local result
+    result=$(echo "$branch_output" | fzf \
+        "${BASE_FZF_OPTS[@]}" \
+        --expect=ctrl-y \
+        --query "$QUERY" \
+        --prompt 'branch ! ' \
+        --ansi --no-sort \
+        --preview "$preview_cmd" \
+        --preview-window 'right:60%:border-left' \
+        --border-label ' branch ! · ? help · enter switch · ^y copy · ^l log · ^s status · ⌫ status ' \
+        --border-label-pos 'center:bottom' \
+        --bind "ctrl-l:$become_log" \
+        --bind "ctrl-s:$become_status" \
+        --bind "backward-eof:$become_status" \
+        --bind "?:preview:printf '%b' '$SQ_HELP_GIT_BRANCH'" \
+    ) || exit 0
+
+    _handle_git_branch_result "$result"
+}
+
+_handle_git_branch_result() {
+    local result="$1"
+    local key
+    key=$(head -1 <<< "$result")
+
+    local selected
+    selected=$(tail -n +2 <<< "$result" | head -1)
+    [[ -z "$selected" ]] && exit 0
+
+    # Extract branch name: strip ANSI codes, strip leading "* " or "  ", take first word
+    local branch
+    branch=$(echo "$selected" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print $1}')
+    [[ -z "$branch" ]] && exit 0
+
+    case "$key" in
+        ctrl-y)
+            printf '%s' "$branch" | tmux load-buffer -w -
+            tmux display-message "Copied: $branch"
+            ;;
+        *)
+            # Enter: switch branch
+            if git switch "$branch" 2>/dev/null; then
+                tmux display-message "Switched to: $branch"
+            elif git checkout "$branch" 2>/dev/null; then
+                tmux display-message "Switched to: $branch"
+            else
+                tmux display-message "Failed to switch to: $branch"
+            fi
             ;;
     esac
 }

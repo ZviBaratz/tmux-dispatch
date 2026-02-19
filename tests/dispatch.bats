@@ -2401,3 +2401,225 @@ more at https://new.com/page?q=1,"
     '
     [[ "$output" == "/home/user/projects/myapp" ]]
 }
+
+# ─── Git sub-views: arg parsing ──────────────────────────────────────────────
+
+@test "git-view: --git-view=log sets GIT_VIEW" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        GIT_VIEW=""
+        for arg in --git-view=log; do
+            case "$arg" in
+                --git-view=*) GIT_VIEW="${arg#--git-view=}" ;;
+            esac
+        done
+        echo "$GIT_VIEW"
+    '
+    [ "$output" = "log" ]
+}
+
+@test "git-view: --git-view=branch sets GIT_VIEW" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        GIT_VIEW=""
+        for arg in --git-view=branch; do
+            case "$arg" in
+                --git-view=*) GIT_VIEW="${arg#--git-view=}" ;;
+            esac
+        done
+        echo "$GIT_VIEW"
+    '
+    [ "$output" = "branch" ]
+}
+
+@test "git-view: empty GIT_VIEW defaults to status" {
+    run bash -c '
+        GIT_VIEW=""
+        echo "${GIT_VIEW:-status}"
+    '
+    [ "$output" = "status" ]
+}
+
+@test "git-view: --git-view= in dispatch.sh arg parser" {
+    run bash -c '
+        grep -c "\-\-git-view=" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+# ─── Git sub-views: source verification ──────────────────────────────────────
+
+@test "git-view: HELP_GIT_LOG defined in dispatch.sh" {
+    run bash -c '
+        grep -c "HELP_GIT_LOG" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "git-view: HELP_GIT_BRANCH defined in dispatch.sh" {
+    run bash -c '
+        grep -c "HELP_GIT_BRANCH" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "git-view: ctrl-l binding present in git status view" {
+    run bash -c '
+        grep -c "ctrl-l.*become.*git-view=log\|ctrl-l.*\$become_log" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "git-view: ctrl-s binding present in git status view" {
+    run bash -c '
+        grep -c "ctrl-s.*become.*git-view=branch\|ctrl-s.*\$become_branch" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "git-view: HELP_GIT includes log and branch hints" {
+    run bash -c '
+        grep "HELP_GIT=" "'"$SCRIPT_DIR"'/dispatch.sh" -A 20 | grep -c "log view\|branch view"
+    '
+    [[ "${lines[0]}" -ge 2 ]]
+}
+
+@test "git-view: run_git_mode dispatches to three views" {
+    run bash -c '
+        grep -A 15 "^run_git_mode()" "'"$SCRIPT_DIR"'/dispatch.sh" | grep -c "_run_git_.*_view"
+    '
+    [[ "${lines[0]}" -ge 3 ]]
+}
+
+# ─── Git sub-views: hash extraction ──────────────────────────────────────────
+
+@test "git-view: hash extraction from simple graph line" {
+    local result
+    result=$(echo "* abc1234 Initial commit" | grep -oE '[0-9a-f]{7,}' | head -1)
+    [[ "$result" == "abc1234" ]]
+}
+
+@test "git-view: hash extraction from merge graph line" {
+    local result
+    result=$(echo "|\ deadbeef Merge branch 'feature'" | grep -oE '[0-9a-f]{7,}' | head -1)
+    [[ "$result" == "deadbeef" ]]
+}
+
+@test "git-view: hash extraction from decorated graph line" {
+    local result
+    result=$(echo "* f00baa1 (HEAD -> main, origin/main) Latest" | grep -oE '[0-9a-f]{7,}' | head -1)
+    [[ "$result" == "f00baa1" ]]
+}
+
+@test "git-view: hash extraction skips pure graph lines" {
+    local result
+    result=$(echo "|/ " | grep -oE '[0-9a-f]{7,}' | head -1)
+    [[ -z "$result" ]]
+}
+
+# ─── Git sub-views: branch name extraction ───────────────────────────────────
+
+@test "git-view: branch name from current branch line" {
+    local result
+    result=$(echo "* main -> origin/main  2 days ago" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print $1}')
+    [[ "$result" == "main" ]]
+}
+
+@test "git-view: branch name from non-current branch" {
+    local result
+    result=$(echo "  feature/xyz -> origin/feature/xyz  5 hours ago" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print $1}')
+    [[ "$result" == "feature/xyz" ]]
+}
+
+@test "git-view: branch name from branch without tracking" {
+    local result
+    result=$(echo "  hotfix-123  3 weeks ago" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print $1}')
+    [[ "$result" == "hotfix-123" ]]
+}
+
+@test "git-view: branch name strips ANSI colors" {
+    # Simulate ANSI-colored output: green "* " then reset + name
+    local colored=$'\033[32m* \033[0mmain\033[0m  \033[2m3 days ago\033[0m'
+    local result
+    result=$(echo "$colored" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ] *//' | awk '{print $1}')
+    [[ "$result" == "main" ]]
+}
+
+# ─── Git sub-views: integration with real git repos ──────────────────────────
+
+@test "git-view: git log output contains hash in test repo" {
+    local repo="$BATS_TEST_TMPDIR/log-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" config user.email "test@test.com"
+    git -C "$repo" config user.name "Test"
+    echo "hello" > "$repo/file.txt"
+    git -C "$repo" add . && git -C "$repo" commit -q -m "test commit"
+
+    run bash -c '
+        cd "'"$repo"'"
+        git log --oneline -1 | grep -oE "^[0-9a-f]{7,}"
+    '
+    [ "$status" -eq 0 ]
+    [[ -n "$output" ]]
+}
+
+@test "git-view: git branch output contains branch name in test repo" {
+    local repo="$BATS_TEST_TMPDIR/branch-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q -b main
+    git -C "$repo" config user.email "test@test.com"
+    git -C "$repo" config user.name "Test"
+    echo "hello" > "$repo/file.txt"
+    git -C "$repo" add . && git -C "$repo" commit -q -m "init"
+
+    run bash -c '
+        cd "'"$repo"'"
+        git branch --format="%(refname:short)"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"main"* ]]
+}
+
+@test "git-view: empty repo has no log output" {
+    local repo="$BATS_TEST_TMPDIR/empty-repo"
+    mkdir -p "$repo"
+    git -C "$repo" init -q
+
+    run bash -c '
+        cd "'"$repo"'"
+        git log --oneline -1 2>/dev/null || echo "NO_COMMITS"
+    '
+    [[ "$output" == *"NO_COMMITS"* ]]
+}
+
+@test "git-view: cherry-pick result handler extracts multiple hashes" {
+    run bash -c '
+        result="ctrl-o
+* abc1234 First commit
+* def5678 Second commit"
+        key=$(head -1 <<< "$result")
+        hashes=()
+        while IFS= read -r line; do
+            hash=$(echo "$line" | grep -oE "[0-9a-f]{7,}" | head -1)
+            [[ -n "$hash" ]] && hashes+=("$hash")
+        done < <(tail -n +2 <<< "$result")
+        echo "$key"
+        echo "${#hashes[@]}"
+        echo "${hashes[0]}"
+        echo "${hashes[1]}"
+    '
+    [ "${lines[0]}" = "ctrl-o" ]
+    [ "${lines[1]}" = "2" ]
+    [ "${lines[2]}" = "abc1234" ]
+    [ "${lines[3]}" = "def5678" ]
+}
+
+@test "git-view: status border label includes log and branch hints" {
+    run bash -c '
+        grep "border-label.*git.*log.*branch" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [ "$status" -eq 0 ]
+}
