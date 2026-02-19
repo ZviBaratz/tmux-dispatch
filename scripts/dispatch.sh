@@ -45,6 +45,9 @@ if ((BASH_VERSINFO[0] < 4)); then
     exit 1
 fi
 
+# Force fzf to use bash for subcommands (avoids zsh NOMATCH on glob chars)
+export SHELL="$BASH"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "$SCRIPT_DIR/helpers.sh"
@@ -683,9 +686,9 @@ run_files_mode() {
     # File preview command (bat or head fallback)
     local file_preview
     if [[ -n "$BAT_CMD" ]]; then
-        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 '$fzf_file'"
+        file_preview="$BAT_CMD --color=always --style=numbers --line-range=:500 $fzf_file"
     else
-        file_preview="head -500 '$fzf_file'"
+        file_preview="head -500 $fzf_file"
     fi
 
     trap 'command rm -f "$hidden_flag"' EXIT
@@ -775,12 +778,12 @@ fi"
         --border-label-pos 'center:bottom' \
         --bind "change:transform:$change_transform" \
         --bind "focus:change-preview-label( preview )" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_file')" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_file)" \
         --bind "ctrl-g:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=marks --pane='$SQ_PANE_ID')" \
-        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_files')+reload:$file_list_cmd" \
-        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' '$fzf_file')+reload:$file_list_cmd" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_files)+reload:$file_list_cmd" \
+        --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-toggle '$SQ_PWD' $fzf_file)+reload:$file_list_cmd" \
         --bind "ctrl-h:execute-silent(if [ -f '$sq_hidden_flag' ]; then command rm -f '$sq_hidden_flag'; else touch '$sq_hidden_flag'; fi)+reload:$file_list_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '$fzf_files')" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_files)" \
         --bind "?:preview:printf '%b' '$SQ_HELP_FILES'" \
     ) || exit 0
 
@@ -804,7 +807,7 @@ run_grep_mode() {
     fi
 
     # Preview command: preview.sh handles bat-or-head fallback internally
-    local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' '{1}' '{2}'"
+    local preview_cmd="'$SQ_SCRIPT_DIR/preview.sh' {1} {2}"
 
     # Backspace-on-empty returns to files (home)
     local become_files_empty="$BECOME_FILES"
@@ -843,10 +846,10 @@ run_grep_mode() {
         --border-label ' grep > · ? help · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-f:transform:$grep_toggle" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='{1}')" \
-        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '{1}')+reload:$rg_reload" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file={1})" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files {1})+reload:$rg_reload" \
         --bind "backward-eof:$become_files_empty" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '{1}' '{2}')" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-grep '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' {1} {2})" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GREP'" \
     ) || exit 0
 
@@ -962,12 +965,12 @@ run_session_mode() {
             --no-sort \
             --border-label ' sessions @ · ? help · enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' '{1}'" \
-            --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session='{1}')" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' {1}" \
+            --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session={1})" \
             --bind "backward-eof:$become_files" \
             --bind "ctrl-n:$become_new" \
-            --bind "ctrl-w:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$SQ_PANE_ID' --session='{1}')" \
-            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-session '{1}')+reload:$session_list_cmd" \
+            --bind "ctrl-w:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=windows --pane='$SQ_PANE_ID' --session={1})" \
+            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-session {1})+reload:$session_list_cmd" \
             --bind "?:preview:printf '%b' '$SQ_HELP_SESSIONS'" \
     ) || exit 0
 
@@ -1164,7 +1167,7 @@ run_session_new_mode() {
         --with-nth=2.. \
         --border-label=' new session · ? help · enter create · ⌫ sessions ' \
         --border-label-pos 'center:bottom' \
-        --preview "'$SQ_SCRIPT_DIR/session-new-preview.sh' '{1}'" \
+        --preview "'$SQ_SCRIPT_DIR/session-new-preview.sh' {1}" \
         --query "$QUERY" \
         --bind "backward-eof:$become_sessions" \
         --bind "?:preview:printf '%b' '$SQ_HELP_SESSION_NEW'" \
@@ -1400,7 +1403,7 @@ run_windows_mode() {
             --prompt "$SESSION windows  " \
             --border-label ' windows · ? help · ←→ move · ↑↓ skip · enter switch · ^y copy · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
-            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") '{1}'" \
+            --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
             --bind "left:up" \
             --bind "down:down+down" \
@@ -1507,14 +1510,14 @@ run_git_mode() {
         --delimiter=$'\t' \
         --nth="$git_nth" \
         --tabstop=3 \
-        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' '$fzf_git_file' '{1}'" \
+        --preview "'$SQ_SCRIPT_DIR/git-preview.sh' $fzf_git_file {1}" \
         --preview-window 'right:60%:border-left' \
         --border-label ' git ! · ? help · tab stage · enter open · ^r rename · ^x delete · ⌫ files ' \
         --border-label-pos 'center:bottom' \
-        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle '$fzf_git_file')+reload:$git_status_cmd" \
-        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' '$fzf_git_files')" \
-        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file='$fzf_git_file')" \
-        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files '$fzf_git_file')+reload:$git_status_cmd" \
+        --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle $fzf_git_file)+reload:$git_status_cmd" \
+        --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_git_files)" \
+        --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file=$fzf_git_file)" \
+        --bind "ctrl-x:execute('$SQ_SCRIPT_DIR/actions.sh' delete-files $fzf_git_file)+reload:$git_status_cmd" \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_GIT'" \
     ) || exit 0

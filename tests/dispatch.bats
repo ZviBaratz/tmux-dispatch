@@ -917,40 +917,40 @@ session-name	extra-info"
 
 # ─── fzf placeholder quoting ─────────────────────────────────────────────
 
-@test "fzf bind strings: all modes quote fzf placeholders" {
+@test "fzf bind strings: no mode double-quotes fzf placeholders" {
     source "$SCRIPT_DIR/helpers.sh"
-    # Scan all --bind and --preview lines in dispatch.sh for unquoted fzf field refs
-    # fzf fields: {1}, {2..}, {+2..}, {+1} etc. Should always be inside single quotes in bind/preview strings.
-    # Exclude: --preview-window (no substitution), change:transform (uses {q} not field refs),
-    # and lines that only use {q} (query, not field reference)
-    local unquoted
-    unquoted=$(grep -nE '\-\-(bind|preview) ' "$SCRIPT_DIR/dispatch.sh" \
+    # fzf auto-quotes placeholder expansions ({1}, {2..}, etc.) since v0.27.0.
+    # Extra single quotes around them (e.g., '{1}') cause double-quoting that breaks
+    # values with glob characters (e.g., session names with brackets).
+    # Scan --bind and --preview lines for placeholders wrapped in extra single quotes.
+    # Exclude: --preview-window, --preview-label, and bindings that don't use field refs.
+    local double_quoted
+    double_quoted=$(grep -nE '\-\-(bind|preview) ' "$SCRIPT_DIR/dispatch.sh" \
         | grep -v 'preview-window' \
         | grep -v 'preview-label' \
         | grep -v 'change:transform' \
         | grep -v 'backward-eof' \
-        | grep -v 'ctrl-/:transform' \
         | grep -v 'ctrl-h:' \
         | grep -v 'start:' \
         | grep -v 'focus:' \
         | grep -v 'down:' \
         | grep -v 'up:' \
-        | grep -P '(?<!['"'"'])\{[+]?[0-9]' \
+        | grep -P "'\{[+]?[0-9]" \
         || true)
-    [ -z "$unquoted" ]
+    [ -z "$double_quoted" ]
 }
 
-@test "fzf bind strings: files mode quotes fzf placeholders" {
+@test "fzf bind strings: files mode does not double-quote fzf placeholders" {
     source "$SCRIPT_DIR/helpers.sh"
-    # Extract bind lines from run_files_mode
+    # $fzf_file / $fzf_files expand to fzf placeholders ({2..}, {+2..}).
+    # They must NOT be wrapped in extra single quotes ('$fzf_file') because
+    # fzf already single-quotes placeholder values at expansion time.
     local body
     body=$(sed -n '/^run_files_mode/,/^}/p' "$SCRIPT_DIR/dispatch.sh")
-    # Check --bind lines for unquoted $fzf_file / $fzf_files (not wrapped in 'quotes')
-    # These variables expand to {2..} and {+2..} — fzf placeholders that need quoting
-    # for filenames with spaces. We check the source uses '$fzf_file' not bare $fzf_file.
-    local unquoted_in_bind
-    unquoted_in_bind=$(echo "$body" | grep '\-\-bind' | grep -v 'preview' | grep -v "hidden" | grep -P "[^']\\\$fzf_file" | grep -Pv "'\\\$fzf_file'" || true)
-    [ -z "$unquoted_in_bind" ]
+    # Find --bind/--preview lines that wrap $fzf_file(s) in single quotes
+    local double_quoted
+    double_quoted=$(echo "$body" | grep -E '\-\-(bind|preview) ' | grep -v "hidden" | grep -P "'\\\$fzf_file" || true)
+    [ -z "$double_quoted" ]
 }
 
 # ─── Rename error handling ────────────────────────────────────────────────
