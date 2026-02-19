@@ -109,6 +109,7 @@ POPUP_EDITOR="" PANE_EDITOR="" FD_EXTRA_ARGS="" RG_EXTRA_ARGS=""
 HISTORY_ENABLED="on" FILE_TYPES="" GIT_INDICATORS="on" ICONS_ENABLED="on" DISPATCH_THEME="default"
 SCROLLBACK_LINES="10000" SCROLLBACK_VIEW_DEFAULT="lines" SESSION_DEPTH="3"
 COMMANDS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/commands.conf"
+PATTERNS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/patterns.conf"
 while IFS= read -r line; do
     key="${line%% *}"
     val="${line#* }"
@@ -128,6 +129,7 @@ while IFS= read -r line; do
         @dispatch-scrollback-view) SCROLLBACK_VIEW_DEFAULT="$val" ;;
         @dispatch-commands-file) COMMANDS_FILE="$val" ;;
         @dispatch-session-depth)       SESSION_DEPTH="$val" ;;
+        @dispatch-patterns-file)       PATTERNS_FILE="$val" ;;
     esac
 done < <(tmux show-options -g 2>/dev/null | grep '^@dispatch-')
 POPUP_EDITOR=$(detect_popup_editor "$POPUP_EDITOR")
@@ -538,25 +540,10 @@ HELP_MARKS="$(printf '%b' '
   ^D/^U     scroll preview
 ')"
 
-HELP_EXTRACT="$(printf '%b' '
-  \033[1mEXTRACT (tokens)\033[0m
-  \033[38;5;244m─────────────────────────────\033[0m
-  enter     copy to clipboard
-  ^O        smart open
-            (editor / browser)
-  ^T        switch to lines
-  tab       select
-  ⌫ empty   back to files
-
-  \033[36murl\033[0m \033[33mpath\033[0m \033[35mhash\033[0m \033[32mip\033[0m \033[34muuid\033[0m \033[31mdiff\033[0m \033[33mfile\033[0m
-  ^/        filter by type
-  ^D/^U     scroll preview
-')"
-
 SQ_HELP_SCROLLBACK=$(_sq_escape "$HELP_SCROLLBACK")
 SQ_HELP_COMMANDS=$(_sq_escape "$HELP_COMMANDS")
 SQ_HELP_MARKS=$(_sq_escape "$HELP_MARKS")
-SQ_HELP_EXTRACT=$(_sq_escape "$HELP_EXTRACT")
+# SQ_HELP_EXTRACT is built lazily in run_scrollback_mode() to include custom types
 
 # ─── Mode: files ─────────────────────────────────────────────────────────────
 
@@ -1861,6 +1848,31 @@ else \
 awk -v n=\$(({n}+1)) 'NR>=n-5 && NR<=n+5 { if (NR==n) printf \"\\033[1;33m> %s\\033[0m\\n\", \$0; else print \"  \" \$0 }' '$sq_lines_file'; \
 fi"
 
+    # Build HELP_EXTRACT dynamically to include custom types from patterns.conf
+    local type_list="\033[36murl\033[0m \033[33mpath\033[0m \033[35mhash\033[0m \033[32mip\033[0m \033[34muuid\033[0m \033[31mdiff\033[0m \033[33mfile\033[0m"
+    if [[ -f "${PATTERNS_FILE:-}" ]]; then
+        while IFS=$'\t' read -r ptype pcolor _rest; do
+            type_list+=" \033[${pcolor}m${ptype}\033[0m"
+        done < <(_parse_custom_patterns "$PATTERNS_FILE")
+    fi
+    local HELP_EXTRACT
+    HELP_EXTRACT="$(printf '%b' "
+  \033[1mEXTRACT (tokens)\033[0m
+  \033[38;5;244m─────────────────────────────\033[0m
+  enter     copy to clipboard
+  ^O        smart open
+            (editor / browser)
+  ^T        switch to lines
+  tab       select
+  ⌫ empty   back to files
+
+  ${type_list}
+  ^/        filter by type
+  ^D/^U     scroll preview
+")"
+    local SQ_HELP_EXTRACT
+    SQ_HELP_EXTRACT=$(_sq_escape "$HELP_EXTRACT")
+
     # Help binding: branches on view flag
     local help_cmd="if [ -f '$sq_view_flag' ]; then printf '%b' '$SQ_HELP_EXTRACT'; else printf '%b' '$SQ_HELP_SCROLLBACK'; fi"
 
@@ -1883,17 +1895,35 @@ printf all > '$sq_filter_file'; \
 echo 'reload(cat $sq_tokens_file)+change-prompt(extract \$ )+change-border-label($tokens_label_inner)'; \
 fi"
 
-    # Ctrl+F filter: cycle through token types (only active in tokens view)
+    # Ctrl+/ filter: cycle through token types (only active in tokens view)
     # Uses grep with ESC-byte anchor to match type label in first field reliably.
     # Token lines are \033[XXmTYPE\033[0m\tVALUE — grepping for "mTYPE\033" is unique
     # because token values never contain ESC bytes (ANSI stripped during extraction).
+    # Cycle is built dynamically to include custom types from patterns.conf.
     local esc=$'\033'
+    local -a filter_types=(url path hash ip uuid diff file)
+    if [[ -f "${PATTERNS_FILE:-}" ]]; then
+        while IFS=$'\t' read -r ptype _rest; do
+            filter_types+=("$ptype")
+        done < <(_parse_custom_patterns "$PATTERNS_FILE")
+    fi
+    # Build case body: all→first, first→second, ..., last→all
+    local cycle_cases="all) next=${filter_types[0]};; "
+    local i nxt
+    for ((i = 0; i < ${#filter_types[@]}; i++)); do
+        if ((i + 1 < ${#filter_types[@]})); then
+            nxt="${filter_types[$((i+1))]}"
+        else
+            nxt="all"
+        fi
+        cycle_cases+="${filter_types[$i]}) next=${nxt};; "
+    done
+    cycle_cases+="*) next=all;;"
     local filter_cmd="if [ ! -f '$sq_view_flag' ]; then exit 0; fi; \
 cur=\$(cat '$sq_filter_file'); \
 case \"\$cur\" in \
-all) next=url;; url) next=path;; path) next=hash;; hash) next=ip;; \
-ip) next=uuid;; uuid) next=diff;; diff) next=file;; file) next=all;; \
-*) next=all;; esac; \
+${cycle_cases} \
+esac; \
 printf '%s' \"\$next\" > '$sq_filter_file'; \
 if [ \"\$next\" = all ]; then \
 echo 'reload(cat $sq_tokens_file)+change-prompt(extract \$ )+change-border-label($tokens_label_inner)'; \
@@ -1956,7 +1986,7 @@ handle_scrollback_result() {
                     # Strip ANSI color codes from type field
                     ttype=$(printf '%s' "$ttype" | sed 's/\x1b\[[0-9;]*m//g')
                     local token="${item#*	}"
-                    "$SCRIPT_DIR/actions.sh" smart-open "$ttype" "$token" "$PANE_ID" "$PANE_EDITOR"
+                    "$SCRIPT_DIR/actions.sh" smart-open "$ttype" "$token" "$PANE_ID" "$PANE_EDITOR" "$PATTERNS_FILE"
                 done
                 ;;
             *)
@@ -2224,6 +2254,14 @@ _extract_tokens() {
             | while IFS= read -r match; do
                 [[ -f "$match" ]] && printf '\033[31mdiff\033[0m\t%s\n' "$match"
             done || true
+        # Custom patterns from patterns.conf
+        if [[ -f "${PATTERNS_FILE:-}" ]]; then
+            while IFS=$'\t' read -r ptype pcolor pregex _paction; do
+                grep -oE -- "$pregex" "$reversed" \
+                    | awk -v t="$ptype" -v c="$pcolor" \
+                        '{print "\033[" c "m" t "\033[0m\t" $0}' || true
+            done < <(_parse_custom_patterns "$PATTERNS_FILE")
+        fi
     } | awk '!seen[$0]++'
     command rm -f "$reversed"
 }

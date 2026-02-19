@@ -233,7 +233,7 @@ action_open_url() {
 # ─── smart-open ───────────────────────────────────────────────────────────
 
 action_smart_open() {
-    local type="$1" token="$2" pane_id="${3:-}" pane_editor="${4:-}"
+    local type="$1" token="$2" pane_id="${3:-}" pane_editor="${4:-}" patterns_file="${5:-}"
     [[ -z "$token" ]] && return 0
     case "$type" in
         url)  action_open_url "$token" ;;
@@ -265,8 +265,37 @@ action_smart_open() {
             fi
             ;;
         *)
-            printf '%s' "$token" | tmux load-buffer -w -
-            tmux display-message "Copied: $token"
+            # Look up custom action from patterns.conf
+            local custom_action=""
+            if [[ -n "${patterns_file:-}" && -f "$patterns_file" ]]; then
+                while IFS=$'\t' read -r ptype _pcolor _pregex paction; do
+                    if [[ "$ptype" == "$type" ]]; then
+                        custom_action="$paction"; break
+                    fi
+                done < <(_parse_custom_patterns "$patterns_file")
+            fi
+            case "$custom_action" in
+                open-url\ *)
+                    local url="${custom_action#open-url }"
+                    url="${url//\{\}/$token}"
+                    action_open_url "$url"
+                    ;;
+                send\ *)
+                    local cmd="${custom_action#send }"
+                    cmd="${cmd//\{\}/$token}"
+                    if [[ -n "$pane_id" ]]; then
+                        tmux send-keys -t "$pane_id" "$cmd" Enter
+                        tmux display-message "Sent: ${cmd:0:40}"
+                    else
+                        printf '%s' "$token" | tmux load-buffer -w -
+                        tmux display-message "No pane — copied: $token"
+                    fi
+                    ;;
+                *)
+                    printf '%s' "$token" | tmux load-buffer -w -
+                    tmux display-message "Copied: $token"
+                    ;;
+            esac
             ;;
     esac
 }

@@ -384,3 +384,104 @@ teardown() {
     result=$(_resolve_path "/home/./user/./file.txt")
     [[ "$result" == "/home/user/file.txt" ]]
 }
+
+# ─── _parse_custom_patterns ──────────────────────────────────────────────────
+
+@test "parse_custom_patterns: parses valid 2-field entry" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z][A-Z_]+-[0-9]+\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    # type=jira, color=91 (first in palette), regex, action=copy
+    [[ "$result" == *"jira"* ]]
+    [[ "$result" == *"91"* ]]
+    [[ "$result" == *"copy"* ]]
+    [[ "$result" == *'[A-Z][A-Z_]+-[0-9]+'* ]]
+}
+
+@test "parse_custom_patterns: parses valid 3-field entry with action" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'k8s-pod | [a-z]+-[a-z0-9]+ | open-url https://k8s.example.com/pod/{}\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    [[ "$result" == *"k8s-pod"* ]]
+    [[ "$result" == *"open-url"* ]]
+    [[ "$result" == *"https://k8s.example.com/pod/{}"* ]]
+}
+
+@test "parse_custom_patterns: skips comment lines" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '# This is a comment\njira | [A-Z]+-[0-9]+\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    local count
+    count=$(echo "$result" | grep -c '^' || true)
+    [[ "$count" -eq 1 ]]
+    [[ "$result" == *"jira"* ]]
+}
+
+@test "parse_custom_patterns: skips blank lines" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '\n\njira | [A-Z]+-[0-9]+\n\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    local count
+    count=$(echo "$result" | grep -c '^' || true)
+    [[ "$count" -eq 1 ]]
+}
+
+@test "parse_custom_patterns: rejects built-in type names" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'url | http://[^ ]+\npath | /[^ ]+\nhash | [a-f0-9]+\nip | [0-9.]+\nuuid | [a-f0-9-]+\ndiff | [-+]+\nfile | [^ ]+\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    [[ -z "$result" ]]
+}
+
+@test "parse_custom_patterns: rejects invalid type names" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    # Uppercase, spaces, too long
+    printf 'JIRA | [A-Z]+-[0-9]+\nhas space | foo\nwaytoolongname | bar\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    [[ -z "$result" ]]
+}
+
+@test "parse_custom_patterns: handles missing file gracefully" {
+    local result
+    result=$(_parse_custom_patterns "/nonexistent/patterns.conf")
+    [[ -z "$result" ]]
+}
+
+@test "parse_custom_patterns: trims whitespace from fields" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf '  jira  |  [A-Z]+-[0-9]+  |  copy  \n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    # Should parse cleanly: type=jira, action=copy
+    [[ "$result" == *"jira"* ]]
+    [[ "$result" == *"copy"* ]]
+    # Verify no leading/trailing whitespace in type field
+    local ptype
+    ptype=$(echo "$result" | cut -f1)
+    [[ "$ptype" == "jira" ]]
+}
+
+@test "parse_custom_patterns: assigns cycling colors" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'aaa | a+\nbbb | b+\nccc | c+\nddd | d+\neee | e+\nfff | f+\nggg | g+\n' > "$conf"
+    local result
+    result=$(_parse_custom_patterns "$conf")
+    # First 6 should be 91-96, 7th wraps to 91
+    local colors
+    colors=$(echo "$result" | cut -f2)
+    local -a color_arr
+    mapfile -t color_arr <<< "$colors"
+    [[ "${color_arr[0]}" == "91" ]]
+    [[ "${color_arr[1]}" == "92" ]]
+    [[ "${color_arr[2]}" == "93" ]]
+    [[ "${color_arr[3]}" == "94" ]]
+    [[ "${color_arr[4]}" == "95" ]]
+    [[ "${color_arr[5]}" == "96" ]]
+    [[ "${color_arr[6]}" == "91" ]]
+}

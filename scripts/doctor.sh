@@ -203,6 +203,16 @@ else
     dim "Expected at: $commands_file"
 fi
 
+# ── patterns.conf ────────────────────────────────────────────────────────
+patterns_file="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-dispatch/patterns.conf"
+if [[ -f "$patterns_file" ]]; then
+    pat_count=$(grep -v '^#' "$patterns_file" | grep -cv '^[[:space:]]*$' || true)
+    _count_ok "patterns.conf found (${pat_count} custom patterns)"
+    dim "$patterns_file"
+else
+    dim "patterns.conf not found (optional — for custom token types in extract mode)"
+fi
+
 # =============================================================================
 # Summary
 # =============================================================================

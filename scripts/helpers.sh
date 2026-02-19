@@ -244,6 +244,56 @@ dedup_lines() { awk '!seen[$0]++'; }
 # Used to safely embed paths in fzf bind strings: execute('cmd' '$escaped_path')
 _sq_escape() { printf '%s' "${1//\'/\'\\\'\'}"; }
 
+# Parse custom token patterns from patterns.conf.
+# Input: config file path
+# Output: tab-separated lines: type\tcolor_code\tregex\taction
+# Skips comments, blank lines, invalid type names, and built-in type names.
+# Colors cycle through bright ANSI palette (91-96) to avoid built-in dim colors.
+_parse_custom_patterns() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+    local -a palette=(91 92 93 94 95 96)
+    local idx=0
+    local line ptype pregex paction rest
+    while IFS= read -r line; do
+        # Skip comments and blank lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+        # Split on " | " (space-pipe-space) — manual split to preserve | in regex
+        rest="$line"
+        ptype="${rest%% | *}"
+        [[ "$ptype" == "$rest" ]] && continue  # no delimiter found
+        rest="${rest#* | }"
+        # Second field is regex, third (optional) is action
+        if [[ "$rest" == *" | "* ]]; then
+            pregex="${rest%% | *}"
+            paction="${rest#* | }"
+        else
+            pregex="$rest"
+            paction=""
+        fi
+        # Trim whitespace
+        ptype="${ptype#"${ptype%%[![:space:]]*}"}"
+        ptype="${ptype%"${ptype##*[![:space:]]}"}"
+        pregex="${pregex#"${pregex%%[![:space:]]*}"}"
+        pregex="${pregex%"${pregex##*[![:space:]]}"}"
+        paction="${paction#"${paction%%[![:space:]]*}"}"
+        paction="${paction%"${paction##*[![:space:]]}"}"
+        # Validate type name: lowercase, hyphens, digits, max 10 chars
+        [[ "$ptype" =~ ^[a-z][a-z0-9-]{0,9}$ ]] || continue
+        # Reject built-in type names
+        case "$ptype" in url|path|file|hash|ip|uuid|diff) continue ;; esac
+        # Skip empty regex
+        [[ -z "$pregex" ]] && continue
+        # Default action
+        [[ -z "$paction" ]] && paction="copy"
+        # Assign color from cycling palette
+        local color="${palette[$((idx % ${#palette[@]}))]}"
+        idx=$((idx + 1))
+        printf '%s\t%s\t%s\t%s\n' "$ptype" "$color" "$pregex" "$paction"
+    done < "$file"
+}
+
 # Display error message to the user via tmux status line
 _dispatch_error() { tmux display-message "dispatch: $1"; }
 

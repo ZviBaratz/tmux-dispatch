@@ -682,6 +682,61 @@ MOCK
     [ "$status" -eq 0 ]
 }
 
+# ─── smart-open custom patterns ──────────────────────────────────────────────
+
+@test "smart-open: custom type with open-url action" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    # Mock xdg-open/open for the URL action
+    cat > "$BATS_TEST_TMPDIR/xdg-open" <<'MOCK'
+#!/usr/bin/env bash
+exit 0
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/xdg-open"
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+ | open-url https://jira.example.com/browse/{}\n' > "$conf"
+    run "$ACTIONS" smart-open jira "PROJ-123" "%1" "vim" "$conf"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"Opened"* ]] || [[ "$output" == *"run-shell"* ]]
+}
+
+@test "smart-open: custom type with no action copies to clipboard" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+\n' > "$conf"
+    run "$ACTIONS" smart-open jira "PROJ-123" "%1" "vim" "$conf"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"display-message"* ]]
+    [[ "$output" == *"Copied"* ]]
+}
+
+@test "smart-open: custom type with send action sends to pane" {
+    local log="$BATS_TEST_TMPDIR/tmux-calls.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$@" >> "$log"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+ | send jira view {}\n' > "$conf"
+    run "$ACTIONS" smart-open jira "PROJ-123" "%1" "vim" "$conf"
+    [ "$status" -eq 0 ]
+    run cat "$log"
+    [[ "$output" == *"send-keys"* ]]
+    [[ "$output" == *"jira view PROJ-123"* ]]
+}
+
 # ─── unknown action ──────────────────────────────────────────────────────────
 
 @test "unknown action exits with error" {

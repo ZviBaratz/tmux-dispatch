@@ -2623,3 +2623,114 @@ more at https://new.com/page?q=1,"
     '
     [ "$status" -eq 0 ]
 }
+
+# ─── Custom token patterns ───────────────────────────────────────────────────
+
+@test "extract: custom pattern matches tokens from scrollback" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z][A-Z_]+-[0-9]+\n' > "$conf"
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Working on PROJ-123 and TEAM-456\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"jira"* ]]
+    [[ "$output" == *"PROJ-123"* ]]
+    [[ "$output" == *"TEAM-456"* ]]
+}
+
+@test "extract: custom pattern deduped with built-in types" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z][A-Z_]+-[0-9]+\n' > "$conf"
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'PROJ-123\nPROJ-123\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    local count
+    count=$(echo "$output" | grep -c "PROJ-123" || true)
+    [[ "$count" -eq 1 ]]
+}
+
+@test "extract: missing patterns.conf is handled gracefully" {
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Just some text\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="/nonexistent/patterns.conf"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+}
+
+@test "extract: regex with ERE alternation works" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'ticket | (PROJ|TEAM)-[0-9]+\n' > "$conf"
+    local input="$BATS_TEST_TMPDIR/scrollback.txt"
+    printf 'Fix PROJ-42 and TEAM-99\n' > "$input"
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        source <(sed -n "/^_extract_tokens()/,/^}/p" "'"$SCRIPT_DIR"'/dispatch.sh")
+        _extract_tokens "'"$input"'"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PROJ-42"* ]]
+    [[ "$output" == *"TEAM-99"* ]]
+}
+
+@test "extract: filter cycle includes custom types" {
+    local conf="$BATS_TEST_TMPDIR/patterns.conf"
+    printf 'jira | [A-Z]+-[0-9]+\nemail | [a-z]+@[a-z]+\n' > "$conf"
+    # Test that the filter cycle case body is built with custom types
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        PATTERNS_FILE="'"$conf"'"
+        local -a filter_types=(url path hash ip uuid diff file)
+        while IFS=$'"'"'\t'"'"' read -r ptype _rest; do
+            filter_types+=("$ptype")
+        done < <(_parse_custom_patterns "$PATTERNS_FILE")
+        # Build cycle_cases same as dispatch.sh
+        cycle_cases="all) next=${filter_types[0]};; "
+        for ((i = 0; i < ${#filter_types[@]}; i++)); do
+            if ((i + 1 < ${#filter_types[@]})); then
+                nxt="${filter_types[$((i+1))]}"
+            else
+                nxt="all"
+            fi
+            cycle_cases+="${filter_types[$i]}) next=${nxt};; "
+        done
+        cycle_cases+="*) next=all;;"
+        echo "$cycle_cases"
+    '
+    [ "$status" -eq 0 ]
+    # Custom types should be in the cycle
+    [[ "$output" == *"jira)"* ]]
+    [[ "$output" == *"email)"* ]]
+    # file→jira (transition from last built-in to first custom)
+    [[ "$output" == *"file) next=jira"* ]]
+    # email→all (last custom wraps to all)
+    [[ "$output" == *"email) next=all"* ]]
+}
+
+@test "extract: PATTERNS_FILE option read from tmux options block" {
+    run bash -c '
+        grep "@dispatch-patterns-file" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PATTERNS_FILE"* ]]
+}
