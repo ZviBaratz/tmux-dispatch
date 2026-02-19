@@ -1676,8 +1676,9 @@ _extract_tokens() {
         grep -oEi '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$reversed" \
             | awk '{print "\033[34muuid\033[0m\t" $0}' || true
         # Diff paths (--- a/file and +++ b/file from git diff output)
+        # Strip leading/trailing quotes (git C-style quoting, or bash strings in scrollback)
         grep -oE '[-+]{3} [ab]/[^ ]+' "$reversed" \
-            | sed 's/^[-+]* [ab]\///' \
+            | sed 's/^[-+]* [ab]\///; s/^"//; s/"$//' \
             | awk '{print "\033[31mdiff\033[0m\t" $0}' || true
     } | awk '!seen[$0]++'
     command rm -f "$reversed"
