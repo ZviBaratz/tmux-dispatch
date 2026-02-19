@@ -1876,6 +1876,22 @@ fi"
             type_list+=" \033[${pcolor}m${ptype}\033[0m"
         done < <(_parse_custom_patterns "$PATTERNS_FILE")
     fi
+    # Build disabled types line (dim) — only shown when types are disabled
+    local disabled_list=""
+    for t in "${builtin_order[@]}"; do
+        [[ -v "disabled_types[$t]" ]] || continue
+        [[ -n "$disabled_list" ]] && disabled_list+=" "
+        disabled_list+="$t"
+    done
+    if [[ -f "${PATTERNS_FILE:-}" ]]; then
+        while IFS=$'\t' read -r ptype _rest; do
+            [[ -v "disabled_types[$ptype]" ]] || continue
+            [[ -n "$disabled_list" ]] && disabled_list+=" "
+            disabled_list+="$ptype"
+        done < <(_parse_custom_patterns "$PATTERNS_FILE")
+    fi
+    local disabled_line=""
+    [[ -n "$disabled_list" ]] && disabled_line="\n  \033[38;5;244mdisabled: ${disabled_list}\033[0m"
     local HELP_EXTRACT
     HELP_EXTRACT="$(printf '%b' "
   \033[1mEXTRACT (tokens)\033[0m
@@ -1887,7 +1903,7 @@ fi"
   tab       select
   ⌫ empty   back to files
 
-  ${type_list}
+  ${type_list}${disabled_line}
   ^/        filter by type
   ^D/^U     scroll preview
 ")"
