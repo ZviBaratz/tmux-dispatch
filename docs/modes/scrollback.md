@@ -81,6 +81,50 @@ The tokens view extracts seven types of structured data from your scrollback:
 | `@dispatch-extract-key` | `none` | Prefix-free key to open scrollback directly in tokens view (disabled by default) |
 | `@dispatch-scrollback-key` | `none` | Prefix-free key to open scrollback in default view (disabled by default) |
 
+## Custom Token Patterns
+
+You can define custom token types by creating a configuration file at `~/.config/tmux-dispatch/patterns.conf`. Custom patterns appear alongside built-in types in the tokens view, with automatically assigned colors from a cycling bright palette.
+
+Override the file location with the tmux option `@dispatch-patterns-file`.
+
+### Format
+
+Each line defines a pattern using pipe-separated fields:
+
+```
+TYPE | REGEX
+TYPE | REGEX | ACTION
+```
+
+- **TYPE** -- lowercase letters, digits, and hyphens only; max 10 characters. Cannot shadow built-in types (`url`, `path`, `file`, `hash`, `ip`, `uuid`, `diff`, `email`, `semver`, `color`).
+- **REGEX** -- ERE regex (`grep -oE` compatible). Pipes inside the regex are fine; only ` | ` (space-pipe-space) is used as a delimiter.
+- **ACTION** -- optional. Defaults to `copy` (copies to clipboard on `Ctrl+O`).
+
+### Disabling built-in types
+
+Prefix a type name with `!` to disable it:
+
+```
+!semver
+!color
+```
+
+### Example
+
+```conf
+# Custom patterns
+jira | [A-Z]+-[0-9]+
+aws-arn | arn:aws:[a-z0-9-]+:[a-z0-9-]*:[0-9]*:[a-zA-Z0-9/:-]+
+
+# Disable built-in types I don't need
+!color
+!semver
+```
+
+Comments (lines starting with `#`) and blank lines are ignored.
+
+Use `Ctrl+/` in tokens view to filter by type -- custom types appear alongside built-in ones in the cycle.
+
 ## Tips
 
 - The number of captured lines is configurable via `@dispatch-scrollback-lines`. Increase it if you frequently need to search further back, or decrease it for faster startup on slower machines.
