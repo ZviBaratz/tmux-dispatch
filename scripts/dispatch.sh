@@ -393,13 +393,12 @@ HELP_FILES="$(printf '%b' '
   \033[1mMODE SWITCHING\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   >...      grep code
-  @...      switch sessions
-  !...      git status
-  #...      directories
-  $...      scrollback search
+  @...      sessions \033[38;5;244m(at)\033[0m
+  !...      git status \033[38;5;244m(alert)\033[0m
+  #...      directories \033[38;5;244m(jump)\033[0m
+  $...      scrollback \033[38;5;244m(shell)\033[0m
   &...      extract tokens
-  :...      custom commands
-  %...      pane picker
+  :...      commands \033[38;5;244m(vim)\033[0m
   ~...      files from home
   /...      browse by path
 ')"
@@ -778,8 +777,6 @@ elif [[ {q} == '&'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=scrollback --view=tokens --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == ':'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=commands --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
-elif [[ {q} == '%'* ]]; then
-  echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=panes --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '/'* ]]; then
   echo \"become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=pathfind --pane='$SQ_PANE_ID'$orig_cwd_arg --query={q})\"
 elif [[ {q} == '~'* ]]; then
