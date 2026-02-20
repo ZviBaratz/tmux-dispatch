@@ -1698,6 +1698,39 @@ line3"
     [ "$output" = "valid" ]
 }
 
+@test "resume: recovers stored mode from tmux server var" {
+    # Simulate the resume logic from dispatch.sh
+    local MODE="resume"
+    local QUERY=""
+    # Mock: tmux returns stored state
+    tmux() {
+        case "$*" in
+            "show -sv @_dispatch-last-mode") echo "grep" ;;
+            "show -sv @_dispatch-last-query") echo "searchterm" ;;
+        esac
+    }
+    if [[ "$MODE" == "resume" ]]; then
+        MODE=$(tmux show -sv @_dispatch-last-mode 2>/dev/null) || MODE=""
+        QUERY=$(tmux show -sv @_dispatch-last-query 2>/dev/null) || QUERY=""
+        [[ -z "$MODE" ]] && MODE="files"
+    fi
+    [ "$MODE" = "grep" ]
+    [ "$QUERY" = "searchterm" ]
+}
+
+@test "resume: empty stored mode falls back to files" {
+    local MODE="resume"
+    local QUERY=""
+    tmux() { return 1; }
+    if [[ "$MODE" == "resume" ]]; then
+        MODE=$(tmux show -sv @_dispatch-last-mode 2>/dev/null) || MODE=""
+        QUERY=$(tmux show -sv @_dispatch-last-query 2>/dev/null) || QUERY=""
+        [[ -z "$MODE" ]] && MODE="files"
+    fi
+    [ "$MODE" = "files" ]
+    [ "$QUERY" = "" ]
+}
+
 # ─── Marks mode ──────────────────────────────────────────────────────────
 
 @test "marks: dispatch.sh contains run_marks_mode function" {
