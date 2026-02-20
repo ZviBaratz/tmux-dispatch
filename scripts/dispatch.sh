@@ -923,7 +923,7 @@ run_grep_mode() {
         --bind "change:reload:$rg_reload" \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left:+{2}/2' \
-        --border-label ' grep > · ? help · enter open · ^o pane · ^y copy · ^f filter · ^r rename · ^x delete · ⌫ files ' \
+        --border-label ' grep > · ^f filter · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-f:transform:$grep_toggle" \
         --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename --pane='$SQ_PANE_ID' --file={1})" \
@@ -1043,7 +1043,7 @@ run_session_mode() {
             --accept-nth=1 \
             --ansi \
             --no-sort \
-            --border-label ' sessions @ · ? help · enter switch · ^k kill · ^r rename · ^n new · ^w win · ⌫ files ' \
+            --border-label ' sessions @ · ^n new · ^w win · ^k kill · ? help · ⌫ files ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' {1}" \
             --bind "ctrl-r:become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=rename-session --pane='$SQ_PANE_ID' --session={1})" \
@@ -1245,7 +1245,7 @@ run_session_new_mode() {
         --ansi \
         --delimiter=$'\t' \
         --with-nth=2.. \
-        --border-label=' new session · ? help · enter create · ⌫ sessions ' \
+        --border-label=' sessions @ > new · enter create · ? help · ⌫ sessions ' \
         --border-label-pos 'center:bottom' \
         --preview "'$SQ_SCRIPT_DIR/session-new-preview.sh' {1}" \
         --query "$QUERY" \
@@ -1416,7 +1416,7 @@ run_directory_mode() {
         --prompt 'dirs # ' \
         --header "${PWD/#"$HOME"/~}" \
         --preview "$dir_preview" \
-        --border-label ' dirs # · ? help · enter cd · ^y copy · ⌫ files ' \
+        --border-label ' dirs # · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "backward-eof:$become_files" \
         --bind "?:preview:printf '%b' '$SQ_HELP_DIRS'" \
@@ -1481,7 +1481,7 @@ run_windows_mode() {
             --no-cycle \
             --expect=ctrl-y \
             --prompt "$SESSION windows  " \
-            --border-label ' windows · ? help · ←→ move · ↑↓ skip · enter switch · ^y copy · ⌫ sessions ' \
+            --border-label ' sessions @ > windows · ←→ move · ↑↓ skip · ? help · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
@@ -1546,7 +1546,7 @@ run_panes_mode() {
             --expect=ctrl-y,ctrl-s,ctrl-w \
             --query "$QUERY" \
             --prompt 'panes % ' \
-            --border-label ' panes % · ? help · enter switch · ^s swap · ^j move · ^w break · ^k kill · ^y copy · ⌫ files ' \
+            --border-label ' panes % · ^s swap · ^j move · ? help · ⌫ files ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/pane-preview.sh' {1}" \
             --bind "ctrl-j:execute('$SQ_SCRIPT_DIR/actions.sh' join-pane '$SQ_PANE_ID' {1})+reload:$pane_list_cmd" \
@@ -1669,7 +1669,7 @@ _run_git_status_view() {
             "${BASE_FZF_OPTS[@]}" \
             --header "working tree clean — nothing to stage" \
             --prompt 'git ! ' \
-            --border-label ' git ! · ^l log · ^s branch · ⌫ files ' \
+            --border-label ' git ! · ^l log · ^s branch · ? help · ⌫ files ' \
             --border-label-pos 'center:bottom' \
             --bind "ctrl-l:$become_log" \
             --bind "ctrl-s:$become_branch" \
@@ -1691,7 +1691,7 @@ _run_git_status_view() {
         --tabstop=3 \
         --preview "'$SQ_SCRIPT_DIR/git-preview.sh' $fzf_git_file {1}" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' git ! · ? help · tab stage · ^l log · ^s branch · enter open · ⌫ files ' \
+        --border-label ' git ! · tab stage · ^l log · ^s branch · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "tab:execute-silent('$SQ_SCRIPT_DIR/actions.sh' git-toggle $fzf_git_file)+reload:$git_status_cmd" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '$SQ_PWD' '$SQ_HISTORY' $fzf_git_files)" \
@@ -1772,7 +1772,7 @@ else echo 'no commit hash on this line'; fi"
         --ansi --no-sort \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' log ! · ? help · enter hash · ^o pick · ^y copy · ^l status · ^s branch · ⌫ status ' \
+        --border-label ' git ! > log · ^o pick · ^l status · ^s branch · ? help · ⌫ status ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-l:$become_status" \
         --bind "ctrl-s:$become_branch" \
@@ -1853,7 +1853,7 @@ else echo 'no branch'; fi"
         --ansi --no-sort \
         --preview "$preview_cmd" \
         --preview-window 'right:60%:border-left' \
-        --border-label ' branch ! · ? help · enter switch · ^y copy · ^l log · ^s status · ⌫ status ' \
+        --border-label ' git ! > branch · ^l log · ^s status · ? help · ⌫ status ' \
         --border-label-pos 'center:bottom' \
         --bind "ctrl-l:$become_log" \
         --bind "ctrl-s:$become_status" \
@@ -2060,8 +2060,8 @@ fi"
     # of single quotes for variable embedding (e.g., 'text'$var'text') confuses
     # fzf's --bind parser, which interprets single quotes during transform: parsing.
     # Since the outer definition is double-quoted, variables are expanded inline.
-    local lines_label_inner=" scrollback \$ · ? help · ^t extract · enter copy · ^o paste · tab select · ⌫ files "
-    local tokens_label_inner=" extract \$ · ? help · ^t lines · ^/ filter · enter copy · ^o open · tab select · ⌫ files "
+    local lines_label_inner=" scrollback \$ · ^t extract · ? help · ⌫ files "
+    local tokens_label_inner=" extract \$ · ^t lines · ^/ filter · ? help · ⌫ files "
     local lines_label="'$lines_label_inner'"
     local tokens_label="'$tokens_label_inner'"
     local toggle_cmd="if [ -f '$sq_view_flag' ]; then \
@@ -2273,7 +2273,7 @@ run_commands_mode() {
         --query "$QUERY" \
         --prompt 'commands : ' \
         --no-sort \
-        --border-label ' commands : · ? help · enter run · ^e edit · ⌫ files ' \
+        --border-label ' commands : · ^e edit · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-e:execute('$SQ_POPUP_EDITOR' '$sq_conf')+abort" \
@@ -2334,7 +2334,7 @@ run_marks_mode() {
         --query "$QUERY" \
         --prompt 'marks ★ ' \
         --ansi \
-        --border-label ' marks · ? help · enter open · ^o pane · ^y copy · ^b unbookmark · ⌫ files ' \
+        --border-label ' marks ★ · ^b unbookmark · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-remove '{}')+reload:$reload_cmd" \
@@ -2460,7 +2460,7 @@ run_pathfind_mode() {
         --bind "change:reload:$path_reload" \
         --preview "$preview_cmd" \
         --preview-label=" preview " \
-        --border-label ' path · ? help · enter open · ^o pane · ^y copy · ⌫ files ' \
+        --border-label ' path / · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --bind "backward-eof:$become_files_empty" \
         --bind "enter:execute('$SQ_SCRIPT_DIR/actions.sh' edit-file '$SQ_POPUP_EDITOR' '' '$SQ_HISTORY' {})" \
