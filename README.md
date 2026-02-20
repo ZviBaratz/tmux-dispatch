@@ -124,6 +124,8 @@ curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh 
 | rg (project grep) | `>` grep mode |
 | **5 plugins, 5 keybindings** | **1 plugin, 1 keybinding** |
 
+> **Note:** tmux-dispatch focuses on file, code, and session workflows. It doesn't replace shell command history search (`Ctrl+R`) — keep your existing fzf shell integration for that.
+
 ## Documentation
 
 Full documentation at **[zvibaratz.github.io/tmux-dispatch](https://zvibaratz.github.io/tmux-dispatch/)**.
