@@ -69,6 +69,25 @@ See [Mode Switching](../features/mode-switching) for details on how prefix-based
 | `@dispatch-git-indicators` | `on` | Show git status icons next to files |
 | `@dispatch-file-types` | `""` | Restrict to file extensions (comma-separated, e.g. `"ts,tsx,js"`) |
 
+## Global Marks
+
+Press `Ctrl+G` in files mode to open the marks sub-view -- a cross-project view of all your bookmarked files, displayed as tilde-collapsed absolute paths (e.g., `~/Projects/api/routes.ts`).
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Open file in editor (cds to file's directory) |
+| `Ctrl+O` | Send file path to originating pane |
+| `Ctrl+Y` | Copy absolute path to clipboard |
+| `Ctrl+B` | Remove bookmark (unbookmark with list reload) |
+| `Ctrl+G` | Return to files mode (toggle) |
+| `Backspace` on empty | Return to files mode |
+| `?` | Show help cheat sheet in preview |
+
+- **Adding marks:** Bookmark any file with `Ctrl+B` in files mode. Bookmarked files appear both in the local list (with a star indicator) and in the global marks view.
+- **Removing marks:** Press `Ctrl+B` in marks view to unbookmark a file. The list reloads automatically.
+- **Directory-aware editing:** When you open a file from marks, the editor starts in that file's directory, so LSP and relative imports work correctly.
+- **File existence checking:** Bookmarks pointing to deleted files are automatically hidden.
+
 ## Tips
 
 - Use `@dispatch-file-types "ts,tsx,js"` to filter file types in large repos -- only matching files will appear.

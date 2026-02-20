@@ -771,6 +771,27 @@ BEGIN {
     [[ "$output" == "INVALID" ]]
 }
 
+@test "windows: ctrl-k binding present in windows mode" {
+    run bash -c '
+        grep -c "ctrl-k.*kill-window" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "windows: HELP_WINDOWS contains kill window" {
+    run bash -c '
+        grep -c "kill window" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "windows: border label contains ^k kill hint" {
+    run bash -c '
+        grep -c "\^k kill" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
 # ─── Security validation ────────────────────────────────────────────────────
 
 @test "pane ID: valid format %N passes validation" {
@@ -1757,6 +1778,34 @@ line3"
 @test "marks: dispatch case includes marks mode" {
     run bash -c '
         grep -c "marks).*run_marks_mode" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: border label shows files > marks breadcrumb" {
+    run bash -c '
+        grep -c "files > marks" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: ctrl-g toggle binding present in marks mode (back to files)" {
+    run bash -c '
+        grep -c "ctrl-g.*become_files_empty\|ctrl-g:\$become_files_empty" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: HELP_MARKS shows FILES > MARKS header" {
+    run bash -c '
+        grep -c "FILES > MARKS" "'"$SCRIPT_DIR"'/dispatch.sh"
+    '
+    [[ "${lines[0]}" -ge 1 ]]
+}
+
+@test "marks: files border label includes ^g marks hint" {
+    run bash -c '
+        grep -cF "^g marks" "'"$SCRIPT_DIR"'/dispatch.sh"
     '
     [[ "${lines[0]}" -ge 1 ]]
 }

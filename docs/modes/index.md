@@ -14,7 +14,7 @@ Modes are the core concept in tmux-dispatch. Each mode gives you a different way
 
 | Mode | Prefix | Description | When to use it |
 |------|--------|-------------|----------------|
-| [File Finder](files) | _(home)_ | Fuzzy file search with `bat` preview, bookmarks, frecency ranking, and git status indicators | You want to quickly open, preview, or manage any file in your project |
+| [File Finder](files) | _(home)_ | Fuzzy file search with `bat` preview, bookmarks, frecency ranking, git status indicators, and [global marks](files#global-marks) sub-view (`Ctrl+G`) | You want to quickly open, preview, or manage any file in your project |
 | [Live Grep](grep) | `>` | Ripgrep reloads on every keystroke with line-highlighted preview | You need to find where a function is defined or search for a specific string |
 | [Git Status](git) | `!` | Stage/unstage files with `Tab`, colored status icons, inline diff preview | You want to review changes, stage files, or check what you've modified |
 | [Directories](dirs) | `#` | Jump to directories via zoxide frecency or `fd`/`find` fallback | You need to `cd` into a project directory or recent folder |
@@ -23,7 +23,7 @@ Modes are the core concept in tmux-dispatch. Each mode gives you a different way
 | [Scrollback Search](scrollback) | `$` | Search and copy from terminal scrollback with context preview | You want to grab a command, path, or output from your terminal history |
 | [Token Extraction](scrollback#token-types) | `&` | Extract URLs, file paths, git hashes, IPs, UUIDs from terminal scrollback | You want to quickly grab and act on structured data from terminal output |
 | [Custom Commands](commands) | `:` | Run user-defined commands from a configurable palette | You have custom scripts, tmux commands, or workflows you run frequently |
-| [Marks](marks) | `Ctrl+G` | Global bookmarks -- all bookmarked files across all directories | You want to jump to a frequently-used file in a different project |
+| [Marks](files#global-marks) | `Ctrl+G` _(from files)_ | Global bookmarks -- sub-view of files showing all bookmarked files across all directories | You want to jump to a frequently-used file in a different project |
 | [Path](pathfind) | `/` | Browse files by absolute path from any directory | You know the full path to a file or want to browse outside your project |
 | [Panes](panes) | _(coming in v1.1)_ | Browse and manage panes across all tmux sessions | You need to switch to, swap, or kill a pane in another session |
 

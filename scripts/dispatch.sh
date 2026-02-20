@@ -385,6 +385,7 @@ HELP_FILES="$(printf '%b' '
   ^O        send to pane
   ^Y        copy path
   ^B        toggle bookmark
+  ^G        global marks (all dirs)
   ^H        toggle hidden files
   ^R        rename file
   ^X        delete file
@@ -490,6 +491,7 @@ HELP_WINDOWS="$(printf '%b' '
   ↑↓        skip two
   enter     switch window
   ^Y        copy window ref
+  ^K        kill window
   ⌫ empty   back to sessions
 
   ^D/^U     scroll preview
@@ -540,12 +542,13 @@ HELP_COMMANDS="$(printf '%b' '
 ')"
 
 HELP_MARKS="$(printf '%b' '
-  \033[1mMARKS\033[0m
+  \033[1mFILES > MARKS\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     open in editor
   ^O        send to pane
   ^Y        copy path
   ^B        unbookmark
+  ^G        back to files
   ⌫ empty   back to files
 
   ^D/^U     scroll preview
@@ -820,12 +823,12 @@ fi"
     [[ -n "$header" ]] && header_args=(--header "$header")
 
     local files_prompt='files '
-    local files_border_label=' files · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
+    local files_border_label=' files · ^b mark · ^g marks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     if [[ "$PWD" == "$HOME" ]]; then
         # shellcheck disable=SC2088  # Literal ~/ for display, not expansion
         files_prompt='~/ '
         # shellcheck disable=SC2088
-        files_border_label=' files ~/ · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
+        files_border_label=' files ~/ · ^b mark · ^g marks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     fi
 
     # backward-eof: return to original CWD when in home files context
@@ -1473,6 +1476,11 @@ run_windows_mode() {
 
     local become_sessions="become('$SQ_SCRIPT_DIR/dispatch.sh' --mode=sessions --pane='$SQ_PANE_ID')"
 
+    # Reload command for after kill-window
+    local sq_session
+    sq_session=$(_sq_escape "$SESSION")
+    local win_list_cmd="tmux list-windows -t '=$sq_session' -F '#{window_index}: #{window_name}  #{?window_active,*,}  (#{window_panes} panes)'"
+
     local result
     result=$(
         echo "$win_list" |
@@ -1481,13 +1489,14 @@ run_windows_mode() {
             --no-cycle \
             --expect=ctrl-y \
             --prompt "$SESSION windows  " \
-            --border-label ' sessions @ > windows · ←→ move · ↑↓ skip · ? help · ⌫ sessions ' \
+            --border-label ' sessions @ > windows · ←→ move · ↑↓ skip · ^k kill · ? help · ⌫ sessions ' \
             --border-label-pos 'center:bottom' \
             --preview "'$SQ_SCRIPT_DIR/session-preview.sh' $(printf '%q' "$SESSION") {1}" \
             --bind "right:down" \
             --bind "left:up" \
             --bind "down:down+down" \
             --bind "up:up+up" \
+            --bind "ctrl-k:execute('$SQ_SCRIPT_DIR/actions.sh' kill-window '$sq_session' {1})+reload:$win_list_cmd" \
             --bind "backward-eof:$become_sessions" \
             --bind "?:preview:printf '%b' '$SQ_HELP_WINDOWS'" \
     ) || exit 0
@@ -2311,7 +2320,7 @@ run_marks_mode() {
         _show_empty_state \
             "no bookmarks yet — press ^B in files mode to bookmark" \
             "marks ★ " \
-            " marks · ⌫ files "
+            " files > marks · ⌫ files "
     fi
 
     # Preview: expand tilde for bat/head, use absolute path
@@ -2334,10 +2343,11 @@ run_marks_mode() {
         --query "$QUERY" \
         --prompt 'marks ★ ' \
         --ansi \
-        --border-label ' marks ★ · ^b unbookmark · ? help · ⌫ files ' \
+        --border-label ' files > marks ★ · ^b unbookmark · ^g back · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-remove '{}')+reload:$reload_cmd" \
+        --bind "ctrl-g:$become_files_empty" \
         --bind "backward-eof:$become_files_empty" \
         --bind "?:preview:printf '%b' '$SQ_HELP_MARKS'" \
     ) || exit 0
