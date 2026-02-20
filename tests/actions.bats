@@ -793,6 +793,52 @@ MOCK
     [[ "$output" == *"dead"* ]]
 }
 
+@test "kill-window: refuses to kill last window" {
+    local log="$BATS_TEST_TMPDIR/tmux.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$*" >> "$log"
+case "\$1" in
+    list-windows) echo "0: bash  *  (1 panes)" ;;
+    display-message) echo "Cannot kill last window in session" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" kill-window "mysession" "0:"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Cannot kill last window in session"* ]]
+}
+
+@test "kill-window: empty args is no-op" {
+    run "$ACTIONS" kill-window "" ""
+    [ "$status" -eq 0 ]
+}
+
+@test "kill-window: strips trailing colon from window index" {
+    local log="$BATS_TEST_TMPDIR/tmux.log"
+    cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK
+#!/usr/bin/env bash
+echo "\$*" >> "$log"
+case "\$1" in
+    list-windows) printf '%s\n%s\n' "0: bash  *  (1 panes)" "1: vim     (1 panes)" ;;
+    has-session) exit 0 ;;
+    kill-window) echo "killed" ;;
+    display-message) echo "\$*" ;;
+    show-option) echo "" ;;
+    *) echo "" ;;
+esac
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/tmux"
+
+    run "$ACTIONS" kill-window "mysession" "1:"
+    [ "$status" -eq 0 ]
+    # Verify kill-window was called with the right target (no trailing colon)
+    grep -q "kill-window -t =mysession:1" "$log"
+}
+
 @test "kill-pane: refuses to kill current pane" {
     local log="$BATS_TEST_TMPDIR/tmux.log"
     cat > "$BATS_TEST_TMPDIR/tmux" <<MOCK

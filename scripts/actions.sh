@@ -191,6 +191,31 @@ action_kill_session() {
     fi
 }
 
+# ─── kill-window ─────────────────────────────────────────────────────────
+
+action_kill_window() {
+    local session="$1" win_idx="$2"
+    [[ -z "$session" || -z "$win_idx" ]] && return 0
+
+    # Strip trailing colon from fzf {1} field (format: "N:")
+    win_idx="${win_idx%%:*}"
+
+    # Refuse to kill the last window in a session
+    local win_count
+    win_count=$(tmux list-windows -t "=$session" 2>/dev/null | wc -l)
+    if [[ "$win_count" -le 1 ]]; then
+        tmux display-message "Cannot kill last window in session"
+        return 0
+    fi
+
+    if tmux has-session -t "=$session" 2>/dev/null; then
+        tmux kill-window -t "=$session:$win_idx"
+        tmux display-message "Killed window: $session:$win_idx"
+    else
+        tmux display-message "Session not found: $session"
+    fi
+}
+
 # ─── git-toggle ──────────────────────────────────────────────────────────────
 
 action_git_toggle() {
@@ -401,6 +426,7 @@ case "$action" in
     list-sessions)          action_list_sessions ;;
     git-toggle)             action_git_toggle "$@" ;;
     kill-session)           action_kill_session "$@" ;;
+    kill-window)            action_kill_window "$@" ;;
     open-url)               action_open_url "$@" ;;
     smart-open)             action_smart_open "$@" ;;
     bookmark-toggle)        action_bookmark_toggle "$@" ;;
