@@ -9,7 +9,7 @@
   <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-2.6+-1BB91F?logo=tmux" alt="tmux"></a>
 </p>
 
-<h3 align="center">One popup. Nine modes. Zero context switching.</h3>
+<h3 align="center">One popup. Ten modes. Zero context switching.</h3>
 
 <p align="center">
   <img src="assets/demo.gif" alt="tmux-dispatch demo" width="800">
@@ -45,6 +45,7 @@ Press `Alt+o` to open the file finder. From there, type a prefix character to sw
 | `&` | Tokens | Extract URLs, paths, hashes from scrollback |
 | `:` | Commands | Run your custom command palette |
 | `~` | Home files | File finder rooted at `$HOME` |
+| `/` | Path | Browse files by absolute path |
 
 Backspace on empty returns home to files — just like VSCode's command palette.
 
@@ -131,8 +132,9 @@ Full documentation at **[zvibaratz.github.io/tmux-dispatch](https://zvibaratz.gi
 |---|---|---|
 | [File Finder](https://zvibaratz.github.io/tmux-dispatch/modes/files) | [Live Grep](https://zvibaratz.github.io/tmux-dispatch/modes/grep) | [Git Status](https://zvibaratz.github.io/tmux-dispatch/modes/git) |
 | [Directories](https://zvibaratz.github.io/tmux-dispatch/modes/dirs) | [Sessions](https://zvibaratz.github.io/tmux-dispatch/modes/sessions) | [Windows](https://zvibaratz.github.io/tmux-dispatch/modes/windows) |
-| [Scrollback Search](https://zvibaratz.github.io/tmux-dispatch/modes/scrollback) | [Custom Commands](https://zvibaratz.github.io/tmux-dispatch/modes/commands) | [Mode Switching](https://zvibaratz.github.io/tmux-dispatch/features/mode-switching) |
-| [Configuration](https://zvibaratz.github.io/tmux-dispatch/reference/configuration) | [Keybindings](https://zvibaratz.github.io/tmux-dispatch/reference/keybindings) | [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) |
+| [Scrollback Search](https://zvibaratz.github.io/tmux-dispatch/modes/scrollback) | [Custom Commands](https://zvibaratz.github.io/tmux-dispatch/modes/commands) | [Path Mode](https://zvibaratz.github.io/tmux-dispatch/modes/pathfind) |
+| [Panes](https://zvibaratz.github.io/tmux-dispatch/modes/panes) | [Mode Switching](https://zvibaratz.github.io/tmux-dispatch/features/mode-switching) | [Configuration](https://zvibaratz.github.io/tmux-dispatch/reference/configuration) |
+| [Keybindings](https://zvibaratz.github.io/tmux-dispatch/reference/keybindings) | [Troubleshooting](https://zvibaratz.github.io/tmux-dispatch/reference/troubleshooting) | |
 
 ## Changelog
 

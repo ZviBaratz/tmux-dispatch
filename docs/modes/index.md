@@ -24,6 +24,8 @@ Modes are the core concept in tmux-dispatch. Each mode gives you a different way
 | [Token Extraction](scrollback#token-types) | `&` | Extract URLs, file paths, git hashes, IPs, UUIDs from terminal scrollback | You want to quickly grab and act on structured data from terminal output |
 | [Custom Commands](commands) | `:` | Run user-defined commands from a configurable palette | You have custom scripts, tmux commands, or workflows you run frequently |
 | [Marks](marks) | `Ctrl+G` | Global bookmarks -- all bookmarked files across all directories | You want to jump to a frequently-used file in a different project |
+| [Path](pathfind) | `/` | Browse files by absolute path from any directory | You know the full path to a file or want to browse outside your project |
+| [Panes](panes) | _(coming in v1.1)_ | Browse and manage panes across all tmux sessions | You need to switch to, swap, or kill a pane in another session |
 
 ## How Mode Switching Works
 
@@ -37,6 +39,7 @@ Mode switching uses prefix characters — special characters that, when typed as
 - Type `:` to switch to custom commands — run commands from your personal palette
 - Type `&` to switch to token extraction — extract and open URLs, file paths, hashes from terminal output
 - Type `~` to switch to files from home directory — browse all files under `$HOME`
+- Type `/` to switch to path mode — browse files by absolute path from any directory
 
 In any sub-mode, press **Backspace** on an empty query to return to the file finder. This works like VSCode's command palette — you never need to close and reopen the popup.
 
