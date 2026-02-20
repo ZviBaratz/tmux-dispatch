@@ -819,13 +819,13 @@ fi"
     local -a header_args=()
     [[ -n "$header" ]] && header_args=(--header "$header")
 
-    local files_prompt='  '
-    local files_border_label=' files · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^g marks · ^h hidden · ^r rename · ^x delete '
+    local files_prompt='files '
+    local files_border_label=' files · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · $ scroll · : cmds '
     if [[ "$PWD" == "$HOME" ]]; then
         # shellcheck disable=SC2088  # Literal ~/ for display, not expansion
         files_prompt='~/ '
         # shellcheck disable=SC2088
-        files_border_label=' files ~/ · ? help · enter open · tab select · ^o pane · ^y copy · ^b mark · ^g marks · ^h hidden · ^r rename · ^x delete '
+        files_border_label=' files ~/ · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · $ scroll · : cmds '
     fi
 
     # backward-eof: return to original CWD when in home files context
