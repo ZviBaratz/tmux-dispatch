@@ -820,12 +820,12 @@ fi"
     [[ -n "$header" ]] && header_args=(--header "$header")
 
     local files_prompt='files '
-    local files_border_label=' files · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · $ scroll · : cmds '
+    local files_border_label=' files · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     if [[ "$PWD" == "$HOME" ]]; then
         # shellcheck disable=SC2088  # Literal ~/ for display, not expansion
         files_prompt='~/ '
         # shellcheck disable=SC2088
-        files_border_label=' files ~/ · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · $ scroll · : cmds '
+        files_border_label=' files ~/ · ^b mark · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     fi
 
     # backward-eof: return to original CWD when in home files context
