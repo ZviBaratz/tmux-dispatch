@@ -3216,10 +3216,12 @@ more at https://new.com/page?q=1,"
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-@test "panes: files mode help mentions % pane picker" {
-    grep -q '%\.\.\.' "$SCRIPT_DIR/dispatch.sh"
+@test "panes: v1 removed % from files help (deferred to v1.1)" {
+    # % prefix entry was removed from HELP_FILES for v1 — panes mode code still exists
+    ! grep -q '%\.\.\..*pane picker' "$SCRIPT_DIR/dispatch.sh"
 }
 
-@test "panes: change transform detects % prefix" {
-    grep -q "== '%'" "$SCRIPT_DIR/dispatch.sh"
+@test "panes: v1 removed % prefix from change_transform (deferred to v1.1)" {
+    # % prefix detection was removed from change_transform for v1
+    ! grep -q "== '%'\*" "$SCRIPT_DIR/dispatch.sh"
 }
