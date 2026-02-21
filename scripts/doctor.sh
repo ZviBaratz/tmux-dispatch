@@ -90,14 +90,6 @@ else
     _count_fail "fzf not found — required for all modes"
 fi
 
-# ── perl ──────────────────────────────────────────────────────────────────
-if command -v perl &>/dev/null; then
-    perl_ver=$(perl -v 2>/dev/null | _extract_version)
-    _count_ok "perl ${perl_ver:-installed}"
-else
-    _count_fail "perl not found — required for session preview"
-fi
-
 # =============================================================================
 # Recommended tools
 # =============================================================================

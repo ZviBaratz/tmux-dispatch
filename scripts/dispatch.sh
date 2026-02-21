@@ -1373,7 +1373,7 @@ run_directory_mode() {
         if [[ -n "$ZOXIDE_CMD" ]]; then
             local dir
             while IFS= read -r dir; do
-                printf '%s\n' "${dir/#"$HOME"/~}"
+                printf '%s\n' "${dir/#"$HOME"/"~"}"
             done < <(zoxide query --list 2>/dev/null) || true
         elif [[ -n "$FD_CMD" ]]; then
             "$FD_CMD" --type d --hidden --follow --exclude .git
@@ -1417,7 +1417,7 @@ run_directory_mode() {
         --expect=ctrl-y \
         --query "$QUERY" \
         --prompt 'dirs # ' \
-        --header "${PWD/#"$HOME"/~}" \
+        --header "${PWD/#"$HOME"/"~"}" \
         --preview "$dir_preview" \
         --border-label ' dirs # · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
