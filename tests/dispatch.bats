@@ -1810,6 +1810,52 @@ line3"
     [[ "${lines[0]}" -ge 1 ]]
 }
 
+@test "marks: all_bookmarks tilde-collapses HOME paths" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        export XDG_DATA_HOME="'"$BATS_TEST_TMPDIR"'/xdg-marks-tilde"
+        export HOME="'"$BATS_TEST_TMPDIR"'/homedir"
+        testdir="'"$BATS_TEST_TMPDIR"'/homedir/myproject"
+        mkdir -p "$testdir"
+        touch "$testdir/notes.md"
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        toggle_bookmark "$testdir" "notes.md" >/dev/null
+        result=$(all_bookmarks)
+        [[ "$result" == "~/myproject/notes.md" ]] && echo "ok" || echo "got: $result"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "marks: all_bookmarks filters out non-existent paths" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        export XDG_DATA_HOME="'"$BATS_TEST_TMPDIR"'/xdg-marks-filter"
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        mkdir -p "'"$BATS_TEST_TMPDIR"'/filterproj"
+        touch "'"$BATS_TEST_TMPDIR"'/filterproj/exists.txt"
+        toggle_bookmark "'"$BATS_TEST_TMPDIR"'/filterproj" "exists.txt" >/dev/null
+        toggle_bookmark "'"$BATS_TEST_TMPDIR"'/filterproj" "gone.txt" >/dev/null
+        result=$(all_bookmarks)
+        count=$(echo "$result" | grep -c "." 2>/dev/null || echo 0)
+        [[ "$result" == *"exists.txt"* ]] && [[ "$result" != *"gone.txt"* ]] && echo "ok" || echo "got: $result"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "marks: all_bookmarks returns empty when bookmark file is missing" {
+    run bash -c '
+        tmux() { echo ""; }; export -f tmux
+        export XDG_DATA_HOME="'"$BATS_TEST_TMPDIR"'/xdg-marks-empty"
+        source "'"$SCRIPT_DIR"'/helpers.sh"
+        result=$(all_bookmarks)
+        [ -z "$result" ] && echo "ok" || echo "got: $result"
+    '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 # ─── Extract mode (tokens) ────────────────────────────────────────────────
 
 @test "extract: URL regex matches https URLs" {

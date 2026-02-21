@@ -200,6 +200,12 @@ action_kill_window() {
     # Strip trailing colon from fzf {1} field (format: "N:")
     win_idx="${win_idx%%:*}"
 
+    # Validate that win_idx is a non-negative integer
+    [[ "$win_idx" =~ ^[0-9]+$ ]] || {
+        tmux display-message "Invalid window index — cannot kill"
+        return 1
+    }
+
     # Refuse to kill the last window in a session
     local win_count
     win_count=$(tmux list-windows -t "=$session" 2>/dev/null | wc -l)
