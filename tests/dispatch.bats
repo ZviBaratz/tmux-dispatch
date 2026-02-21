@@ -1782,9 +1782,9 @@ line3"
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-@test "marks: border label shows files > marks breadcrumb" {
+@test "marks: border label shows files > bookmarks breadcrumb" {
     run bash -c '
-        grep -c "files > marks" "'"$SCRIPT_DIR"'/dispatch.sh"
+        grep -c "files > bookmarks" "'"$SCRIPT_DIR"'/dispatch.sh"
     '
     [[ "${lines[0]}" -ge 1 ]]
 }
@@ -1796,16 +1796,16 @@ line3"
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-@test "marks: HELP_MARKS shows FILES > MARKS header" {
+@test "marks: HELP_MARKS shows FILES > BOOKMARKS header" {
     run bash -c '
-        grep -c "FILES > MARKS" "'"$SCRIPT_DIR"'/dispatch.sh"
+        grep -c "FILES > BOOKMARKS" "'"$SCRIPT_DIR"'/dispatch.sh"
     '
     [[ "${lines[0]}" -ge 1 ]]
 }
 
-@test "marks: files border label includes ^g marks hint" {
+@test "marks: files border label includes ^g bookmarks hint" {
     run bash -c '
-        grep -cF "^g marks" "'"$SCRIPT_DIR"'/dispatch.sh"
+        grep -cF "^g bookmarks" "'"$SCRIPT_DIR"'/dispatch.sh"
     '
     [[ "${lines[0]}" -ge 1 ]]
 }

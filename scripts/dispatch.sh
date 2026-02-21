@@ -385,7 +385,7 @@ HELP_FILES="$(printf '%b' '
   ^O        send to pane
   ^Y        copy path
   ^B        toggle bookmark
-  ^G        global marks (all dirs)
+  ^G        all bookmarks
   ^H        toggle hidden files
   ^R        rename file
   ^X        delete file
@@ -542,7 +542,7 @@ HELP_COMMANDS="$(printf '%b' '
 ')"
 
 HELP_MARKS="$(printf '%b' '
-  \033[1mFILES > MARKS\033[0m
+  \033[1mFILES > BOOKMARKS\033[0m
   \033[38;5;244m─────────────────────────────\033[0m
   enter     open in editor
   ^O        send to pane
@@ -823,12 +823,12 @@ fi"
     [[ -n "$header" ]] && header_args=(--header "$header")
 
     local files_prompt='files '
-    local files_border_label=' files · ^b mark · ^g marks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
+    local files_border_label=' files · ^b mark · ^g bookmarks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     if [[ "$PWD" == "$HOME" ]]; then
         # shellcheck disable=SC2088  # Literal ~/ for display, not expansion
         files_prompt='~/ '
         # shellcheck disable=SC2088
-        files_border_label=' files ~/ · ^b mark · ^g marks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
+        files_border_label=' files ~/ · ^b mark · ^g bookmarks · ^h hidden · ? help · > grep · @ sessions · ! git · # dirs · & extract · : cmds '
     fi
 
     # backward-eof: return to original CWD when in home files context
@@ -2319,8 +2319,8 @@ run_marks_mode() {
     if [[ -z "$marks" ]]; then
         _show_empty_state \
             "no bookmarks yet — press ^B in files mode to bookmark" \
-            "marks ★ " \
-            " files > marks · ⌫ files "
+            "bookmarks ★ " \
+            " files > bookmarks · ⌫ files "
     fi
 
     # Preview: expand tilde for bat/head, use absolute path
@@ -2341,9 +2341,9 @@ run_marks_mode() {
         "${BASE_FZF_OPTS[@]}" \
         --expect=ctrl-o,ctrl-y \
         --query "$QUERY" \
-        --prompt 'marks ★ ' \
+        --prompt 'bookmarks ★ ' \
         --ansi \
-        --border-label ' files > marks ★ · ^b unbookmark · ^g back · ? help · ⌫ files ' \
+        --border-label ' files > bookmarks ★ · ^b unbookmark · ^g back · ? help · ⌫ files ' \
         --border-label-pos 'center:bottom' \
         --preview "$preview_cmd" \
         --bind "ctrl-b:execute-silent('$SQ_SCRIPT_DIR/actions.sh' bookmark-remove '{}')+reload:$reload_cmd" \
